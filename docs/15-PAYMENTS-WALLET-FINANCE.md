@@ -28,6 +28,10 @@
 
 **Payment-intent creation and unknown outcomes:** persist the payment as `creating` before calling the gateway. A duplicate request while the gateway call is in flight receives `409 PAYMENT_INTENT_IN_PROGRESS`; it never starts a second gateway request. If the call fails or its response is lost, persist `create_unknown` and require reconciliation; the same idempotency key must never reissue create. An abandoned `creating` lease is promoted to `create_unknown` after 120 seconds. An unmatched callback authority alone must not be attached to a payment or credit a wallet: it may belong to another customer's same-amount transaction and remains for reconciliation.
 
+
+
+**Future adapter contract:** automated recovery may be enabled only after an adapter explicitly provides provider-enforced idempotent creation and an authoritative lookup that binds the provider transaction to this Melorin payment ID. Until both guarantees exist, an unknown create outcome stays fail-closed and is never reissued automatically.
+
 **Consolidation:** source wallets are not deleted (status `consolidated` + `consolidated_into_id`); new requests go to the central wallet. Blockers: in-flight payment/order, reseller account, debt. Details in doc 08.
 
 **Card-to-card:** automatic receipt verification with OCR and bank SMS (admin settings; the API key is encrypted and write-only); the I40 currency/payment contract is in the merged material.
