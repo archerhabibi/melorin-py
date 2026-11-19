@@ -112,3 +112,9 @@ Test on `/opt/melorin-stage`, never on production first. Roll back by checking o
 ## منابع و ارجاع‌ها / References
 
 - کد و تست‌های مرتبط در `apps/` و `scripts/`؛ سند فهرست: [00](00-DOCUMENTATION-INDEX.md).
+
+## Audit notes (V-AUDIT / V01 closure)
+
+- **Silent Telegram web sign-in network heuristic (V-13).** "Same network" is IPv4 `/24` or IPv6 `/48`. A shared `/24` (VPS provider, campus, VPN) can make unrelated users "same network", and mobile NAT can move one user across `/24`s. This is acceptable because silent sign-in ALSO requires the browser-held device key and the same client label; the network is only a third factor. Shrink the exposure with `MELORIN_TELEGRAM_WEB_LOGIN_SILENT_DAYS`, or disable silent/auto sign-in with `MELORIN_TELEGRAM_WEB_LOGIN_TRUST_DAYS=0`.
+- **Idempotency-Key semantics (V-25).** Retrying `POST /stores/{id}/wallet/topups` with the same `Idempotency-Key` and same body returns the original payment, including a failed one. To start a new attempt after a failure, send a new key. The same key with a different amount/provider answers 409 `IDEMPOTENCY_KEY_REUSE`.
+- **`/metrics` response headers (V-38).** The API-wide CSP (`default-src 'none'`) also appears on `/metrics`; it is harmless for a text endpoint scraped by Prometheus and is kept for uniformity.
