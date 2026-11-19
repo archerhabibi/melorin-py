@@ -482,6 +482,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-18 15:20 UTC - Claude - other, admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(web): guard call() literal paths against the OpenAPI snapshot (M-06) - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_013tQ2nJt6bEWuwSwznpUrCb
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `TODO.md`, `apps/admin-web/tests/call-paths-contract.test.js`
+- **Ref:** `c2fc3fb`
+
+
 ### 2026-11-18 15:00 UTC - Claude - store-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
