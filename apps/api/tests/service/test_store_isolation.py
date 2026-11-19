@@ -148,7 +148,7 @@ async def test_payments_and_topups_are_store_scoped():
                 await pay_router.get_payment(pid, ctx, s)
             upload = types.SimpleNamespace(read=None, content_type="image/png")
             with pytest.raises(AppError, match="NOT_FOUND"):  # refused before the file is even read
-                await pay_router.upload_receipt(pid, ctx, s, upload)
+                await pay_router.upload_receipt(None, None, pid, ctx, s, upload)  # request/auth are only read after the store check
 
 
 async def test_notifications_are_store_scoped():
