@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Json, Toast } from '../../shared/types.ts';
+import { typedClient } from '../../api/api.ts';
 import { money, box, inp, ghost, useList, Table, Form } from '../../app/adminExtraKit.tsx';
 
 export default function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
@@ -9,20 +10,23 @@ export default function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
     if (storeId === null && stores.length) setStoreId((stores.find((s) => s.kind === 'main') || stores[0]).id);
   }, [stores, storeId]);
   // a discount code belongs to ONE store: the form below always creates for the store picked here
-  const { rows, call, reload } = useList(api, `/api/v1/admin/coupons${storeId ? `?store_id=${storeId}` : ''}`, toast);
+  const { rows, reload } = useList(api, `/api/v1/admin/coupons${storeId ? `?store_id=${storeId}` : ''}`, toast);
   const store = stores.find((s) => s.id === storeId);
   const create = async (v: Json, done: Json) => {
     if (!storeId) return toast('ابتدا یک فروشگاه مشخص را انتخاب کنید');
-    const r = await call('/api/v1/admin/coupons', {
-      method: 'POST',
-      body: JSON.stringify({
-        code: v.code,
+    const { response: r } = await typedClient(api?.base ?? '').post('/api/v1/admin/coupons', {
+      body: {
+        code: String(v.code ?? ''),
         percent_bp: Math.round((+v.pct || 0) * 100),
         fixed: +v.fixed || 0,
         max_redemptions: v.max ? +v.max : null,
         scope: 'store',
-        store_id: storeId,
-      }),
+        store_id: String(storeId),
+        funded_by: 'platform',
+        min_amount: 0,
+        per_customer_limit: 1,
+        status: 'active',
+      },
     });
     if (r.ok) {
       toast('کوپن ساخته شد');
@@ -31,9 +35,9 @@ export default function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
     } else toast('ساخت کوپن ناموفق بود');
   };
   const toggle = async (c: Json) => {
-    const r = await call(`/api/v1/admin/coupons/${c.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: c.status === 'active' ? 'disabled' : 'active' }),
+    const { response: r } = await typedClient(api?.base ?? '').patch('/api/v1/admin/coupons/{coupon_id}', {
+      params: { path: { coupon_id: String(c.id) } },
+      body: { status: c.status === 'active' ? 'disabled' : 'active' },
     });
     r.ok ? reload() : toast('تغییر ناموفق بود');
   };
