@@ -19,6 +19,7 @@ RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\n' > /etc/apt/ap
     && curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 15 --max-time 60 \
         -o /tmp/ACCC4CF8.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && test -s /tmp/ACCC4CF8.asc \
+    && gpg --show-keys --with-colons /tmp/ACCC4CF8.asc | grep -q '^fpr:::::::::B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8:' \
     && gpg --dearmor -o /out/apt.postgresql.org.gpg /tmp/ACCC4CF8.asc \
     && test -s /out/apt.postgresql.org.gpg \
     && chmod 0644 /out/apt.postgresql.org.gpg

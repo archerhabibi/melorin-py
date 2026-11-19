@@ -31,7 +31,7 @@ def _resolves_public(url: str) -> bool:
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
         return False
     try:
-        addresses = {item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
+        addresses = {str(item[4][0]) for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
     except socket.gaierror:
         return False
     return bool(addresses) and not any(netpolicy.is_forbidden_ip(address) for address in addresses)

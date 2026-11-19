@@ -40,6 +40,11 @@ if [ "${#need[@]}" -gt 0 ]; then
 fi
 
 if [ ! -d "$APP_DIR/.git" ]; then
+  if [ -e "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
+    echo "ERROR: $APP_DIR exists, is not empty and is not a Melorin git checkout (a previous install may have failed)." >&2
+    echo "       Remove it (after copying anything you need, e.g. .env and secrets/) or run: APP_DIR=/another/path bash get.sh" >&2
+    exit 1
+  fi
   say "Downloading Melorin into $APP_DIR"
   mkdir -p "$(dirname "$APP_DIR")"
   git clone --quiet "$REPO_URL" "$APP_DIR"

@@ -56,6 +56,8 @@ async def auth_session(session: Session, creds: HTTPAuthorizationCredentials | N
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
     if claims.is_admin and not user.is_super_admin:  # demoted since the token was issued
         raise AppError("UNAUTHORIZED", "نشست نامعتبر یا منقضی است.", 401)
+    if claims.is_admin and not user.totp_enabled:  # the second factor was reset/removed: force a fresh login (audit V-07)
+        raise AppError("UNAUTHORIZED", "نشست نامعتبر یا منقضی است.", 401)
     return AuthSession(user=user, claims=claims)
 
 

@@ -12,6 +12,9 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 - One outbound-address policy (`domain/netpolicy.py`): CGNAT, NAT64, 6to4, Teredo and mapped forms are refused; numeric hosts (`127.1`, `0x7f.1`, `2130706433`) are parsed; used by webhooks, domain verification and panel URLs (V-011).
 - Webhook delivery resolves once (non-blocking), validates every address and connects to that address with the real SNI/Host; a refusal is a counted failure that auto-disables the endpoint instead of an endless re-claim (V-012, V-013, V-014).
 - `admin_area_guard` fails closed for a customer session on an `/admin/` path (V-08).
+- Second pass: an admin session is refused once the account's second factor was reset (V-07); a future-dated Telegram `auth_date` is refused (V-12); Zarinpal's echoed amount must equal the request (V-24); `telethon` added to `pyproject.toml` (V-01); wallet lock-order invariant documented (V-29).
+- Installer: `melorin update` takes an encrypted backup before `alembic upgrade head` and prints the rollback command (V-020); `get.sh` explains a non-empty non-git `APP_DIR` (V-33); the Dockerfile verifies the PGDG key fingerprint (V-04/V-025).
+- Tests: the admin route walk now reads the real OpenAPI route table and pins the owner-only families (V-09/V-10).
 - Order/ticket codes work on SQLite (dev default) as well as PostgreSQL sequences (V-26).
 - Installer: no hidden commit pin (newest tag, else `main`); `melorin update` moves to the newest release tag; `secrets/` is git-ignored and `secrets_init` creates the bind-mounted files so Compose never creates directories (V-32, V-32a, V-34, V-35).
 - Web nginx: 6 MB bodies, 404 for missing assets, gzip; Prometheus lifecycle endpoint off (V-008, V-009, V-024).

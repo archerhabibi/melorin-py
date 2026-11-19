@@ -275,7 +275,12 @@ def verify_telegram_webapp(init_data: str, bot_token: str, max_age: int = 86400)
     calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
     if not received or not safe_equal(calc, received):
         raise AppError("TELEGRAM_INVALID", "داده Telegram نامعتبر است.", 401)
-    if int(pairs.get("auth_date", "0")) < int(utcnow().timestamp()) - max_age:
+    try:
+        age = int(utcnow().timestamp()) - int(pairs.get("auth_date", "0"))
+    except ValueError:
+        raise AppError("TELEGRAM_INVALID", "داده Telegram نامعتبر است.", 401) from None
+    # A future-dated auth_date (clock skew or a hostile client) is refused too, not accepted for an extra day (audit V-12); 60 s of skew is tolerated.
+    if age > max_age or age < -60:
         raise AppError("TELEGRAM_EXPIRED", "داده Telegram منقضی شده است.", 401)
     return json.loads(pairs.get("user", "{}"))
 

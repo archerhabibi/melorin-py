@@ -278,7 +278,14 @@ do_update() {
   # A manual update builds on this host: stop pointing the stack at registry images of an older commit (see scripts/deploy.sh).
   if [ -n "$(env_get MELORIN_IMAGE_TAG)" ]; then env_set MELORIN_IMAGE_TAG local; fi
   compose build                          || { err "Build failed."; return 1; }
-  compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted."; return 1; }
+  # Never migrate without a restore point (audit V-020): take an encrypted backup with the CURRENT stack first (--no-deps: the new
+  # migrate service must not run before it). Set MELORIN_SKIP_PRE_UPDATE_BACKUP=1 only if you have a fresh backup elsewhere.
+  if [ "${MELORIN_SKIP_PRE_UPDATE_BACKUP:-0}" != "1" ]; then
+    info "Taking a pre-update backup..."
+    compose run --rm --no-deps backup python -c "import asyncio; from melorin.worker import jobs; print(asyncio.run(jobs.backup_job()))" \
+      || { err "Pre-update backup failed - nothing was migrated. Fix the backup (menu: status) or set MELORIN_SKIP_PRE_UPDATE_BACKUP=1."; return 1; }
+  fi
+  compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted. Roll back the code with: git checkout --detach $before"; return 1; }
   compose up -d --remove-orphans         || { err "Could not start the services."; return 1; }
   ok "Updated to $after. Your .env was kept (copy: var/env.before-update)."
   [ "$before" != "$after" ] && info "If this menu changed, close it and run 'melorin' again."

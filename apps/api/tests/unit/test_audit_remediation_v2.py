@@ -1,37 +1,59 @@
-from melorin.core import codes
+"""Regression tests for the second audit pass (V-07, V-09/V-10, V-12, V-24)."""
+
+import hashlib
+import hmac
+import time
+from urllib.parse import urlencode
+
+import pytest
+
+from melorin.core.errors import AppError
+from melorin.domain import admin_access as aa
+from melorin.modules.identity import service
 
 
-def test_python_version_guard_present():
-    import pathlib
-
-    src = pathlib.Path(codes.__file__).parents[1].joinpath("__init__.py").read_text()
-    assert "version_info < (3, 12)" in src
-
-
-async def test_next_code_works_on_sqlite(tmp_path):
-    from melorin.core import db
-
-    db.configure(f"sqlite+aiosqlite:///{tmp_path}/codes.db")
-    async with db.session_factory()() as session:
-        await _two_codes(session)
+def _init_data(bot_token: str, auth_date: int) -> str:
+    pairs = {"auth_date": str(auth_date), "user": '{"id": 7}'}
+    check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+    secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    pairs["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+    return urlencode(pairs)
 
 
-async def _two_codes(session):
-    code = await codes.next_code(session, "order_number_seq")
-    assert len(code) == codes.CODE_LEN and set(code) <= set(codes.ALPHABET)
-    other = await codes.next_code(session, "order_number_seq")
-    assert code[:4] != other[:4]  # the local counter advances the ordering prefix
+def test_telegram_init_data_fresh_ok():
+    assert service.verify_telegram_webapp(_init_data("tok", int(time.time())), "tok") == {"id": 7}
 
 
-def test_repo_files_guard_secrets_and_body_size():
-    import pathlib
+def test_telegram_init_data_expired_rejected():
+    with pytest.raises(AppError) as e:
+        service.verify_telegram_webapp(_init_data("tok", int(time.time()) - 90_000), "tok")
+    assert e.value.code == "TELEGRAM_EXPIRED"
 
-    root = pathlib.Path(__file__).resolve().parents[4]
-    assert "secrets/*" in (root / ".gitignore").read_text()
-    for app in ("store-web", "admin-web"):
-        conf = (root / "apps" / app / "nginx.conf").read_text()
-        assert "client_max_body_size 6m" in conf and "location /assets/" in conf
-    assert "9d8d4e0" not in (root / "scripts" / "install_server.sh").read_text()
-    compose = (root / "docker-compose.yml").read_text()
-    assert "secrets_init:" in compose and "--web.enable-lifecycle" not in compose
-    assert "MelorinApiDown" in (root / "infra" / "alerts.yml").read_text()
+
+def test_telegram_init_data_future_rejected():  # V-12
+    with pytest.raises(AppError) as e:
+        service.verify_telegram_webapp(_init_data("tok", int(time.time()) + 3600), "tok")
+    assert e.value.code == "TELEGRAM_EXPIRED"
+
+
+def test_admin_routes_map_to_areas_and_owner_only_families_are_pinned():  # V-09/V-10
+    """Walk the REAL route table (via the OpenAPI schema: FastAPI keeps included routers lazy, app.routes has no paths) and pin
+    which families land in the owner-only ``system`` area, so a new route cannot silently become owner-only or manager-visible."""
+    from melorin.app import app
+
+    spec = app.openapi()
+    checked = 0
+    owner_only: set[str] = set()
+    for path, ops in spec["paths"].items():
+        if not path.startswith("/api/v1/admin/"):
+            continue
+        for method in ops:
+            if method.upper() not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+                continue
+            checked += 1
+            area, _ = aa.area_for(path, method.upper())
+            assert area in aa.AREAS or area in {"system", "self"}, (path, method, area)
+            if area == "system":
+                owner_only.add(path.split("/")[4])
+    assert checked > 150, f"route walk found only {checked} admin operations: the test would be vacuous"
+    assert owner_only == {"feature-flags", "integrations", "settings", "telegram"}

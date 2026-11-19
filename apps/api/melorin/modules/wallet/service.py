@@ -106,7 +106,9 @@ async def find_tx(session: AsyncSession, key: str) -> LedgerTransaction | None:
 
 
 async def lock_wallets(session: AsyncSession, wallets: list[Wallet]) -> None:
-    ids = sorted({w.id for w in wallets}, key=str)  # stable order => no deadlocks
+    # INVARIANT (audit V-29): this Python order (str of a canonical UUID) must equal the DB ``ORDER BY id`` used below, so every
+    # transaction takes row locks in the same order and cannot deadlock. Do not change one without the other.
+    ids = sorted({w.id for w in wallets}, key=str)
     if ids:
         await session.execute(
             select(Wallet).where(Wallet.id.in_(ids)).order_by(Wallet.id).with_for_update().execution_options(populate_existing=True)
