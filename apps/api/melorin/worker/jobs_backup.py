@@ -18,6 +18,15 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
 log = logging.getLogger("melorin.jobs")
 
 
+async def _artifact_size(location: str) -> int | None:
+    """Read backup artifact metadata off the event loop; a missing artifact has no size."""
+    try:
+        info = await asyncio.to_thread(Path(location).stat)
+    except FileNotFoundError:
+        return None
+    return info.st_size
+
+
 @tracked_job(lock_ttl=910)
 async def backup_job(ctx=None):
     """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
@@ -43,7 +52,7 @@ async def backup_job(ctx=None):
         lines = stdout.decode(errors="replace").strip().splitlines()
         if proc.returncode in (0, 3) and lines:
             location = lines[-1]
-            size = Path(location).stat().st_size if Path(location).exists() else None
+            size = await _artifact_size(location)
             if proc.returncode == 0:
                 status = "succeeded"
                 details = "encrypted artifact and checksum verification completed" + (
@@ -93,7 +102,7 @@ async def panel_backup_job(ctx=None):
         lines = stdout.decode(errors="replace").strip().splitlines()
         if proc.returncode in (0, 3) and lines:
             location = lines[-1]
-            size = Path(location).stat().st_size if Path(location).exists() else None
+            size = await _artifact_size(location)
             if proc.returncode == 0:
                 status = "succeeded"
                 details = "panel backup encrypted and verified" + (
