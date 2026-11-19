@@ -13,6 +13,7 @@ Standard Authorization Code flow with PKCE (S256), done entirely on the server:
 Admins never get a session here (same rule as the bot-approval flow and the storefront Google flow).
 """
 
+from melorin.core.security import safe_equal
 from typing import Any, cast
 import base64
 import hashlib
@@ -206,7 +207,7 @@ async def verify_id_token(id_token: str, client_id: str, nonce: str | None = Non
     except jwt.PyJWTError as exc:
         raise AppError("TELEGRAM_OIDC_INVALID", "توکن تلگرام نامعتبر است.", 401) from exc
     # PKCE + state already bind the code to this browser; when Telegram echoes the nonce it must be ours.
-    if "nonce" in claims and nonce is not None and not secrets.compare_digest(str(claims["nonce"]), nonce):
+    if "nonce" in claims and nonce is not None and not safe_equal(str(claims["nonce"]), nonce):
         raise AppError("TELEGRAM_OIDC_INVALID", "توکن تلگرام برای این درخواست صادر نشده است.", 401)
     return claims
 

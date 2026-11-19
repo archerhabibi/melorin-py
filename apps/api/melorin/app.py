@@ -1,4 +1,3 @@
-import hmac
 import logging
 import time
 import asyncio
@@ -8,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from melorin.core.config import get_settings
+from melorin.core.security import safe_equal
 from melorin.core.db import configure
 from melorin.core.errors import install
 from melorin.core.health import build_checks, probe_database, probe_worker, publish_signals
@@ -117,7 +117,7 @@ async def ready(request: Request):
     worker = await probe_worker()
     publish_signals(db, worker)
     ready_ok = db.ok and worker.redis_ok and worker.worker_ok
-    detailed = s.is_dev or hmac.compare_digest(request.headers.get("X-Melorin-Health-Token", ""), s.health_token)
+    detailed = s.is_dev or safe_equal(request.headers.get("X-Melorin-Health-Token", ""), s.health_token)
     payload = {"status": "ready" if ready_ok else "not_ready"}
     if detailed:
         payload.update(build_checks(db, worker))
@@ -136,7 +136,7 @@ async def openapi_version():
 
 @app.get("/metrics", include_in_schema=False, response_class=PlainTextResponse)
 async def metrics(request: Request):
-    if not s.is_dev and not hmac.compare_digest(request.headers.get("Authorization", ""), f"Bearer {s.metrics_token}"):
+    if not s.is_dev and not safe_equal(request.headers.get("Authorization", ""), f"Bearer {s.metrics_token}"):
         return PlainTextResponse("unauthorized\n", status_code=401)
     # Prometheus scrapes this endpoint directly, so refresh dependency and
     # worker freshness gauges here instead of waiting for a separate

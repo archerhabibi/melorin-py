@@ -3,7 +3,7 @@
 Split out of ``identity/service.py`` in Phase 3.11 (behaviour unchanged). Tests patch the names in *this* module.
 """
 
-import hmac
+from melorin.core.security import safe_equal
 import uuid
 import logging
 import re
@@ -108,7 +108,7 @@ async def google_claims(session: AsyncSession, id_token: str, nonce: str | None)
     if not integrations.google_ready(cfg):
         raise AppError("GOOGLE_DISABLED", "ورود با Google فعال نیست.", 400)
     g = await verify_google_token(id_token, cfg["client_id"])
-    if not nonce or not hmac.compare_digest(str(g.get("nonce") or ""), nonce):
+    if not nonce or not safe_equal(str(g.get("nonce") or ""), nonce):
         raise AppError("GOOGLE_NONCE_INVALID", "نشست ورود با Google منقضی شده است؛ دوباره تلاش کنید.", 401)
     return g
 

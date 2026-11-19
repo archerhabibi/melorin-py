@@ -1,7 +1,5 @@
 """/auth: sign-in by e-mail code, password, Google, Telegram and web hand-off, plus refresh and logout."""
 
-import re
-
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from melorin.core import audit, channel, flags, integrations
@@ -9,8 +7,8 @@ from melorin.core.crypto import decrypt
 from melorin.core.config import get_settings
 from melorin.core.deps import BotAuth, Session, main_store
 from melorin.core.errors import AppError
-from melorin.core.ratelimit import RateLimit, hit
-from melorin.core.security import new_opaque_token, totp_counter, verify_password
+from melorin.core.ratelimit import RateLimit, client_ip, hit
+from melorin.core.security import hash_password, needs_rehash, new_opaque_token, normalize_digits, totp_counter, verify_password
 from melorin.modules.identity import google as google_signin, service
 from melorin.kernel.models.identity import User
 from melorin.modules.identity.schemas import (
@@ -51,7 +49,7 @@ async def _require_valid_totp(session, user: User, code: str | None, *, via: str
     * ``TOTP_REPLAYED``  - a correct code whose 30 s step was already used: wait for the next one.
     """
     extra = {"via": via} if via else None
-    code = re.sub(r"[\s-]+", "", code or "")  # "452 648" / "452-648" pasted from an authenticator app
+    code = normalize_digits(code)  # "452 648" / "452-648" / Persian "۴۵۲۶۴۸" typed on a Persian keyboard
     if not code:
         audit.security_event(session, "totp_failed", user.id, {**(extra or {}), "reason": "missing"})
         await session.commit()
@@ -92,13 +90,22 @@ async def email_verify_code(body: EmailCodeVerify, session: Session, request: Re
 @auth.post("/password/login", response_model=TokenPair)
 async def password_login(body: PasswordLogin, session: Session, request: Request, response: Response):
     email = body.email.strip().lower()
-    if not await hit(f"auth-account:{email}", 10, 900):
-        raise AppError("ACCOUNT_LOGIN_THROTTLED", "تلاش‌های ورود برای این حساب موقتاً محدود شده است.", 429)
-    user = await session.scalar(select(User).where(User.email == email).with_for_update())
-    if not user or not await verify_password(body.password, user.password_hash) or not user.is_active:
+    ip = client_ip(request)
+    # Throttle by (e-mail, IP) so a stranger cannot lock the real owner out (V-017); a much looser per-e-mail ceiling still
+    # stops a distributed guesser. Both are checked BEFORE any password work.
+    if not await hit(f"auth-account:{email}:{ip}", 10, 900) or not await hit(f"auth-account-all:{email}", 100, 900):
+        raise AppError("ACCOUNT_LOGIN_THROTTLED", "تلاش‌های ورود برای این حساب موقتاً محدود شده است.", 429, headers={"Retry-After": "60"})
+    # Read WITHOUT a row lock: the lock must not be held across the ~250 ms KDF (it would make a legitimate user queue behind an
+    # attacker). The row is locked below, after the password is proven, for the TOTP replay counter.
+    user = await session.scalar(select(User).where(User.email == email))
+    password_ok = await verify_password(body.password, user.password_hash if user else None)  # unknown e-mail => dummy hash, same cost
+    if not user or not password_ok or not user.is_active:
         audit.security_event(session, "login_failed", user.id if user else None, {"email": email})
         await session.commit()
         raise AppError("INVALID_CREDENTIALS", "ایمیل یا رمز عبور نادرست است.", 401)
+    await session.refresh(user, with_for_update=True)
+    if needs_rehash(user.password_hash):  # parameters are stored in the hash: upgrade it transparently on a successful login
+        user.password_hash = await hash_password(body.password)
     if user.is_super_admin and not user.totp_enabled:
         audit.security_event(session, "admin_2fa_required", user.id)
         await session.commit()

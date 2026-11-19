@@ -28,6 +28,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import bank_sms as dom
 from melorin.domain.order_state import PaymentStatus
+from melorin.kernel.models.identity import User
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import FileObject
@@ -38,13 +39,21 @@ from melorin.domain.timeutil import aware as _aware
 log = logging.getLogger(__name__)
 P = PaymentStatus
 KEY = "payments.grace.{}"
-DEFAULT: dict = {"enabled": False, "minutes": 5, "max_amount_rial": 5_000_000, "max_exposure_rial": 20_000_000, "max_open_per_user": 1}
+DEFAULT: dict = {
+    "enabled": False,
+    "minutes": 5,
+    "max_amount_rial": 5_000_000,
+    "max_exposure_rial": 20_000_000,
+    "max_open_per_user": 1,
+    "min_account_age_hours": 24,  # a brand-new account never gets a loan of trust (forged receipt + fresh account = free money)
+}
 _RULES: tuple[tuple[str, type, Any, Any], ...] = (
     ("enabled", bool, None, None),
     ("minutes", int, 1, 60),
     ("max_amount_rial", int, 1, 10**12),
     ("max_exposure_rial", int, 1, 10**13),
     ("max_open_per_user", int, 1, 10),
+    ("min_account_age_hours", int, 0, 24 * 90),
 )
 BLOCK_TEXT = {
     "amount_mismatch": "مبلغ خوانده‌شده از رسید با مبلغ درخواست یکی نیست",
@@ -55,6 +64,8 @@ BLOCK_TEXT = {
     "duplicate_image": "همین تصویر رسید قبلاً برای پرداخت دیگری ثبت شده",
     "duplicate_reference": "شماره مرجع این رسید قبلاً دیده شده",
     "currency": "ارز این پرداخت قابل بررسی نیست",
+    "no_proof": "هیچ نشانهٔ قابل‌تطبیقی (مبلغ یا شماره مرجع) از رسید خوانده نشد",
+    "new_account": "حساب مشتری هنوز به اندازهٔ کافی قدیمی نیست",
 }
 
 
@@ -163,6 +174,14 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
             .limit(1)
         ):
             return "duplicate_image"
+    if not isinstance(seen, int) and not claim.get("reference"):
+        return "no_proof"  # a photo of anything, with nothing read or typed, is not evidence: leave it to a human
+    min_age = int(cfg.get("min_account_age_hours", 0) or 0)
+    if min_age:
+        owner = await session.get(User, p.user_id)
+        created = getattr(owner, "created_at", None)
+        if created is None or _aware(created) > utcnow() - dt.timedelta(hours=min_age):
+            return "new_account"
     return None
 
 

@@ -1,6 +1,7 @@
 import datetime as dt
 import uuid
 
+from melorin.modules.payments.redaction import strip_secrets
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
@@ -45,7 +46,7 @@ def payment_out(p) -> PaymentOut:
         currency=p.currency,
         status=p.status,
         has_receipt=p.receipt_file_id is not None,
-        instructions=(p.meta or {}).get("instructions"),
+        instructions=strip_secrets((p.meta or {}).get("instructions")),  # also heals rows stored before the V-15 fix
         created_at=p.created_at,
         receipt_read=_receipt_read(p),
     )

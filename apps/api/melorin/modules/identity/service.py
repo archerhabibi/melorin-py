@@ -16,6 +16,7 @@ from melorin.core.db import utcnow
 from melorin.core.email import email_available, send_email
 from melorin.core.errors import AppError
 from melorin.core.security import (
+    safe_equal,
     create_access_token,
     new_numeric_code,
     new_opaque_token,
@@ -184,7 +185,7 @@ async def consume_code(session: AsyncSession, purpose: str, target: str, code: s
     )
     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow() or vc.attempts >= MAX_CODE_ATTEMPTS:
         raise AppError("CODE_INVALID", "کد نامعتبر یا منقضی است.", 400)
-    if not hmac.compare_digest(vc.code_hash, token_hash(target + code)):
+    if not safe_equal(vc.code_hash, token_hash(target + code)):
         vc.attempts += 1
         audit.security_event(session, "code_failed", None, {"purpose": purpose})
         await session.commit()
@@ -272,7 +273,7 @@ def verify_telegram_webapp(init_data: str, bot_token: str, max_age: int = 86400)
     check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
     secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
     calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
-    if not received or not hmac.compare_digest(calc, received):
+    if not received or not safe_equal(calc, received):
         raise AppError("TELEGRAM_INVALID", "داده Telegram نامعتبر است.", 401)
     if int(pairs.get("auth_date", "0")) < int(utcnow().timestamp()) - max_age:
         raise AppError("TELEGRAM_EXPIRED", "داده Telegram منقضی شده است.", 401)
