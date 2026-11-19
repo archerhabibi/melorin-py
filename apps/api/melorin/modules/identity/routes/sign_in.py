@@ -152,7 +152,17 @@ async def google_nonce(response: Response):
 @auth.post("/google", response_model=TokenPair)
 async def google_login(body: GoogleLogin, session: Session, request: Request, response: Response):
     cookies = getattr(request, "cookies", None) or {}
-    user, created = await google_signin.login_with_google(session, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
+    try:
+        user, created = await google_signin.login_with_google(session, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
+    except AppError as exc:
+        # Single use also on FAILURE (V-11): a wrong token must not leave a still-valid nonce for another try.
+        headers = dict(exc.headers or {})
+        cookie = f'{GOOGLE_NONCE_COOKIE}=""; Max-Age=0; Path={GOOGLE_NONCE_PATH}; HttpOnly; SameSite=lax' + (
+            "" if get_settings().is_dev else "; Secure"
+        )
+        headers["set-cookie"] = cookie
+        exc.headers = headers
+        raise
     cfg = await integrations.get_google(session)
     if user.is_super_admin and not cfg["admin_login"]:
         await session.rollback()

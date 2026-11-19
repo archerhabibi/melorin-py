@@ -10,7 +10,7 @@ from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
-from melorin.core.ratelimit import RateLimit
+from melorin.core.ratelimit import RateLimit, hit
 from melorin.modules.payments import bank_sms, queries, receipt_fingerprints, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
@@ -88,6 +88,10 @@ async def upload_receipt(
     matches = await receipt_fingerprints.find_matches(session, sha256=digest, file_unique_id=file_unique_id, exclude_payment_id=p.id)
     receipt_fingerprints.reject_if_blocked(await receipt_fingerprints.get_policy(session, p.store_id), matches)
     ocr_cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
+    if receipt_ocr.configured_engine(ocr_cfg) == "vision" and not await hit(
+        f"ocr-daily:{p.store_id}", get_settings().receipt_ocr_daily_cap, 86400
+    ):
+        ocr_cfg = receipt_ocr.resolve({"engine": "off"})  # budget spent: the receipt still goes to a human reviewer, no paid call (V-21)
     facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "", ocr_cfg)
     claim = bank_sms.build_claim(typed, facts, engine)
     key = await get_storage().put(data, file.content_type or "")

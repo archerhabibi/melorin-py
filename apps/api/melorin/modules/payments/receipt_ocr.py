@@ -20,6 +20,8 @@ import json
 import logging
 import re
 import shutil
+import socket
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -125,6 +127,25 @@ def _json_object(text: str) -> dict:
     return obj if isinstance(obj, dict) else {}
 
 
+class OcrEndpointForbidden(Exception):
+    """The OCR base URL resolves to an address the outbound policy refuses (V-021): receipts and the API key must not go there."""
+
+
+async def assert_public_endpoint(base_url: str) -> None:
+    """Resolve the OCR host without blocking the loop and refuse internal/CGNAT/metadata addresses (shared ``netpolicy``)."""
+    from melorin.domain import netpolicy, webhook
+
+    try:
+        webhook.check_url(base_url)  # https only, no credentials, no internal names, numeric forms, allowed ports
+    except webhook.WebhookUrlError as exc:
+        raise OcrEndpointForbidden(str(exc)) from exc
+    host = urlsplit(base_url).hostname or ""
+    loop = asyncio.get_running_loop()
+    infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    if not infos or any(netpolicy.is_forbidden_ip(str(i[4][0])) for i in infos):
+        raise OcrEndpointForbidden("resolves to a non-public address")
+
+
 async def post_vision(
     c: OcrConfig,
     data: bytes,
@@ -155,6 +176,7 @@ async def post_vision(
     if system:
         body["system"] = system
     headers = {"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    await assert_public_endpoint(c.base_url)  # never ship a receipt image + API key to an internal address
     async with outbound_client("receipt_ocr", timeout=c.timeout) as client:
         return await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
 

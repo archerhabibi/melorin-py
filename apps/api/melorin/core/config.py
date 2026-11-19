@@ -182,6 +182,7 @@ class Settings(BaseSettings):
     ]
     storage_dir: str = "./var/storage"
     max_upload_bytes: int = 5 * 1024 * 1024
+    receipt_ocr_daily_cap: int = 300  # paid vision-OCR calls per store per day; beyond it receipts go to a human unread (V-21)
     # Automatic reading of card-to-card receipts (docs/15-PAYMENTS-WALLET-FINANCE.md): auto | vision | tesseract | off
     receipt_ocr_engine: Literal["auto", "vision", "tesseract", "off"] = "auto"
     receipt_ocr_api_key: str = ""  # vision engine only; the receipt image is sent to receipt_ocr_base_url
