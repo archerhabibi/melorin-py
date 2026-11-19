@@ -264,3 +264,12 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - پس از آزمایش، containerها، network و volumeهای پروژهٔ آزمایشی حذف شدند؛ هیچ داده یا volume آزمایشی باقی نماند.
 
 این smoke test، اجرای providerهای واقعی (Telegram، Zarinpal، PasarGuard/Sanaei) یا off-site S3 backup/restore را تأیید نمی‌کند؛ این release gateها همچنان باز هستند.
+
+
+### تست‌های عملیاتی آفلاین
+
+دو تست عملیاتی مخزن نیز مستقیماً روی محیط MCP اجرا شدند:
+- `bash scripts/test_deploy.sh`: هر 10 سناریو موفق؛ شامل deploy موفق، rollback پس از health/migration failure، abort در backup failure، رد working tree دست‌کاری‌شده، اجرای streamed از طریق `bash -s`، registry pull/fallback و rollback تگ.
+- `bash scripts/test_restore_drill.sh`: هر 3 سناریو موفق؛ انتخاب جدیدترین backup، پذیرش مسیر checksum خارجی، رد archive دست‌کاری‌شده و تشخیص backup خارج از RPO.
+
+این‌ها تست‌های آفلاین/شبیه‌سازی‌شده‌اند و جایگزین restore واقعی از backup رمزنگاری‌شده در مقصد مستقل یا deploy روی host Production نیستند.
