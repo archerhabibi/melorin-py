@@ -251,3 +251,16 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - تست‌های جدید هم نبود Redis و هم خطای backend را بررسی می‌کنند و تضمین می‌کنند بدنهٔ job اجرا نمی‌شود.
 
 اعتبارسنجی محلی محدود به تست wrapper و worker backup بوده است؛ اجرای کامل suite در محیط MCP به‌دلیل خطای داخلی ابزار اجرا کامل نشد. CI کامل PR #134 مرجع نهایی اعتبارسنجی خواهد بود. هیچ تغییری در `main` اعمال نشده است.
+
+
+### شواهد smoke test محلی Docker Compose
+
+برای تکمیل AUD-006، با secretهای کاملاً موقت و فقط برای محیط آزمایش، تمام imageهای تعریف‌شده در Compose ساخته شدند. سپس یک پروژهٔ Compose ایزوله با PostgreSQL، Redis، migration، API، worker و دو وب‌اپ بالا آمد:
+- migration اولیه روی PostgreSQL 16 با موفقیت اجرا شد.
+- هر شش سرویس بلندمدت انتخاب‌شده به وضعیت healthy رسیدند.
+- `/health/live` و `/health/ready` هر دو HTTP 200 دادند؛ readiness اتصال PostgreSQL و Redis، rate-limit هماهنگ و heartbeat worker را تأیید کرد.
+- OpenAPI با 391 مسیر و 205 schema در دسترس بود.
+- heartbeat در Redis ثبت شده بود و هر دو وب‌اپ صفحهٔ اصلی را سرو کردند.
+- پس از آزمایش، containerها، network و volumeهای پروژهٔ آزمایشی حذف شدند؛ هیچ داده یا volume آزمایشی باقی نماند.
+
+این smoke test، اجرای providerهای واقعی (Telegram، Zarinpal، PasarGuard/Sanaei) یا off-site S3 backup/restore را تأیید نمی‌کند؛ این release gateها همچنان باز هستند.
