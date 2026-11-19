@@ -482,6 +482,159 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-19 13:03 UTC - Claude - admin-web, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(web): prettier-format ticket components (fixes CI format:check)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/admin-web/src/features/tickets/TicketBubble.tsx`, `apps/store-web/src/dashboard/DashboardTickets.tsx`
+- **Ref:** `82c5b97`
+
+### 2026-11-19 12:58 UTC - Claude - docs, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(e2e): smoke login-throttle probe follows the V-017 ceiling; live compose + Playwright evidence
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `docs/21-ROADMAP-TECHNICAL-DEBT.md`, `scripts/e2e_smoke.py`
+- **Ref:** `e4bad2e`
+
+### 2026-11-19 11:23 UTC - Claude - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs(audit): verification pass - clean-checkout test, lint and probe evidence; V-023/V-024 skipped on request
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `docs/21-ROADMAP-TECHNICAL-DEBT.md`
+- **Ref:** `e77912a`
+
+### 2026-11-19 11:13 UTC - Claude - config, ci-deploy, other  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): ninth pass - container capability hardening, configurable subnet, weekly image scan (V-023, V-024 partial) - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01TrraohxnzuGE6j9LamHRYJ
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `.env.example`, `.github/workflows/image-scan.yml`, `CHANGELOG.md`, `apps/api/tests/contracts/test_container_hardening_contract.py`, `docker-compose.yml`, `docs/21-ROADMAP-TECHNICAL-DEBT.md`, `scripts/install_server.sh`
+- **Ref:** `2cad4dd`
+
+### 2026-11-19 10:01 UTC - audit-remediation - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test: store-isolation test follows the new upload_receipt signature
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/service/test_store_isolation.py`
+- **Ref:** `253f6ca`
+
+### 2026-11-19 09:53 UTC - audit-remediation - other, admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(payments): per-network cap and revoked-network guard for grace credit (V-022); openapi + admin field + docs
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `CHANGELOG.md`, `apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx`, `apps/api/melorin/modules/payments/provisional.py`, `apps/api/melorin/modules/payments/router.py`, `apps/api/melorin/modules/payments/schemas.py`, `apps/api/melorin/modules/payments/service.py`, `apps/api/tests/http/test_receipt_grace.py`, `apps/api/tests/http/test_receipt_ocr.py` (+3 more)
+- **Ref:** `4fb9026`
+
+### 2026-11-19 09:45 UTC - audit-remediation - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): repair 6 grace-credit/OCR test regressions - known duplicate verdict wins over ocr_pending, tests hermetic w.r.t. tesseract (V01 V-21, V-22)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/melorin/modules/payments/provisional.py`, `apps/api/tests/conftest.py`, `apps/api/tests/http/test_receipt_ocr.py`
+- **Ref:** `67c3c8b`
+
+### 2026-11-19 09:20 UTC - Melorin Audit Remediation - other, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: changelog + closure table for worker-side receipt OCR (V01 V-21)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `CHANGELOG.md`, `docs/21-ROADMAP-TECHNICAL-DEBT.md`
+- **Ref:** `6c3aea1`
+
+### 2026-11-19 09:05 UTC - Melorin Audit Remediation - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(payments): receipt OCR moves from the upload request to a worker job; per-store budget spent in the worker; grace credit waits for a pending reading (V01 V-21)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/melorin/core/events.py`, `apps/api/melorin/modules/payments/ocr_job.py`, `apps/api/melorin/modules/payments/provisional.py`, `apps/api/melorin/modules/payments/router.py`, `apps/api/melorin/modules/payments/schemas.py`, `apps/api/melorin/modules/payments/service.py`, `apps/api/melorin/worker/runner.py`, `apps/api/tests/http/test_receipt_ocr.py` (+1 more)
+- **Ref:** `07f7508`
+
+### 2026-11-19 08:46 UTC - Melorin Audit Remediation - other, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs(audit): closure table, PostgreSQL-lane evidence, deferred/open items (V-031, V-029, V01 V-21/V-27)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `CHANGELOG.md`, `apps/api/tests/unit/test_host_watch.py`, `docs/21-ROADMAP-TECHNICAL-DEBT.md`
+- **Ref:** `233e288`
+
+### 2026-11-19 08:26 UTC - Melorin Audit Remediation - other, tests, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): seventh pass - out-of-stack host/service watchdog (disk, RAM, dead or unhealthy services incl. main bot, TLS expiry), loud no-receiver warning at install (V-006)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `CHANGELOG.md`, `apps/api/tests/unit/test_host_watch.py`, `scripts/host_watch.sh`, `scripts/install_ops_watch.sh`, `scripts/install_server.sh`
+- **Ref:** `dde1121`
+
+### 2026-11-19 08:08 UTC - Claude - other, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs(audit): sixth pass - document V-13 silent-login network heuristic, V-25 idempotency semantics, V-38 metrics CSP; changelog
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `CHANGELOG.md`, `docs/12-SECURITY-AUTHORIZATION.md`
+- **Ref:** `c0b32a3`
+
+### 2026-11-19 07:52 UTC - Audit Remediation - other, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): fifth pass - refresh token bound to client family, quiet poll_tick heartbeat, pyproject/requirements parity test, tighter CSP connect-src, narrower API image scripts, off-site backup warning, optional signed-tag update gate (V-06, V-026, V-01, V-032, V-025, V-027, V-020, V-036)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (12):** `CHANGELOG.md`, `apps/api/Dockerfile`, `apps/api/melorin/core/logging.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/melorin/worker/arq_app.py`, `apps/api/pyproject.toml`, `apps/api/tests/http/test_identity_sign_in_http.py`, `apps/api/tests/unit/test_dependency_sources.py` (+4 more)
+- **Ref:** `79a178b`
+
+### 2026-11-19 07:38 UTC - Claude - other, admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): fourth pass - admin e-mail validated at install, external-proxy post-install probe, restore-drill depth + portable checksums, explicit noopener, memory-budget note (V-004, V-010, V-027, V-030, V-05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `CHANGELOG.md`, `apps/admin-web/src/features/tickets/TicketBubble.tsx`, `apps/api/melorin/cli.py`, `apps/api/tests/service/test_cli_db.py`, `apps/store-web/src/Dashboard.tsx`, `apps/store-web/src/dashboard/DashboardLinking.tsx`, `apps/store-web/src/dashboard/DashboardTickets.tsx`, `docker-compose.yml` (+7 more)
+- **Ref:** `a70e158`
+
+### 2026-11-19 07:29 UTC - audit-remediation - config, ci-deploy, other  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** ops(audit): 2 uvicorn workers + concurrency limit, bounded KDF slots, SQLite CI lane, gitleaks allow-list, changelog (V-028, V-40, V-029)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `.env.example`, `.github/workflows/ci.yml`, `.gitleaks.toml`, `CHANGELOG.md`, `apps/api/melorin/core/security.py`, `docker-compose.yml`
+- **Ref:** `f8eceee`
+
+### 2026-11-19 07:27 UTC - audit-remediation - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): OCR endpoint under the shared outbound policy, per-store OCR budget, Google nonce dropped on failed sign-in (V-021, V-21, V-11)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/api/melorin/core/config.py`, `apps/api/melorin/modules/admin/integrations/receipt_ocr.py`, `apps/api/melorin/modules/identity/routes/sign_in.py`, `apps/api/melorin/modules/payments/receipt_ocr.py`, `apps/api/melorin/modules/payments/router.py`, `apps/api/tests/unit/test_audit_remediation_v3.py`
+- **Ref:** `847066c`
+
+### 2026-11-19 07:13 UTC - Claude - other, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): second pass - admin session vs TOTP reset, future auth_date, Zarinpal amount, pre-update backup, PGDG key pin, real route-walk test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `CHANGELOG.md`, `apps/api/Dockerfile`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/melorin/modules/panel_integrations/adapters/registry.py`, `apps/api/melorin/modules/payments/adapters/zarinpal.py`, `apps/api/melorin/modules/wallet/service.py`, `apps/api/pyproject.toml` (+3 more)
+- **Ref:** `04e5578`
+
+### 2026-11-19 06:59 UTC - Claude - other, admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(audit): shared SSRF policy, pinned webhook delivery, fail-closed admin guard, portable order codes, installer/compose/nginx/alert hardening
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (28):** `.gitignore`, `CHANGELOG.md`, `apps/admin-web/nginx.conf`, `apps/api/melorin/__init__.py`, `apps/api/melorin/core/codes.py`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/domain/netpolicy.py`, `apps/api/melorin/domain/webhook.py` (+20 more)
+- **Ref:** `68c38f3`
+
+### 2026-11-19 06:59 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix: audit remediation (apply melorin-audit-remediation.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (31):** `apps/api/melorin/app.py`, `apps/api/melorin/channels/telegram/oidc.py`, `apps/api/melorin/channels/telegram/oidc_router.py`, `apps/api/melorin/channels/telegram/web.py`, `apps/api/melorin/cli.py`, `apps/api/melorin/core/config.py`, `apps/api/melorin/core/crypto.py`, `apps/api/melorin/core/errors.py` (+23 more)
+- **Ref:** `6e9bde9`
+
+
 ### 2026-11-18 15:20 UTC - Claude - other, admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
