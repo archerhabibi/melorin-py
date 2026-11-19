@@ -290,7 +290,7 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - alert بحرانی `MelorinWorkerJobLockUnavailable` برای `outcome="lock_error"` و alertهای مجزا برای از دسترس خارج شدن endpointهای worker و backup اضافه شده‌اند.
 - تست‌ها احراز هویت، مسیر توسعه، نبود token در production، lifecycle و پیکربندی scrape/alert را می‌پوشانند.
 
-اعتبارسنجی محلی: 19 تست مرتبط worker/metrics/backup موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API نیز با Docker ساخته شد. CI کامل PR #135 هنوز باید بررسی شود.
+اعتبارسنجی محلی: 19 تست مرتبط worker/metrics/backup موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API با Docker ساخته شد. در Compose ایزوله نیز PostgreSQL، Redis، API، worker، backup، Alertmanager و Prometheus همگی healthy شدند؛ Prometheus هر دو target worker و backup را up دید، متریک `poll_tick` را دریافت کرد و alert مربوط به قفل را بارگذاری کرد؛ هر دو endpoint داخلی HTTP 200 دادند. پس از تست، containerها و volumeها حذف شدند. CI کامل PR #135 هنوز باید بررسی شود.
 
 
 وضعیت CI برای PR #135: run مربوط به head نهایی پس از آخرین تغییرات در صف اجراست؛ تست‌های محلی و promtool روی نسخهٔ نهایی مجدداً موفق شدند.
