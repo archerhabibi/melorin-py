@@ -18,4 +18,4 @@ scrape_configs:
     bearer_token_file: /etc/prometheus/metrics-token
     honor_labels: true # preserve each worker function's `job` label instead of overwriting it with the scrape job
     static_configs:
-      - targets: ["worker:8001"]
+      - targets: ["worker:8001", "backup:8001"]

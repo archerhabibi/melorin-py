@@ -1,4 +1,4 @@
-"""Small authenticated Prometheus endpoint for metrics held in the worker process.
+"""Small authenticated Prometheus endpoint for metrics held in a background process.
 
 The API and ARQ worker are separate processes/containers; scraping the API's
 in-process registry cannot observe worker job counters or item failures.
@@ -14,7 +14,7 @@ from typing import Any
 from melorin.core.config import get_settings
 from melorin.core.metrics import render
 
-log = logging.getLogger("melorin.worker.metrics")
+log = logging.getLogger("melorin.process.metrics")
 
 HOST = "0.0.0.0"
 PORT = 8001
@@ -90,7 +90,7 @@ async def start_metrics_server(ctx: dict[str, Any], *, host: str = HOST, port: i
     server = await asyncio.start_server(_handle, host, port, limit=64 * 1024)
     ctx["metrics_server"] = server
     bound = server.sockets[0].getsockname() if server.sockets else (host, port)
-    log.info("worker metrics endpoint listening on %s:%s", bound[0], bound[1])
+    log.info("process metrics endpoint listening on %s:%s", bound[0], bound[1])
     return server
 
 

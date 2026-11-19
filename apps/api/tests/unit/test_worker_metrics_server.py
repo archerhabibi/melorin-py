@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from melorin.worker import arq_app, metrics_server
+from melorin.worker import arq_app, backup_main, metrics_server
 
 
 async def _request(port: int, *, path: str = "/metrics", authorization: str | None = None) -> str:
@@ -78,7 +78,7 @@ def test_prometheus_scrapes_worker_and_alerts_on_lock_failures():
     root = Path(__file__).resolve().parents[4]
     config = yaml.safe_load((root / "infra/prometheus.yml").read_text())
     worker = next(job for job in config["scrape_configs"] if job["job_name"] == "melorin-worker")
-    assert worker["static_configs"][0]["targets"] == ["worker:8001"]
+    assert worker["static_configs"][0]["targets"] == ["worker:8001", "backup:8001"]
     assert worker["bearer_token_file"] == "/etc/prometheus/metrics-token"
     assert worker["honor_labels"] is True
 
@@ -107,3 +107,29 @@ async def test_arq_lifecycle_starts_and_stops_worker_metrics_server(monkeypatch)
     assert server is not None and server.is_serving()
     await arq_app.shutdown(ctx)
     assert "metrics_server" not in ctx
+
+
+@pytest.mark.asyncio
+async def test_backup_scheduler_starts_and_stops_its_metrics_server(monkeypatch):
+    started = stopped = False
+
+    async def start(ctx):
+        nonlocal started
+        started = True
+        ctx["metrics_server"] = object()
+
+    async def stop(ctx):
+        nonlocal stopped
+        assert "metrics_server" in ctx
+        stopped = True
+        ctx.pop("metrics_server")
+
+    async def run(stop_event, clock=None):
+        assert started
+        stop_event.set()
+
+    monkeypatch.setattr(metrics_server, "start_metrics_server", start)
+    monkeypatch.setattr(metrics_server, "stop_metrics_server", stop)
+    monkeypatch.setattr(backup_main, "run_forever", run)
+    await backup_main.run_with_metrics(asyncio.Event())
+    assert started and stopped
