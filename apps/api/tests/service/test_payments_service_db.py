@@ -178,9 +178,18 @@ async def test_abandoned_create_lease_is_promoted_to_unknown_without_reissuing(g
     async with open_session() as s:
         store, user = await _setup(s)
         payment = Payment(
-            user_id=user.id, store_id=store.id, purpose="wallet_topup", provider="fake_gw", amount=5_000,
-            currency=store.currency, status="pending", idempotency_key="idem-stale",
-            meta={"external_operation": "creating", "create_started_at": (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=3)).isoformat()},
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="idem-stale",
+            meta={
+                "external_operation": "creating",
+                "create_started_at": (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=3)).isoformat(),
+            },
         )
         s.add(payment)
         await s.commit()
@@ -200,12 +209,21 @@ async def test_unmatched_callback_cannot_resolve_an_unknown_create_or_credit_wal
     async with open_session() as s:
         store, user = await _setup(s)
         payment = Payment(
-            user_id=user.id, store_id=store.id, purpose="wallet_topup", provider="fake_gw", amount=5_000,
-            currency=store.currency, status="pending", idempotency_key="idem-unknown", meta={"external_operation": "create_unknown", "reconciliation_required": True},
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="idem-unknown",
+            meta={"external_operation": "create_unknown", "reconciliation_required": True},
         )
         s.add(payment)
         await s.commit()
-        result = await payments.handle_callback(s, "fake_gw", {"pid": str(payment.id), "Status": "OK", "Authority": "AUTH-FROM-ANOTHER-PAYMENT"})
+        result = await payments.handle_callback(
+            s, "fake_gw", {"pid": str(payment.id), "Status": "OK", "Authority": "AUTH-FROM-ANOTHER-PAYMENT"}
+        )
         assert result.status == "pending"
         assert await _balance(s, user, store) == 0
         attempt = await s.scalar(select(PaymentAttempt).where(PaymentAttempt.payment_id == payment.id, PaymentAttempt.action == "callback"))
@@ -217,8 +235,15 @@ async def test_same_key_while_provider_call_is_in_flight_is_not_reported_as_a_re
     async with open_session() as s:
         store, user = await _setup(s)
         payment = Payment(
-            user_id=user.id, store_id=store.id, purpose="wallet_topup", provider="fake_gw", amount=5_000,
-            currency=store.currency, status="pending", idempotency_key="idem-1", meta={"external_operation": "creating", "create_started_at": dt.datetime.now(dt.timezone.utc).isoformat()},
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="idem-1",
+            meta={"external_operation": "creating", "create_started_at": dt.datetime.now(dt.timezone.utc).isoformat()},
         )
         s.add(payment)
         await s.commit()

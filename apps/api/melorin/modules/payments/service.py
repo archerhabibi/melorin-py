@@ -105,13 +105,23 @@ async def create_intent(
             if stale:
                 existing.meta = {**(existing.meta or {}), "external_operation": "create_unknown", "reconciliation_required": True}
                 await session.commit()
-                raise AppError("PAYMENT_INTENT_OUTCOME_UNKNOWN", "درخواست ایجاد پرداخت بیش از زمان مجاز باز مانده است؛ برای جلوگیری از پرداخت تکراری، دوباره ارسال نمی‌شود.", 409)
-            raise AppError("PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید هنوز در حال پردازش است؛ کمی بعد وضعیت آن را بررسی کنید.", 409)
+                raise AppError(
+                    "PAYMENT_INTENT_OUTCOME_UNKNOWN",
+                    "درخواست ایجاد پرداخت بیش از زمان مجاز باز مانده است؛ برای جلوگیری از پرداخت تکراری، دوباره ارسال نمی‌شود.",
+                    409,
+                )
+            raise AppError(
+                "PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید هنوز در حال پردازش است؛ کمی بعد وضعیت آن را بررسی کنید.", 409
+            )
         if operation in ("create_unknown", "unknown", None):
             if operation is None:
                 existing.meta = {**(existing.meta or {}), "external_operation": "create_unknown", "reconciliation_required": True}
                 await session.commit()
-            raise AppError("PAYMENT_INTENT_OUTCOME_UNKNOWN", "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست دوباره ارسال نمی‌شود.", 409)
+            raise AppError(
+                "PAYMENT_INTENT_OUTCOME_UNKNOWN",
+                "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست دوباره ارسال نمی‌شود.",
+                409,
+            )
         raise AppError("PAYMENT_INTENT_UNAVAILABLE", "وضعیت درخواست پرداخت قابل استفاده نیست؛ با پشتیبانی تماس بگیرید.", 409)
     if purpose != "wallet_topup":
         raise AppError("WALLET_ONLY", "پرداخت فقط برای شارژ کیف پول است؛ خرید از کیف پول انجام می‌شود.", 400)
@@ -150,8 +160,12 @@ async def create_intent(
             if operation == "created":
                 return existing, (existing.meta or {}).get("instructions", {})
             if operation in ("create_unknown", "unknown", None):
-                raise AppError("PAYMENT_INTENT_OUTCOME_UNKNOWN", "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ درخواست دوباره ارسال نمی‌شود.", 409) from exc
-            raise AppError("PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید در حال پردازش است؛ وضعیت آن را دوباره بررسی کنید.", 409) from exc
+                raise AppError(
+                    "PAYMENT_INTENT_OUTCOME_UNKNOWN", "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ درخواست دوباره ارسال نمی‌شود.", 409
+                ) from exc
+            raise AppError(
+                "PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید در حال پردازش است؛ وضعیت آن را دوباره بررسی کنید.", 409
+            ) from exc
         raise
     try:
         res = await adapter.create_payment_intent(
