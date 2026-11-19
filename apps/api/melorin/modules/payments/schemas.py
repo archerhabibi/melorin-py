@@ -1,6 +1,7 @@
 import datetime as dt
 import uuid
 
+from melorin.modules.payments.redaction import strip_secrets
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
@@ -26,11 +27,13 @@ class PaymentOut(BaseModel):
 
 
 def _receipt_read(p) -> dict | None:
-    claim = (p.meta or {}).get("receipt_claim")
-    if not claim:
+    meta = p.meta or {}
+    claim = meta.get("receipt_claim")
+    ocr_state = (meta.get("receipt_ocr") or {}).get("state")  # "pending" while the worker has not read the picture yet
+    if not claim and not ocr_state:
         return None
     keys = ("paid_at", "amount_rial", "source_card_last4", "reference", "source", "ocr_engine")
-    return {k: claim.get(k) for k in keys}
+    return {**{k: (claim or {}).get(k) for k in keys}, "ocr_state": ocr_state}
 
 
 def payment_out(p) -> PaymentOut:
@@ -45,7 +48,7 @@ def payment_out(p) -> PaymentOut:
         currency=p.currency,
         status=p.status,
         has_receipt=p.receipt_file_id is not None,
-        instructions=(p.meta or {}).get("instructions"),
+        instructions=strip_secrets((p.meta or {}).get("instructions")),  # also heals rows stored before the V-15 fix
         created_at=p.created_at,
         receipt_read=_receipt_read(p),
     )
@@ -79,6 +82,8 @@ class GraceSettingsIn(BaseModel):
     max_amount_rial: StrictInt | None = None
     max_exposure_rial: StrictInt | None = None
     max_open_per_user: StrictInt | None = None
+    max_open_per_origin: StrictInt | None = None
+    min_account_age_hours: StrictInt | None = None
 
 
 class GraceResolveIn(BaseModel):

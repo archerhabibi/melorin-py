@@ -3,7 +3,7 @@
 import datetime as dt
 import logging
 
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.context import correlation_id
@@ -30,6 +30,7 @@ EVENT_CENTER_DELIVER = "eventcenter.deliver"
 VPN_REVOKE = "vpn.revoke"
 VPN_RENEWAL_ROLLBACK = "vpn.renewal_rollback"
 TICKET_UPDATED = "ticket.updated"
+RECEIPT_OCR = "payments.receipt_ocr"  # V01 V-21: the receipt is read by the worker, never inside the upload request
 
 log = logging.getLogger("melorin.events")
 
@@ -56,6 +57,7 @@ PAYLOAD_SCHEMA: dict[str, tuple[frozenset[str], frozenset[str] | None]] = {
     VPN_REVOKE: (frozenset({"vpn_account_id"}), frozenset()),
     VPN_RENEWAL_ROLLBACK: (frozenset({"before", "mode", "vpn_account_id"}), frozenset()),
     TICKET_UPDATED: (frozenset({"store_id", "ticket_id"}), frozenset({"message_id"})),
+    RECEIPT_OCR: (frozenset({"file_id", "payment_id", "store_id"}), frozenset({"typed"})),
 }
 
 
@@ -83,19 +85,24 @@ async def emit(
     for problem in validate_payload(topic, payload):
         log.warning("outbox payload for %s: %s", topic, problem)
         inc("melorin_outbox_payload_invalid_total", topic=topic, problem=problem.split(":")[0])
-    if dedup_key:
-        exists = await session.scalar(select(OutboxEvent.id).where(OutboxEvent.dedup_key == dedup_key))
-        if exists:
-            return
-    session.add(
-        OutboxEvent(
-            topic=topic,
-            payload=_jsonable(payload),
-            dedup_key=dedup_key,
-            available_at=utcnow() + dt.timedelta(seconds=delay_seconds),
-            correlation_id=correlation_id.get(),
-        )
+    row = OutboxEvent(
+        topic=topic,
+        payload=_jsonable(payload),
+        dedup_key=dedup_key,
+        available_at=utcnow() + dt.timedelta(seconds=delay_seconds),
+        correlation_id=correlation_id.get(),
     )
+    if not dedup_key:
+        session.add(row)
+        return
+    # The UNIQUE constraint on dedup_key is the real guard; a racing emitter must not abort the caller's transaction (it is
+    # usually the same one that moved money). Insert inside a SAVEPOINT and treat a duplicate as "already emitted".
+    try:
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
+    except IntegrityError:
+        log.debug("outbox dedup hit for %s", dedup_key)
 
 
 def _jsonable(v):

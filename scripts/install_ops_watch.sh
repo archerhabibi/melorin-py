@@ -6,7 +6,11 @@ APP="$(cd "${1:-$(dirname "$0")/..}" && pwd)"
 OWNER="$(stat -c %U "$APP")"
 command -v cron >/dev/null 2>&1 || command -v crond >/dev/null 2>&1 || { apt-get update -y && apt-get install -y cron; }
 systemctl enable --now cron >/dev/null 2>&1 || true
-printf '*/5 * * * * %s cd %s && scripts/ops_watch.sh >/dev/null 2>&1\n' "$OWNER" "$APP" > /etc/cron.d/melorin-ops-watch
+# ops_watch.sh records changes; host_watch.sh is the out-of-stack watchdog (disk, RAM, dead/unhealthy services, TLS expiry -> Telegram, audit V-006).
+{
+  printf '*/5 * * * * %s cd %s && scripts/ops_watch.sh >/dev/null 2>&1\n' "$OWNER" "$APP"
+  printf '*/5 * * * * %s cd %s && scripts/host_watch.sh >/dev/null 2>&1\n' "$OWNER" "$APP"
+} > /etc/cron.d/melorin-ops-watch
 chmod 644 /etc/cron.d/melorin-ops-watch
 # capture the baseline now (as the project owner, so file ownership stays consistent)
 if [ "$(id -un)" = "$OWNER" ]; then

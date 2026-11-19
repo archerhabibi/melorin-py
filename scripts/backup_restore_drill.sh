@@ -20,7 +20,9 @@ raw="$RESTORE_DRILL_DIR/restore-$stamp.dump"
 db_name="melorin_restore_drill_${stamp//[^0-9A-Za-z]/}"
 trap 'rm -f "$raw"; dropdb --if-exists "$db_name" >/dev/null 2>&1 || true' EXIT
 
-sha256sum --check "${BACKUP_CHECKSUM_FILE:-$BACKUP_ARCHIVE.sha256}"
+# V-027: checksum files carry the archive BASENAME, so verify from the archive's own directory (works off the original host).
+_ck="${BACKUP_CHECKSUM_FILE:-$BACKUP_ARCHIVE.sha256}"
+( cd "$(dirname "$BACKUP_ARCHIVE")" && sha256sum --check "$(realpath --relative-to="$(dirname "$BACKUP_ARCHIVE")" "$_ck" 2>/dev/null || echo "$_ck")" )
 age --decrypt --identity "$BACKUP_IDENTITY_FILE" --output "$raw" "$BACKUP_ARCHIVE"
 
 mapfile -t DB_PARTS < <(python - "$MELORIN_DATABASE_URL" <<'PY'
@@ -37,4 +39,20 @@ createdb "$db_name"
 PGDATABASE="$db_name" pg_restore --no-owner --exit-on-error --dbname="$db_name" "$raw"
 tables="$(psql --dbname="$db_name" -Atc "select count(*) from pg_catalog.pg_tables where schemaname='public'")"
 [[ "$tables" -gt 0 ]] || { echo "restore drill produced no public tables" >&2; exit 1; }
-echo "I41 restore drill passed: database=$db_name tables=$tables rpo_hours=$MELORIN_RPO_HOURS rto_hours=$MELORIN_RTO_HOURS"
+# V-027: "tables > 0" proves little. The restored copy must carry an alembic revision, hold at least one user, and its revision
+# must match the live database when that one is reachable (a backup from a different schema is useless for a restore).
+rev="$(psql --dbname="$db_name" -Atc "select version_num from alembic_version limit 1" 2>/dev/null || true)"
+[[ -n "$rev" ]] || { echo "restore drill: alembic_version is empty or missing" >&2; exit 1; }
+users="$(psql --dbname="$db_name" -Atc "select count(*) from users" 2>/dev/null || echo 0)"
+[[ "$users" -gt 0 ]] || { echo "restore drill: restored users table is empty" >&2; exit 1; }
+live_db="$(python - "$MELORIN_DATABASE_URL" <<'PY2'
+import sys
+from urllib.parse import urlparse
+print(urlparse(sys.argv[1]).path.lstrip("/"))
+PY2
+)"
+live_rev="$(PGDATABASE="$live_db" psql -Atc "select version_num from alembic_version limit 1" 2>/dev/null || true)"
+if [[ -n "$live_rev" && "$live_rev" != "$rev" ]]; then
+  echo "restore drill: backup schema revision $rev differs from live $live_rev" >&2; exit 1
+fi
+echo "I41 restore drill passed: database=$db_name tables=$tables users=$users alembic=$rev rpo_hours=$MELORIN_RPO_HOURS rto_hours=$MELORIN_RTO_HOURS"

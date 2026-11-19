@@ -38,7 +38,13 @@ export function TicketImage({ call, path }: { call: CallFn; path: string }) {
   if (failed) return <span className="text-xs text-[var(--mu)]">تصویر بارگذاری نشد</span>;
   if (!src) return <div className="skel h-32 w-48 rounded-xl" aria-hidden="true" />;
   return (
-    <a href={src} target="_blank" rel="noreferrer" aria-label="مشاهدهٔ تصویر در اندازهٔ کامل" className="block">
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="مشاهدهٔ تصویر در اندازهٔ کامل"
+      className="block"
+    >
       <img
         src={src}
         alt="تصویر پیوست"

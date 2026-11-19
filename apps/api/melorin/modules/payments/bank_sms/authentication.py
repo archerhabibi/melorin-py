@@ -1,7 +1,7 @@
 """Bank SMS auto-verification: authentication (see ``bank_sms/__init__.py`` for the overall flow)."""
 
+from melorin.core.security import safe_equal
 import hashlib
-import hmac
 import secrets
 import uuid
 
@@ -100,7 +100,7 @@ async def authenticate(session: AsyncSession, store_id: uuid.UUID, token: str | 
     src = await get_source(session, store_id)
     given = hash_token(token or "")
     stored = (src.token_hash if src else None) or "0" * 64
-    ok = hmac.compare_digest(given, stored)
+    ok = safe_equal(given, stored)
     if not (src and src.is_enabled and src.token_hash and ok):
         raise AppError("BANK_SMS_UNAUTHORIZED", "دسترسی نامعتبر است.", 401)
     return src

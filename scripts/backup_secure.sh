@@ -39,8 +39,9 @@ PG_DUMP=pg_dump
 if [[ "$server_num" =~ ^[0-9]{6}$ && -x "/usr/lib/postgresql/${server_num:0:2}/bin/pg_dump" ]]; then PG_DUMP="/usr/lib/postgresql/${server_num:0:2}/bin/pg_dump"; fi
 "$PG_DUMP" --format=custom --no-owner --file="$raw"
 age --encrypt --recipients-file "$MELORIN_BACKUP_RECIPIENT_FILE" --output "$out" "$raw"
-sha256sum "$out" > "$out.sha256"
-sha256sum --check "$out.sha256"
+# V-027: record the BASENAME so the checksum verifies wherever the archive is copied (a relative ./var/backups/... path only
+# verified from /app). Verify from inside the directory for the same reason.
+( cd "$(dirname "$out")" && sha256sum "$(basename "$out")" > "$(basename "$out").sha256" && sha256sum --check "$(basename "$out").sha256" )
 find "$MELORIN_BACKUP_DIR" -type f -mtime +"$MELORIN_BACKUP_RETENTION_DAYS" -delete
 # Off-site copy is optional (S3 etc.). A failure here must not hide the local artifact: print its path and exit 3.
 offsite_rc=0

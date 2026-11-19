@@ -19,8 +19,8 @@ def test_production_source_keeps_the_hardened_scrypt_cost():
     tree = ast.parse(SECURITY.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_SCRYPT" for t in node.targets):
-            kwargs = {k.arg: _const(k.value) for k in node.value.keywords}
-            assert kwargs["n"] >= 2**14 and kwargs["r"] >= 8 and kwargs["dklen"] >= 32
+            kwargs = {k.arg: _const(k.value) for k in node.value.keywords}  # dict(log2n=..., r=..., p=..., dklen=...)
+            assert kwargs["log2n"] >= 16 and kwargs["r"] >= 8 and kwargs["dklen"] >= 32
             return
     raise AssertionError("_SCRYPT definition not found in melorin/core/security.py")
 

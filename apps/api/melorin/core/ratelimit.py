@@ -5,7 +5,7 @@ Redis is the coordination store for the counters. What happens while it is unrea
 
 * development/test: a process-local, bounded counter is used (logged once), so a laptop without Redis still works.
 * staging/production (``require_redis_rate_limit=true``, the default): FAIL CLOSED. Every rate-limited endpoint
-  answers 429 RATE_LIMITED, and that includes every login/code/refresh endpoint, so NOBODY CAN SIGN IN until Redis is
+  answers 503 DEPENDENCY_UNAVAILABLE (with Retry-After; NOT 429, the client did nothing wrong), and that includes every login/code/refresh endpoint, so NOBODY CAN SIGN IN until Redis is
   back. This is deliberate: a per-process fallback would multiply every limit by the number of API workers and let a
   brute-force attacker through exactly when the platform is degraded. Already-issued sessions keep working.
 
@@ -13,11 +13,12 @@ Plan Redis restarts like a short login outage (alert ``MelorinRedisUnavailable``
 this outside development: Settings refuses ``require_redis_rate_limit=false`` in staging/production (see core/config.py).
 """
 
+import ipaddress
 import logging
 import time
 
 from fastapi import Request
-from melorin.core.errors import AppError
+from melorin.core.errors import AppError, DependencyUnavailable
 from melorin.core.redis import get_redis
 from melorin.core.config import get_settings
 from melorin.core.proxy import resolve_client_ip
@@ -61,13 +62,17 @@ async def hit(key: str, limit: int, window: int) -> bool:
     r = get_redis()
     if r is not None:
         try:
-            k = f"rl:{key}:{int(time.time()) // window}"
-            # Redis-py pipelines execute INCR and EXPIRE as one Redis
-            # transaction, so a crash cannot leave an immortal rate-limit key.
+            now = time.time()
+            bucket = int(now // window)
+            k, prev_k = f"rl:{key}:{bucket}", f"rl:{key}:{bucket - 1}"
+            # Sliding window (weighted two-bucket): no 2x burst at the window boundary. INCR+EXPIRE are one transaction,
+            # so a crash cannot leave an immortal key; the previous bucket is read in the same round trip.
             async with r.pipeline(transaction=True) as pipe:
-                n, _ = await pipe.incr(k).expire(k, window).execute()
+                n, _, prev = await pipe.incr(k).expire(k, window * 2).get(prev_k).execute()
+            weight = 1.0 - (now % window) / window
+            est = int(n) + int(int(prev or 0) * weight)
             _redis_degraded = False
-            return n <= limit
+            return est <= limit
         except Exception as exc:
             # Redis unavailable: fall back below (process-local counter, or fail closed in staging/production).
             if not _redis_degraded:  # log the transition once, not on every request
@@ -77,13 +82,26 @@ async def hit(key: str, limit: int, window: int) -> bool:
     if settings.env in {"staging", "production"} and settings.require_redis_rate_limit:
         # Authentication limits must remain globally enforceable. A local
         # fallback would multiply the limit across API workers.
-        return False
+        raise DependencyUnavailable("redis")
     return await _local_hit(key, limit, window)
+
+
+def _collapse_ipv6(ip: str) -> str:
+    """An IPv6 subscriber owns a whole /64: key limits by it, or one host rotates through 2^64 addresses."""
+    if ":" not in ip:
+        return ip
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if addr.version == 6 and not addr.ipv4_mapped:
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False).network_address) + "/64"
+    return str(addr.ipv4_mapped) if addr.version == 6 else ip
 
 
 def client_ip(request: Request) -> str:
     direct = request.client.host if request.client else "?"
-    return resolve_client_ip(direct, request.headers.get("x-forwarded-for", ""), get_settings().trusted_proxy_ips)
+    return _collapse_ipv6(resolve_client_ip(direct, request.headers.get("x-forwarded-for", ""), get_settings().trusted_proxy_ips))
 
 
 def RateLimit(name: str, limit: int, window: int = 60):  # noqa: N802

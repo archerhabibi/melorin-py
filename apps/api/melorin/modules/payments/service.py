@@ -49,7 +49,9 @@ def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) ->
     return {
         "card.info": public,
         f"gateway.{provider}": {**public, **secret},
-        f"destination.{provider}": {**public, **secret},
+        # NEVER merge ``secret`` here: this dict is echoed to the customer as payment instructions (V-15). Gateways that need
+        # credentials (zarinpal) read ``gateway.{provider}`` server-side and never put it in ``instructions``.
+        f"destination.{provider}": dict(public),
         "limits": public,
     }
 
@@ -139,12 +141,22 @@ async def create_intent(
 
 
 async def attach_receipt(
-    session: AsyncSession, payment: Payment, file_id: uuid.UUID, claim: dict | None = None, duplicate: dict | None = None
+    session: AsyncSession,
+    payment: Payment,
+    file_id: uuid.UUID,
+    claim: dict | None = None,
+    duplicate: dict | None = None,
+    *,
+    read_later: bool = False,
+    origin: str | None = None,
 ) -> None:
     """``claim`` = what the customer read off the receipt (time, reference, source card tail); used by bank-SMS matching.
 
     ``duplicate`` = summary of earlier payments that used the same picture (see ``receipt_fingerprints.summarize``); it is
     kept on the payment and added to the reviewers' notice. The upload itself was already accepted by the store's policy.
+
+    ``read_later`` queues the automatic reading of the picture (OCR/vision) for the worker; ``claim`` then holds only what the
+    customer typed and is completed by ``ocr_job.run`` (V01 V-21). A replaced receipt discards the older reading.
     """
     if payment.provider != "manual_card" or payment.status not in (P.PENDING, P.AWAITING_REVIEW):
         raise AppError("INVALID_PAYMENT_STATE", "برای این پرداخت امکان ارسال رسید نیست.", 409)
@@ -152,8 +164,24 @@ async def attach_receipt(
     payment.meta = {**(payment.meta or {}), "receipt_attached_at": utcnow().isoformat()}  # start of the grace clock
     if claim:
         payment.meta = {**payment.meta, "receipt_claim": claim}
-    meta = {k: v for k, v in payment.meta.items() if k != "receipt_duplicate"}  # a replaced receipt starts clean
-    payment.meta = {**meta, "receipt_duplicate": duplicate} if duplicate else meta
+    meta = {
+        k: v for k, v in payment.meta.items() if k not in ("receipt_duplicate", "receipt_ocr", "receipt_origin")
+    }  # a replaced receipt starts clean
+    if origin:
+        meta["receipt_origin"] = origin  # keyed tag of the uploader's network (provisional.origin_tag), never the raw address
+    meta = {**meta, "receipt_duplicate": duplicate} if duplicate else meta
+    if read_later:
+        from melorin.modules.payments import ocr_job  # deferred: ocr_job imports the bank-SMS package, which imports this module
+
+        typed = {k: v for k, v in (claim or {}).items() if k in ("paid_at", "reference", "source_card_last4")}
+        meta["receipt_ocr"] = ocr_job.pending_state(file_id)
+        await events.emit(
+            session,
+            events.RECEIPT_OCR,
+            {"payment_id": payment.id, "store_id": payment.store_id, "file_id": file_id, "typed": typed},
+            dedup_key=f"receipt-ocr:{payment.id}:{file_id}",
+        )
+    payment.meta = meta
     payment.status = P.AWAITING_REVIEW
     note = receipt_fingerprints.warning_text(duplicate)
     await events.emit(
@@ -175,6 +203,8 @@ async def mark_succeeded(session: AsyncSession, payment_id: uuid.UUID, *, actor_
         raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
     if p.status == P.SUCCEEDED:
         return p
+    if p.status == P.REFUNDED:  # an admin override must not resurrect a refunded payment (ledger shows a reversal)
+        raise AppError("INVALID_PAYMENT_STATE", "این پرداخت استرداد شده و قابل تأیید مجدد نیست.", 409)
     if p.status in (P.FAILED, P.CANCELLED) and actor_type != "admin":
         raise AppError("INVALID_PAYMENT_STATE", "وضعیت پرداخت نامعتبر است.", 409)
     p.status = P.SUCCEEDED
@@ -214,6 +244,9 @@ async def mark_failed(session: AsyncSession, payment_id: uuid.UUID, *, actor_id=
     if p is None:
         raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
     if p.status in (P.SUCCEEDED, P.FAILED):
+        if (p.meta or {}).get("provisional", {}).get("state") == "open":
+            # The wallet still holds the provisional credit: rejecting must go through provisional.resolve (it reverses the ledger).
+            raise AppError("PROVISIONAL_CREDIT_OPEN", "برای این پرداخت اعتبار موقت باز است؛ از مسیر لغو تأیید موقت استفاده کنید.", 409)
         return p
     p.status = P.FAILED
     p.reviewed_by, p.reviewed_at = actor_id, utcnow()
@@ -356,15 +389,33 @@ async def finalize_refund(
         raise AppError("REFUND_NOT_CONFIRMED", "نتیجهٔ درگاه برای این استرداد ثبت نشده است.", 409)
     if p.status != P.REFUNDED:
         tx = await wallet.find_tx(session, f"payment:{p.id}")
-        if tx:
-            await wallet.reverse(
+        if p.status != P.SUCCEEDED or tx is None:
+            # The gateway already refunded the money, but our books disagree (payment no longer SUCCEEDED, or no ledger credit to
+            # reverse). Never mark it REFUNDED on guesswork: park the operation for a human and keep the evidence.
+            op.status, op.finished_at = "manual_review", None
+            op.last_error = f"cannot finalize: payment status={p.status}, ledger credit={'present' if tx else 'missing'}"
+            op.lease_owner = op.lease_expires_at = None
+            _set_refund_meta(p, "manual_review")
+            audit.record(
                 session,
-                tx,
-                key=_refund_key(p.id),
-                kind="topup_refund",
+                "payment.refund_needs_review",
                 actor_id=actor_id or op.requested_by,
-                memo=reason or op.reason or "استرداد شارژ",
+                actor_type="admin",
+                entity_type="payment",
+                entity_id=p.id,
+                store_id=p.store_id,
+                data={"detail": op.last_error},
             )
+            await session.commit()
+            return p
+        await wallet.reverse(
+            session,
+            tx,
+            key=_refund_key(p.id),
+            kind="topup_refund",
+            actor_id=actor_id or op.requested_by,
+            memo=reason or op.reason or "استرداد شارژ",
+        )
         p.status = P.REFUNDED
         session.add(PaymentAttempt(payment_id=p.id, action="refund", result="ok", data=raw or {"external_ref": op.external_ref}))
         audit.record(
@@ -456,21 +507,29 @@ async def handle_callback(session: AsyncSession, provider: str, params: dict) ->
         payment_id = uuid.UUID(pid) if pid else None
     except (ValueError, AttributeError) as exc:
         raise AppError("PAYMENT_NOT_FOUND", "شناسه پرداخت نامعتبر است.", 404) from exc
-    p = await session.get(Payment, payment_id, with_for_update=True) if payment_id else None
+    # NO row lock and NO open transaction across the gateway call (it can take up to 15 s and would pin a pooled connection):
+    # read what is needed, release the connection, verify, then let ``mark_succeeded``/``mark_failed`` lock briefly. Both are
+    # idempotent (status + ledger key), so a duplicate or racing callback is safe.
+    p = await session.get(Payment, payment_id) if payment_id else None
     if not p or p.provider != provider:
         raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
-    if p.status == P.SUCCEEDED:
-        session.add(PaymentAttempt(payment_id=p.id, action="callback", result="duplicate", data=params))
+    pid_, status = p.id, p.status
+    if status == P.SUCCEEDED:
+        session.add(PaymentAttempt(payment_id=pid_, action="callback", result="duplicate", data=params))
         await session.commit()
         return p
     store = await session.get(Store, p.store_id)
     if store is None:
         raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
     cfg = await store_payment_settings(session, store, provider)
+    session.expunge(p)  # keep a detached, fully-loaded copy for the adapter
+    await (
+        session.commit()
+    )  # read-only: releases the pooled connection before the outbound HTTP call (expire_on_commit=False keeps objects usable)
     res = await adapter.verify_callback(params, p, settings=cfg)
-    session.add(PaymentAttempt(payment_id=p.id, action="callback", result="ok" if res.succeeded else "failed", data=res.raw))
+    session.add(PaymentAttempt(payment_id=pid_, action="callback", result="ok" if res.succeeded else "failed", data=res.raw))
     await session.commit()
-    return await (mark_succeeded(session, p.id) if res.succeeded else mark_failed(session, p.id, reason="پرداخت ناموفق بود."))
+    return await (mark_succeeded(session, pid_) if res.succeeded else mark_failed(session, pid_, reason="پرداخت ناموفق بود."))
 
 
 async def can_review(session: AsyncSession, user: User, payment: Payment) -> bool:

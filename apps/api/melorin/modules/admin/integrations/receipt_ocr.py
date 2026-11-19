@@ -10,6 +10,7 @@ from fastapi import APIRouter
 from melorin.core import integrations
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError
+from melorin.domain import webhook
 from melorin.modules.admin.integrations._audit import record_integration
 from melorin.modules.admin.integrations.schemas import ReceiptOcrIn
 from melorin.modules.payments import receipt_ocr
@@ -38,6 +39,10 @@ async def update_receipt_ocr(body: ReceiptOcrIn, admin: AdminUser, session: Sess
     base = body.base_url.strip().rstrip("/")
     if urlparse(base).scheme != "https" or not urlparse(base).netloc:
         raise AppError("OCR_BASE_URL_INVALID", "آدرس سرویس باید با https شروع شود.", 400)
+    try:  # same outbound policy as webhooks (V-021): no internal names, numeric hosts, odd ports or credentials in the URL
+        webhook.check_url(base)
+    except webhook.WebhookUrlError as exc:
+        raise AppError("OCR_BASE_URL_INVALID", "آدرس سرویس مجاز نیست (آدرس داخلی یا نامعتبر).", 400) from exc
     lang = body.tesseract_lang.strip().lower()
     if not LANG_RE.match(lang):
         raise AppError("OCR_LANG_INVALID", "زبان tesseract نامعتبر است؛ نمونه: fas+eng", 400)
@@ -90,6 +95,10 @@ async def test_receipt_ocr(admin: AdminUser, session: Session):
                 error = "سقف درخواست یا اعتبار حساب سرویس تمام شده است."
             else:
                 error = f"پاسخ غیرمنتظره از سرویس: HTTP {r.status_code}"
+        except receipt_ocr.OcrEndpointForbidden:
+            error = "آدرس سرویس به نشانی داخلی/غیرعمومی می‌رسد و پذیرفته نمی‌شود."
+        except OSError as exc:  # DNS failure
+            error = f"نام سرویس resolve نشد ({type(exc).__name__})."
         except httpx.HTTPError as exc:
             error = f"سرور به سرویس وصل نشد ({type(exc).__name__}). دسترسی خروجی HTTPS را بررسی کنید."
     record_integration(session, admin, "receipt_ocr.tested", "receipt_ocr", {"ok": ok, "engine": engine})

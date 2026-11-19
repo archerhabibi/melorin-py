@@ -17,7 +17,6 @@ Everything here is transport independent; routers/bot runners only call these fu
 
 from typing import Any, cast
 import datetime as dt
-import hmac
 import re
 import secrets
 import uuid
@@ -32,7 +31,7 @@ from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import hit
-from melorin.core.security import new_opaque_token, token_hash
+from melorin.core.security import new_opaque_token, token_hash, safe_equal, normalize_digits
 from melorin.modules.identity import service
 from melorin.kernel.models.identity import RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
@@ -297,7 +296,7 @@ async def decide(
         return await _close(session, row, "user_denied", security="tg_web_login_denied_by_user")
     if not await hit(f"tgweb-approve:{profile.telegram_id}", APPROVALS_PER_HOUR, 3600):
         return await _close(session, row, "rate_limited", security="tg_web_login_rate_limited")
-    if number_match_enabled(cfg) and not hmac.compare_digest(str(choice or ""), row.match_code):
+    if number_match_enabled(cfg) and not safe_equal(normalize_digits(str(choice or "")), row.match_code):
         row.attempts += 1
         remaining = MAX_WRONG_CHOICES - row.attempts
         if remaining <= 0:
@@ -365,7 +364,7 @@ async def poll(session: AsyncSession, public_id: str, poll_token: str, request, 
     """Called by the browser. Issues the Core session exactly once to the holder of the poll token."""
     row = await _locked(session, public_id)
     expected = row.secret_hash if row is not None else _DUMMY_HASH
-    if not hmac.compare_digest(token_hash(poll_token), expected) or row is None:
+    if not safe_equal(token_hash(poll_token), expected) or row is None:
         raise AppError("SESSION_NOT_FOUND", "درخواست ورود پیدا نشد.", 404)
     if _refresh_expiry(row):
         await session.commit()
@@ -398,7 +397,7 @@ async def poll(session: AsyncSession, public_id: str, poll_token: str, request, 
 async def cancel(session: AsyncSession, public_id: str, poll_token: str) -> None:
     """The visitor closed the dialog: the link in Telegram stops working immediately."""
     row = await _locked(session, public_id)
-    if row is None or not hmac.compare_digest(token_hash(poll_token), row.secret_hash):
+    if row is None or not safe_equal(token_hash(poll_token), row.secret_hash):
         raise AppError("SESSION_NOT_FOUND", "درخواست ورود پیدا نشد.", 404)
     if row.status in OPEN_STATES:
         row.status, row.deny_reason, row.decided_at = "denied", "cancelled", utcnow()

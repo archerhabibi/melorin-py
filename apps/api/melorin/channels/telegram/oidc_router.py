@@ -4,7 +4,7 @@
 back to the storefront (``/#/dashboard`` or ``/?tg_error=<reason>``) instead of a JSON page.
 """
 
-import secrets
+from melorin.core.security import safe_equal
 import uuid
 from urllib.parse import urlencode
 
@@ -81,7 +81,7 @@ async def callback(session: Session, request: Request, code: str | None = None, 
     origin = flow["org"]
     if error or not code or not state:
         return _back(origin, "user_denied" if error == "access_denied" else "failed")
-    if not secrets.compare_digest(state, flow["state"]):
+    if not safe_equal(state, flow["state"]):
         audit.security_event(session, "tg_oidc_state_mismatch", None, {})
         await session.commit()
         return _back(origin, "failed")

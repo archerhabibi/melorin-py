@@ -62,6 +62,9 @@ class ZarinpalAdapter:
             )
         d = r.json().get("data") or {}
         ok = d.get("code") in (100, 101)  # 101 = already verified (duplicate callback)
+        # Defence in depth (audit V-24): when the gateway echoes an amount it must equal what we asked for.
+        if ok and d.get("amount") is not None and int(d["amount"]) != int(self._gateway_amount(payment)):
+            ok = False
         return CallbackResult(str(payment.id), authority, ok, {"verify": d, **params})
 
     async def query_payment_status(self, payment, *, settings) -> str:

@@ -138,6 +138,12 @@ async def _on_event_center_deliver(session, p: dict):
     await event_center.deliver(session, p)
 
 
+async def _on_receipt_ocr(session, p: dict):
+    from melorin.modules.payments import ocr_job
+
+    await ocr_job.run(session, p)
+
+
 def _webhook_only(event_name: str, key):
     """Handler for topics that only fan out to reseller webhooks; ``key(p)`` builds the idempotent event id."""
 
@@ -159,6 +165,7 @@ _TOPIC_HANDLERS = {
     events.EVENT_CENTER: _on_event_center,
     events.EVENT_CENTER_DELIVER: _on_event_center_deliver,
     events.TICKET_UPDATED: _on_event_center,
+    events.RECEIPT_OCR: _on_receipt_ocr,
     events.PAYMENT_SUCCEEDED: _webhook_only("payment.succeeded", lambda p: p.get("payment_id")),
     events.PAYMENT_FAILED: _webhook_only("payment.failed", lambda p: p.get("payment_id")),
     events.WALLET_CHANGED: _webhook_only("wallet.changed", lambda p: f"{p.get('wallet_id')}:{p.get('amount')}:{p.get('balance')}"),

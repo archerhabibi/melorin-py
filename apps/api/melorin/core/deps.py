@@ -56,6 +56,8 @@ async def auth_session(session: Session, creds: HTTPAuthorizationCredentials | N
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
     if claims.is_admin and not user.is_super_admin:  # demoted since the token was issued
         raise AppError("UNAUTHORIZED", "نشست نامعتبر یا منقضی است.", 401)
+    if claims.is_admin and not user.totp_enabled:  # the second factor was reset/removed: force a fresh login (audit V-07)
+        raise AppError("UNAUTHORIZED", "نشست نامعتبر یا منقضی است.", 401)
     return AuthSession(user=user, claims=claims)
 
 
@@ -107,7 +109,12 @@ async def admin_area_guard(
     refusal) and leaves no role-denied event. A denied admin is logged as a security
     event, so a team member probing beyond their role is visible in the audit screen.
     """
-    if not (user.is_super_admin and auth.is_admin_session):
+    if not auth.is_admin_session:
+        # Fail closed: a customer-channel session must never reach an /admin/ path through a route that forgot AdminUser (audit V-08).
+        if admin_access.normalise(request.url.path).startswith("admin/"):
+            raise AppError("ADMIN_ROLE_FORBIDDEN", "نقش شما اجازه‌ی این کار را ندارد.", 403)
+        return
+    if not user.is_super_admin:
         return
     area, write = admin_access.area_for(request.url.path, request.method)
     if admin_access.allows(user.admin_roles, area, write=write):

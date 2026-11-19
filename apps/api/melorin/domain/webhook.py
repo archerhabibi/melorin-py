@@ -7,6 +7,8 @@ import json
 import time
 from urllib.parse import urlsplit
 
+from melorin.domain import netpolicy
+
 SIGNATURE_HEADER = "X-Melorin-Signature"
 EVENT_ID_HEADER = "X-Melorin-Event-Id"
 EVENT_TYPE_HEADER = "X-Melorin-Event"
@@ -63,17 +65,7 @@ def next_delay(attempt: int) -> int | None:
 
 
 def _blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return any(
-        (
-            ip.is_private,
-            ip.is_loopback,
-            ip.is_link_local,
-            ip.is_multicast,
-            ip.is_reserved,
-            ip.is_unspecified,
-            getattr(ip, "is_site_local", False),
-        )
-    )
+    return netpolicy.is_forbidden_ip(ip)
 
 
 def check_url(url: str, *, allow_http: bool = False, resolved_ips: list[str] | None = None) -> str:
@@ -86,10 +78,7 @@ def check_url(url: str, *, allow_http: bool = False, resolved_ips: list[str] | N
     host = parts.hostname.lower()
     if host in ("localhost",) or host.endswith((".local", ".internal", ".localhost")):
         raise WebhookUrlError("internal host")
-    try:
-        parsed_ip = ipaddress.ip_address(host)
-    except ValueError:
-        parsed_ip = None  # hostname, resolved below
+    parsed_ip = netpolicy.parse_numeric_host(host)  # also catches 127.1 / 0x7f.1 / 2130706433
     if parsed_ip is not None and _blocked_ip(parsed_ip):
         raise WebhookUrlError("private address")
     for raw in resolved_ips or []:

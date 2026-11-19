@@ -26,6 +26,7 @@ class FakePipeline:
         self.redis = redis
         self.key = None
         self.seconds = None
+        self.prev = None
 
     async def __aenter__(self):
         return self
@@ -41,10 +42,14 @@ class FakePipeline:
         self.seconds = seconds
         return self
 
+    def get(self, key):
+        self.prev = key
+        return self
+
     async def execute(self):
         self.redis.values[self.key] = self.redis.values.get(self.key, 0) + 1
         self.redis.expirations[self.key] = self.seconds
-        return [self.redis.values[self.key], True]
+        return [self.redis.values[self.key], True, self.redis.values.get(self.prev)]
 
 
 @pytest.mark.asyncio
@@ -56,7 +61,7 @@ async def test_redis_rate_limit_is_atomic_and_sets_expiry(monkeypatch):
     assert await ratelimit.hit("auth:203.0.113.10", 2, 60)
     assert await ratelimit.hit("auth:203.0.113.10", 2, 60)
     assert not await ratelimit.hit("auth:203.0.113.10", 2, 60)
-    assert fake.expirations["rl:auth:203.0.113.10:2"] == 60
+    assert fake.expirations["rl:auth:203.0.113.10:2"] == 120  # kept two windows: the sliding estimate reads the previous bucket
 
 
 @pytest.mark.asyncio

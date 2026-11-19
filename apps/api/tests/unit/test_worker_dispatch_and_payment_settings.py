@@ -26,6 +26,7 @@ HANDLED_TOPICS = {
     events.PAYMENT_FAILED,
     events.WALLET_CHANGED,
     events.RESELLER_DEBT,
+    events.RECEIPT_OCR,  # V01 V-21: receipts are read by the worker
 }
 
 

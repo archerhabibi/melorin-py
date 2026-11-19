@@ -19,6 +19,7 @@ RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\n' > /etc/apt/ap
     && curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 15 --max-time 60 \
         -o /tmp/ACCC4CF8.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && test -s /tmp/ACCC4CF8.asc \
+    && gpg --show-keys --with-colons /tmp/ACCC4CF8.asc | grep -q '^fpr:::::::::B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8:' \
     && gpg --dearmor -o /out/apt.postgresql.org.gpg /tmp/ACCC4CF8.asc \
     && test -s /out/apt.postgresql.org.gpg \
     && chmod 0644 /out/apt.postgresql.org.gpg
@@ -44,7 +45,8 @@ RUN useradd --create-home --uid 10001 appuser
 COPY apps/api/melorin ./melorin
 COPY apps/api/alembic ./alembic
 COPY apps/api/alembic.ini apps/api/pyproject.toml ./
-COPY scripts ./scripts
+# Only what runs INSIDE this image (backup + restore-verification tooling); the installer/ops scripts stay on the host (audit V-025).
+COPY scripts/backup_secure.sh scripts/backup_panel.sh scripts/backup_restore_drill.sh scripts/backup_restore_verify.sh scripts/verify_panel_backup.sh scripts/telegram_healthcheck.py ./scripts/
 RUN mkdir -p /app/var/storage && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8000

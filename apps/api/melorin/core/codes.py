@@ -24,6 +24,7 @@ Uniqueness
   duplicates.  No automatic retry is implemented.
 """
 
+import itertools
 import secrets
 from typing import cast
 
@@ -42,6 +43,9 @@ _BASE = len(ALPHABET)  # 32
 _MAX_SEQ = _BASE**SEQ_WIDTH  # 32^4 = 1 048 576
 
 
+_LOCAL_SEQ = itertools.count(secrets.randbelow(_MAX_SEQ))
+
+
 def _encode(n: int, width: int) -> str:
     """Encode *n* in base-32 (ALPHABET), fixed *width*, big-endian."""
     out: list[str] = []
@@ -51,6 +55,11 @@ def _encode(n: int, width: int) -> str:
     return "".join(reversed(out))
 
 
+def _dialect(session: AsyncSession) -> str:
+    get_bind = getattr(session, "get_bind", None)
+    return get_bind().dialect.name if callable(get_bind) else "postgresql"
+
+
 async def next_code(session: AsyncSession, sequence: str) -> str:
     """Return the next unique short code drawn from *sequence*.
 
@@ -58,7 +67,12 @@ async def next_code(session: AsyncSession, sequence: str) -> str:
     hard guarantee; the caller's INSERT/UPDATE must be wrapped in a savepoint
     so a rare collision can be retried without aborting the outer transaction.
     """
-    seq_val = await session.scalar(select(func.nextval(sequence)))
+    if _dialect(session) == "postgresql":
+        seq_val = await session.scalar(select(func.nextval(sequence)))
+    else:
+        # SQLite (dev/test default) has no sequences: a process-wide counter keeps the ordering prefix; DB uniqueness on the
+        # code column plus the caller's savepoint retry remain the hard guarantee (audit V-26).
+        seq_val = next(_LOCAL_SEQ)
     prefix = _encode(int(cast(int, seq_val)) % _MAX_SEQ, SEQ_WIDTH)
     suffix = "".join(secrets.choice(ALPHABET) for _ in range(RAND_WIDTH))
     return prefix + suffix

@@ -1,5 +1,4 @@
 import json
-import ipaddress
 import socket
 import time
 from urllib.parse import urlparse
@@ -10,6 +9,7 @@ from melorin.core.errors import AppError
 from melorin.modules.panel_integrations.adapters import providers
 from melorin.modules.panel_integrations.adapters.base import PanelAdapter
 from melorin.modules.panel_integrations.targets import merge_config
+from melorin.domain import netpolicy
 
 # kind -> adapter class. Resolved lazily from the provider specs (providers.py): importing this module no longer imports every
 # family, so a family that is not configured, or whose optional dependency is missing, costs nothing (audit T16/T65).
@@ -31,17 +31,10 @@ def _resolves_public(url: str) -> bool:
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
         return False
     try:
-        addresses = {item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
+        addresses = {str(item[4][0]) for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
     except socket.gaierror:
         return False
-    return bool(addresses) and all(
-        not (ip := ipaddress.ip_address(address)).is_private
-        and not ip.is_loopback
-        and not ip.is_link_local
-        and not ip.is_reserved
-        and not ip.is_multicast
-        for address in addresses
-    )
+    return bool(addresses) and not any(netpolicy.is_forbidden_ip(address) for address in addresses)
 
 
 def _public_panel_url(url: str) -> bool:

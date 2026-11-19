@@ -8292,8 +8292,12 @@ export interface components {
             max_amount_rial?: number | null;
             /** Max Exposure Rial */
             max_exposure_rial?: number | null;
+            /** Max Open Per Origin */
+            max_open_per_origin?: number | null;
             /** Max Open Per User */
             max_open_per_user?: number | null;
+            /** Min Account Age Hours */
+            min_account_age_hours?: number | null;
             /** Minutes */
             minutes?: number | null;
         };

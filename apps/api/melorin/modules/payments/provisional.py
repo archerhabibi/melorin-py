@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 import datetime as dt
+import hashlib
+import hmac
 import logging
 import uuid
 
@@ -24,27 +26,39 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit, events, settings_store
+from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import bank_sms as dom
 from melorin.domain.order_state import PaymentStatus
+from melorin.kernel.models.identity import User
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import FileObject
-from melorin.modules.payments import service as payments
+from melorin.modules.payments import ocr_job, service as payments
 from melorin.modules.wallet import service as wallet
 from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger(__name__)
 P = PaymentStatus
 KEY = "payments.grace.{}"
-DEFAULT: dict = {"enabled": False, "minutes": 5, "max_amount_rial": 5_000_000, "max_exposure_rial": 20_000_000, "max_open_per_user": 1}
+DEFAULT: dict = {
+    "enabled": False,
+    "minutes": 5,
+    "max_amount_rial": 5_000_000,
+    "max_exposure_rial": 20_000_000,
+    "max_open_per_user": 1,
+    "max_open_per_origin": 2,  # one network (IPv4 / IPv6 /64) cannot hold many provisional credits through many fresh accounts (V-022)
+    "min_account_age_hours": 24,  # a brand-new account never gets a loan of trust (forged receipt + fresh account = free money)
+}
 _RULES: tuple[tuple[str, type, Any, Any], ...] = (
     ("enabled", bool, None, None),
     ("minutes", int, 1, 60),
     ("max_amount_rial", int, 1, 10**12),
     ("max_exposure_rial", int, 1, 10**13),
     ("max_open_per_user", int, 1, 10),
+    ("max_open_per_origin", int, 1, 50),
+    ("min_account_age_hours", int, 0, 24 * 90),
 )
 BLOCK_TEXT = {
     "amount_mismatch": "مبلغ خوانده‌شده از رسید با مبلغ درخواست یکی نیست",
@@ -52,10 +66,25 @@ BLOCK_TEXT = {
     "over_exposure_cap": "سقف کل اعتبارهای موقت باز فروشگاه پر است",
     "user_open_limit": "مشتری هم‌اکنون یک اعتبار موقت بازبینی‌نشده دارد",
     "user_revoked_before": "برای این مشتری قبلاً اعتبار موقت لغو شده است",
+    "origin_open_limit": "از همین شبکه قبلاً چند اعتبار موقت بازبینی‌نشده باز است",
+    "origin_revoked_before": "از همین شبکه قبلاً اعتبار موقت لغو شده است",
     "duplicate_image": "همین تصویر رسید قبلاً برای پرداخت دیگری ثبت شده",
     "duplicate_reference": "شماره مرجع این رسید قبلاً دیده شده",
     "currency": "ارز این پرداخت قابل بررسی نیست",
+    "no_proof": "هیچ نشانهٔ قابل‌تطبیقی (مبلغ یا شماره مرجع) از رسید خوانده نشد",
+    "new_account": "حساب مشتری هنوز به اندازهٔ کافی قدیمی نیست",
+    "ocr_pending": "خواندن خودکار رسید هنوز تمام نشده است",
 }
+
+
+def origin_tag(ip: str) -> str:
+    """Keyed, non-reversible tag of the uploader's network (IPv4 or IPv6 /64), stored with the receipt instead of the raw address.
+
+    It lets the grace sweep see that several "different" fresh accounts upload from one place (V-022) without keeping personal
+    data: the tag is an HMAC under the server secret, truncated, and only ever compared for equality.
+    """
+    key = get_settings().jwt_secret.encode()
+    return hmac.new(key, f"receipt-origin:{ip}".encode(), hashlib.sha256).hexdigest()[:20]
 
 
 async def get_config(session: AsyncSession, store_id: uuid.UUID) -> dict:
@@ -148,12 +177,21 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
         return "user_open_limit"
     if any((state(x) or {}).get("state") == "revoked" for x in mine):
         return "user_revoked_before"
+    origin = (p.meta or {}).get("receipt_origin")
+    if origin:  # the per-user guards above are bypassed by a new account; the network is the part a faker cannot change cheaply
+        same_net = [x for x in history if x.id != p.id and ((x.meta or {}).get("receipt_origin") == origin)]
+        if any((state(x) or {}).get("state") == "revoked" for x in same_net):
+            return "origin_revoked_before"
+        if sum(1 for x in same_net if (state(x) or {}).get("state") == "open") >= int(cfg.get("max_open_per_origin", 2)):
+            return "origin_open_limit"
     ref = claim.get("reference")
     if ref and any(x.id != p.id and ((x.meta or {}).get("receipt_claim") or {}).get("reference") == ref for x in history):
         return "duplicate_reference"
     dup = (p.meta or {}).get("receipt_duplicate")
     if dup and (dup.get("payments") or dup.get("other_stores")):
         return "duplicate_image"  # fingerprint check at upload: same picture (sha256 or Telegram file id) used by another payment
+    if ocr_job.blocks_credit(p):
+        return "ocr_pending"  # the reading may still reveal a mismatching amount or a duplicate reference; facts already known - typed claim, fingerprint verdict - win over it (V01 V-21)
     if p.receipt_file_id:  # receipts attached before fingerprints existed: fall back to the stored file hash
         sha = await session.scalar(select(FileObject.sha256).where(FileObject.id == p.receipt_file_id))
         if sha and await session.scalar(
@@ -163,6 +201,14 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
             .limit(1)
         ):
             return "duplicate_image"
+    if not isinstance(seen, int) and not claim.get("reference"):
+        return "no_proof"  # a photo of anything, with nothing read or typed, is not evidence: leave it to a human
+    min_age = int(cfg.get("min_account_age_hours", 0) or 0)
+    if min_age:
+        owner = await session.get(User, p.user_id)
+        created = getattr(owner, "created_at", None)
+        if created is None or _aware(created) > utcnow() - dt.timedelta(hours=min_age):
+            return "new_account"
     return None
 
 

@@ -27,6 +27,18 @@ async def bootstrap() -> None:
     settings = get_settings()
     if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
         raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_EMAIL and MELORIN_BOOTSTRAP_ADMIN_PASSWORD are required")
+    # V-004: the login schema uses pydantic's EmailStr (email-validator), which refuses special-use domains (.test, .local,
+    # .invalid ...). Validate with the SAME library here so an unusable admin e-mail fails the install loudly instead of
+    # creating a super-admin who is locked out forever with HTTP 422.
+    try:
+        from email_validator import EmailNotValidError, validate_email
+
+        validate_email(settings.bootstrap_admin_email.strip(), check_deliverability=False)
+    except EmailNotValidError as exc:
+        raise SystemExit(
+            f"MELORIN_BOOTSTRAP_ADMIN_EMAIL is not accepted by the login validator ({exc}). "
+            "Use a real address on a public domain (not .test/.local/.invalid/.example)."
+        ) from exc
     if len(settings.bootstrap_admin_password) < 24 or settings.bootstrap_admin_password in {"change-me-now", "password"}:
         raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_PASSWORD must be a strong one-time credential")
     totp_secret = (settings.bootstrap_admin_totp_secret or "").strip().upper()
@@ -128,37 +140,55 @@ async def outbox_replay(event_id: str) -> None:
         print(f"outbox replay queued: {event.id}")
 
 
-async def rotate_encryption_key(new_key: str) -> None:
-    # Rotate only fields known to contain encrypted values. Keep this explicit
-    # and transactional rather than attempting a dangerous blind JSON rewrite.
-    from melorin.kernel.models.stores import ResellerApplication, Store, StorePaymentConfiguration
-    from melorin.kernel.models.vpn import Panel
-    from melorin.kernel.models.webhooks import WebhookEndpoint
-    from sqlalchemy import select
-    from melorin.core.crypto import decrypt
-    from cryptography.fernet import Fernet
+async def rotate_encryption_key(new_key: str | None = None) -> None:
+    """Re-encrypt every encrypted column with the PRIMARY key.
 
+    Procedure (zero downtime): 1) generate a key; 2) set ``MELORIN_ENCRYPTION_KEY=<new>`` and
+    ``MELORIN_ENCRYPTION_KEY_PREVIOUS=<old>``; 3) run this command; 4) remove the previous key.
+    Passing ``new_key`` is still accepted: it is validated and must equal the configured primary key.
+    """
+    from cryptography.fernet import Fernet
+    from sqlalchemy import select
+
+    from cryptography.fernet import MultiFernet
+    from melorin.kernel.models.stores import ResellerApplication, Store, StorePaymentConfiguration
+    from melorin.kernel.models.vpn import Panel, VpnAccount  # noqa: F401
+    from melorin.kernel.models.webhooks import WebhookEndpoint
+
+    settings = get_settings()
+    if not settings.encryption_key:
+        raise SystemExit("current MELORIN_ENCRYPTION_KEY (the NEW primary key) is required")
+    if new_key:
+        Fernet(new_key.encode())  # validates format (ValueError on garbage)
+        if new_key != settings.encryption_key:
+            raise SystemExit("the key argument must equal MELORIN_ENCRYPTION_KEY; put the old key in MELORIN_ENCRYPTION_KEY_PREVIOUS")
+    older = [k.strip() for k in (getattr(settings, "encryption_key_previous", "") or "").split(",") if k.strip()]
+    try:
+        mf = MultiFernet([Fernet(k.encode()) for k in [settings.encryption_key, *older]])  # first key encrypts, all decrypt
+    except (ValueError, TypeError) as exc:
+        raise SystemExit("MELORIN_ENCRYPTION_KEY / MELORIN_ENCRYPTION_KEY_PREVIOUS must be valid Fernet keys") from exc
+    targets = [
+        (Store, "bot_token_enc"),
+        (ResellerApplication, "bot_token_enc"),
+        (Panel, "credentials_enc"),
+        (Panel, "webhook_secret_enc"),
+        (StorePaymentConfiguration, "secret_enc"),
+        (User, "totp_secret_enc"),
+        (WebhookEndpoint, "secret_enc"),
+        (WebhookEndpoint, "previous_secret_enc"),
+    ]
     async with session_factory()() as session:
-        if not get_settings().encryption_key:
-            raise SystemExit("current MELORIN_ENCRYPTION_KEY is required")
-        new_fernet = Fernet(new_key.encode())
-        rows = [
-            (Store, "bot_token_enc"),
-            (ResellerApplication, "bot_token_enc"),
-            (Panel, "credentials_enc"),
-            (StorePaymentConfiguration, "secret_enc"),
-            (User, "totp_secret_enc"),  # admin 2FA seeds: unreadable after rotation if left on the old key
-            (WebhookEndpoint, "secret_enc"),
-            (WebhookEndpoint, "previous_secret_enc"),
-        ]
-        for model, field in rows:
+        n = 0
+        for model, field in targets:
+            if not hasattr(model, field):
+                continue
             for row in (await session.scalars(select(model))).all():
                 value = getattr(row, field, None)
                 if value:
-                    plain = decrypt(value)
-                    setattr(row, field, new_fernet.encrypt(plain.encode()).decode())
+                    setattr(row, field, mf.rotate(value.encode()).decode())  # decrypt with any known key, encrypt with primary
+                    n += 1
         await session.commit()
-        print("encryption rotation completed; set MELORIN_ENCRYPTION_KEY to the reviewed new key")
+    print(f"re-encrypted {n} values with the primary key; you may now remove MELORIN_ENCRYPTION_KEY_PREVIOUS")
 
 
 async def reset_admin_password(email: str) -> None:
@@ -222,8 +252,6 @@ def main() -> None:
             parser.error("outbox-replay requires an event UUID")
         asyncio.run(outbox_replay(args.value))
     elif args.command == "rotate-encryption-key":
-        if not args.value:
-            parser.error("rotate-encryption-key requires a Fernet key")
         asyncio.run(rotate_encryption_key(args.value))
     elif args.command == "disable-admin-ip-allowlist":
         asyncio.run(disable_admin_ip_allowlist())
