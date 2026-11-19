@@ -20,6 +20,7 @@ export function Wallet({
   const [amount, setAmount] = useState('');
   const [pay, setPay] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
+  const topupStorageKey = `melorin:wallet-topup:${storeId}`;
   const load = () =>
     coreFetch(`/api/v1/stores/${storeId}/wallet/transactions`)
       .then((r: Json) => r.json())
@@ -30,15 +31,54 @@ export function Wallet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [storeId]);
   async function topup() {
+    const requestedAmount = String(Number(amount));
+    let idempotencyKey: string;
+    try {
+      const saved = localStorage.getItem(topupStorageKey);
+      if (saved) {
+        const attempt = JSON.parse(saved) as { amount?: string; idempotencyKey?: string };
+        if (attempt.amount !== requestedAmount || !attempt.idempotencyKey) {
+          notify(
+            'یک درخواست شارژ قبلی هنوز تعیین تکلیف نشده است. برای جلوگیری از پرداخت تکراری، مبلغ جدید ثبت نمی‌شود؛ همان مبلغ قبلی را دوباره بررسی کنید.',
+          );
+          return;
+        }
+        idempotencyKey = attempt.idempotencyKey;
+      } else {
+        idempotencyKey = `topup-${crypto.randomUUID()}`;
+        // Persist before sending: a reload or lost HTTP response must reuse this exact key.
+        localStorage.setItem(topupStorageKey, JSON.stringify({ amount: requestedAmount, idempotencyKey }));
+      }
+    } catch {
+      notify('ذخیره امن وضعیت درخواست در مرورگر ممکن نیست؛ برای جلوگیری از پرداخت تکراری، درخواست ارسال نشد.');
+      return;
+    }
     setBusy(true);
     try {
       const r = await coreFetch(`/api/v1/stores/${storeId}/wallet/topups`, {
         method: 'POST',
-        headers: { ...J, 'Idempotency-Key': `topup-${crypto.randomUUID()}` },
+        headers: { ...J, 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify({ amount: Number(amount), provider: 'manual_card' }),
       });
-      if (!r.ok) throw 0;
+      if (!r.ok) {
+        const error = await r.json().catch(() => ({}));
+        const code = error?.error?.code;
+        const message = error?.error?.message || 'ایجاد درخواست شارژ ناموفق بود';
+        // Only discard keys for client-side rejections that happen before an external intent can exist.
+        if (
+          r.status >= 400 &&
+          r.status < 500 &&
+          !['PAYMENT_INTENT_IN_PROGRESS', 'PAYMENT_INTENT_OUTCOME_UNKNOWN', 'IDEMPOTENCY_KEY_REUSE'].includes(code)
+        ) {
+          localStorage.removeItem(topupStorageKey);
+        }
+        notify(message);
+        return;
+      }
       const p = await r.json();
+      // Keep the key while this payment is still active: a reload after a successful
+      // response must recover the same payment rather than create another one.
+      if (p.status === 'failed' || p.status === 'cancelled') localStorage.removeItem(topupStorageKey);
       setPay(p);
       if (p.instructions?.redirect_url) window.location.href = p.instructions.redirect_url;
     } catch (e: Json) {
@@ -55,6 +95,7 @@ export function Wallet({
   const resetReceipt = () => {
     setPay(null);
     setAmount('');
+    localStorage.removeItem(topupStorageKey);
     setRc({ file: null, paid_at: '' });
     setRead(null);
   };
