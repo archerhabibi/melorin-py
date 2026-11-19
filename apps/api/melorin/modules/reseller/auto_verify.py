@@ -20,7 +20,6 @@ import asyncio
 import datetime as dt
 import hashlib
 import hmac
-import ipaddress
 import logging
 import socket
 
@@ -37,6 +36,7 @@ from melorin.kernel.models.stores import ResellerApplication
 from melorin.modules.reseller import identity
 from melorin.domain.timeutil import aware as _aware
 from melorin.core.http import outbound_client
+from melorin.domain import netpolicy
 
 log = logging.getLogger("melorin.reseller.verify")
 
@@ -83,10 +83,7 @@ def _txt_matches(answers: list[dict], value: str) -> bool:
 
 
 def is_public_ip(raw: str) -> bool:
-    try:
-        return ipaddress.ip_address(raw).is_global
-    except ValueError:
-        return False
+    return not netpolicy.is_forbidden_ip(raw)
 
 
 async def host_is_public(domain: str) -> bool:

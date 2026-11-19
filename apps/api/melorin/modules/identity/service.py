@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import uuid
 from urllib.parse import parse_qsl
 
@@ -16,6 +17,7 @@ from melorin.core.db import utcnow
 from melorin.core.email import email_available, send_email
 from melorin.core.errors import AppError
 from melorin.core.security import (
+    safe_equal,
     create_access_token,
     new_numeric_code,
     new_opaque_token,
@@ -90,6 +92,12 @@ async def issue_tokens(
     )
 
 
+def _ua_class(ua: str | None) -> str:
+    """A browser's coarse identity: the user-agent with every version number removed, so an auto-update does not log anyone out
+    but a refresh token replayed from a different browser/OS family is noticed (audit V-06)."""
+    return re.sub(r"[\d._]+", "", (ua or "").lower()).strip()[:200]
+
+
 async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> TokenPair:
     from melorin.core import channel as ch
     from melorin.kernel.models.stores import Store
@@ -105,6 +113,14 @@ async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> Token
         raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
     if rt.expires_at.replace(tzinfo=rt.expires_at.tzinfo or dt.UTC) < utcnow():
         raise AppError("INVALID_REFRESH", "نشست منقضی شده است.", 401)
+    ua = request.headers.get("user-agent") if request is not None else None
+    if rt.user_agent and ua and _ua_class(rt.user_agent) != _ua_class(ua):
+        # The token was minted for one kind of client and is being presented by another: treat it as stolen, kill the family
+        # before it can mint a second pair (closes the "one free refresh" window of a stolen token).
+        await session.execute(update(RefreshToken).where(RefreshToken.family_id == rt.family_id).values(revoked_at=utcnow()))
+        audit.security_event(session, "refresh_client_mismatch", rt.user_id)
+        await session.commit()
+        raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
     if rt.channel not in ch.CHANNELS or (rt.channel == ch.ADMIN) != (rt.store_id is None):
         raise AppError("INVALID_REFRESH", "نشست قدیمی است؛ دوباره وارد شوید.", 401)  # legacy / unbound family
     user = await session.get(User, rt.user_id)
@@ -125,7 +141,7 @@ async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> Token
     rt.revoked_at = utcnow()
     # Rotation is atomic: the old token is revoked before the replacement is issued (same channel, same store), and
     # reuse of the old token revokes its whole family.
-    pair = await issue_tokens(session, user, chan, family=rt.family_id)
+    pair = await issue_tokens(session, user, chan, family=rt.family_id, ua=ua or rt.user_agent)
     await session.commit()
     return pair
 
@@ -184,7 +200,7 @@ async def consume_code(session: AsyncSession, purpose: str, target: str, code: s
     )
     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow() or vc.attempts >= MAX_CODE_ATTEMPTS:
         raise AppError("CODE_INVALID", "کد نامعتبر یا منقضی است.", 400)
-    if not hmac.compare_digest(vc.code_hash, token_hash(target + code)):
+    if not safe_equal(vc.code_hash, token_hash(target + code)):
         vc.attempts += 1
         audit.security_event(session, "code_failed", None, {"purpose": purpose})
         await session.commit()
@@ -272,9 +288,14 @@ def verify_telegram_webapp(init_data: str, bot_token: str, max_age: int = 86400)
     check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
     secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
     calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
-    if not received or not hmac.compare_digest(calc, received):
+    if not received or not safe_equal(calc, received):
         raise AppError("TELEGRAM_INVALID", "داده Telegram نامعتبر است.", 401)
-    if int(pairs.get("auth_date", "0")) < int(utcnow().timestamp()) - max_age:
+    try:
+        age = int(utcnow().timestamp()) - int(pairs.get("auth_date", "0"))
+    except ValueError:
+        raise AppError("TELEGRAM_INVALID", "داده Telegram نامعتبر است.", 401) from None
+    # A future-dated auth_date (clock skew or a hostile client) is refused too, not accepted for an extra day (audit V-12); 60 s of skew is tolerated.
+    if age > max_age or age < -60:
         raise AppError("TELEGRAM_EXPIRED", "داده Telegram منقضی شده است.", 401)
     return json.loads(pairs.get("user", "{}"))
 

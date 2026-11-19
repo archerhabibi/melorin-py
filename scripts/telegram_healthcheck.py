@@ -28,7 +28,7 @@ def main() -> int:
         return 0 if heartbeat_ok(heartbeat) else 1
     token = os.environ.get("MELORIN_TELEGRAM_TOKEN", "").strip()
     if not token:
-        return 1
+        return 0  # no token = the main bot is intentionally disabled (runner idles); not an unhealthy container (audit V-005)
     try:
         request = urllib.request.Request(
             f"https://api.telegram.org/bot{token}/getMe",

@@ -115,8 +115,14 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "dev-insecure-change-me"
     jwt_access_ttl_seconds: int = 900
+    jwt_issuer: str = "melorin"
+    jwt_audience: str = "melorin-api"
+    jwt_previous_secrets: str = ""  # comma-separated old signing keys still accepted for verification during a rotation
     refresh_ttl_days: int = 30
     encryption_key: str = ""  # Fernet key (urlsafe base64, 32 bytes). REQUIRED outside development.
+    # Comma-separated OLD Fernet keys: still used to decrypt (MultiFernet) so a rotation never strands data; new writes use
+    # ``encryption_key``. Run ``python -m melorin.cli rotate-encryption-key`` to re-encrypt rows, then drop the old key.
+    encryption_key_previous: str = ""
 
     bot_service_secret: str = "dev-bot-secret"  # shared secret between Core and bot runners
     # Optional least-privilege secrets (docs/08-IDENTITY-ACCOUNT-PERSON.md): with these set, the main runner can only open
@@ -176,6 +182,7 @@ class Settings(BaseSettings):
     ]
     storage_dir: str = "./var/storage"
     max_upload_bytes: int = 5 * 1024 * 1024
+    receipt_ocr_daily_cap: int = 300  # paid vision-OCR calls per store per day; beyond it receipts go to a human unread (V-21)
     # Automatic reading of card-to-card receipts (docs/15-PAYMENTS-WALLET-FINANCE.md): auto | vision | tesseract | off
     receipt_ocr_engine: Literal["auto", "vision", "tesseract", "off"] = "auto"
     receipt_ocr_api_key: str = ""  # vision engine only; the receipt image is sent to receipt_ocr_base_url

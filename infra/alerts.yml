@@ -1,4 +1,17 @@
 groups:
+  - name: melorin-liveness
+    rules:
+      # The API's own metrics vanish when it dies, so every rule below goes silent exactly then: alert on the scrape itself (audit V-006).
+      - alert: MelorinApiDown
+        expr: up{job="melorin-api"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Melorin API is not scrapeable", summary_fa: "API ملورین پاسخ نمی‌دهد", hint_fa: "کانتینر api را بررسی کنید (melorin → وضعیت سرویس‌ها)."}
+      - alert: MelorinAlertSeriesAbsent
+        expr: absent(melorin_alert)
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "Melorin alert series are missing", summary_fa: "سری‌های هشدار ملورین ناپدید شده‌اند؛ مانیتورینگ کور است", hint_fa: "API یا توکن متریک را بررسی کنید."}
   - name: melorin-core
     rules:
       - alert: MelorinDatabaseUnavailable

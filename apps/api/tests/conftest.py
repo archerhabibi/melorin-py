@@ -29,6 +29,9 @@ def _scrub() -> None:
     for key in [k for k in os.environ if k.startswith(_PREFIX)]:
         del os.environ[key]
     os.environ["MELORIN_JWT_SECRET"] = TEST_JWT_SECRET
+    # Hermetic receipt OCR: whether the machine happens to have `tesseract` must not change what an upload queues (with an
+    # engine configured the receipt stays "ocr_pending" until a worker reads it). Tests that need an engine opt in explicitly.
+    os.environ["MELORIN_RECEIPT_OCR_ENGINE"] = "off"
 
 
 def _restore() -> None:
@@ -50,13 +53,13 @@ from melorin.core import config as _config  # noqa: E402
 
 _config.Settings.model_config["env_file"] = None
 
-# Test-only: scrypt at production cost (n=2**14, ~45 ms) dominates every test that creates a user. The stored format does not
-# encode the cost, so a cheap factor keeps hashing/verification fully functional. The hardened value stays in production code and
+# Test-only: scrypt at production cost (n=2**14, ~45 ms) dominates every test that creates a user. The cost is stored in each hash,
+# so a cheap factor keeps hashing/verification/rehash fully functional. The hardened value stays in production code and
 # is pinned by tests/test_security_kdf_cost.py.
 from melorin.core import security as _security  # noqa: E402
 
-PRODUCTION_SCRYPT_N = _security._SCRYPT["n"]
-_security._SCRYPT["n"] = 2**4
+PRODUCTION_SCRYPT_LOG2N = _security._SCRYPT["log2n"]
+_security._SCRYPT["log2n"] = 4
 
 
 @pytest.fixture(autouse=True)

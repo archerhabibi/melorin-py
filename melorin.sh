@@ -11,6 +11,8 @@
 #   0) Exit
 #
 # Shortcuts:  melorin install|update|status|restart|logs|panel
+# Deliberately WITHOUT -e (unlike get.sh): the interactive menu must survive a failed action and return to the prompt; every
+# step that matters checks its own status (`|| { err ...; return 1; }`). Audit V-036.
 set -uo pipefail
 
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -96,14 +98,23 @@ ask_domain() { # ask_domain "label" -> sets REPLY_DOMAIN
   done
 }
 
-valid_email() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]]; }
+# V-004: the application's login validator (email-validator) rejects special-use domains; refuse them here too, otherwise the
+# admin account is created and can never sign in (HTTP 422 on every login).
+valid_email() {
+  [[ "$1" =~ ^[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]] || return 1
+  local d="${1#*@}"
+  case "$d" in
+    *.test|*.local|*.localhost|*.invalid|*.onion|*.arpa|test|local|localhost|invalid) return 1 ;;
+  esac
+  return 0
+}
 ask_email() { # sets REPLY_EMAIL
   local e
   while true; do
     read -r -p "$1: " e || return 1
     e="${e,,}"; e="${e// /}"
     if valid_email "$e"; then REPLY_EMAIL="$e"; return 0; fi
-    warn "Not a valid e-mail address (example: you@example.com)."
+    warn "Not a usable e-mail address (.test/.local/.invalid/.onion domains are refused by the app's login validator)."
   done
 }
 
@@ -257,6 +268,20 @@ do_update() {
   before="$(git rev-parse --short HEAD 2>/dev/null)"
   info "Fetching ($REPO_REF)..."
   git fetch --quiet --tags origin || { err "git fetch failed (network?)"; return 1; }
+  # A moving ref (main) would leave an install stuck behind newer releases: prefer the newest vX.Y.Z tag when one exists (audit V-32a).
+  if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
+    local newest; newest="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)"
+    if [ -n "$newest" ]; then info "Newest release tag is $newest; updating to it instead of moving '$REPO_REF'."; REPO_REF="$newest"; fi
+  fi
+  # Optional release-signature gate (audit V-020): MELORIN_REQUIRE_SIGNED_TAGS=1 refuses any ref that is not a tag signed by a key
+  # already in this host's GPG keyring (import the maintainer's public key first). Off by default so unsigned pre-release tags still work.
+  if [ "${MELORIN_REQUIRE_SIGNED_TAGS:-0}" = "1" ]; then
+    git rev-parse --verify --quiet "refs/tags/${REPO_REF}" >/dev/null \
+      || { err "MELORIN_REQUIRE_SIGNED_TAGS=1 but '$REPO_REF' is not a tag."; return 1; }
+    git verify-tag "$REPO_REF" >/dev/null 2>&1 \
+      || { err "Tag $REPO_REF has no valid signature from a trusted key - refusing to update."; return 1; }
+    info "Tag $REPO_REF signature verified."
+  fi
   git -c advice.detachedHead=false checkout --quiet --detach "$(resolve_ref)" \
     || { err "Checkout failed - there are local edits to tracked files in $APP_DIR."; return 1; }
   after="$(git rev-parse --short HEAD)"
@@ -273,7 +298,14 @@ do_update() {
   # A manual update builds on this host: stop pointing the stack at registry images of an older commit (see scripts/deploy.sh).
   if [ -n "$(env_get MELORIN_IMAGE_TAG)" ]; then env_set MELORIN_IMAGE_TAG local; fi
   compose build                          || { err "Build failed."; return 1; }
-  compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted."; return 1; }
+  # Never migrate without a restore point (audit V-020): take an encrypted backup with the CURRENT stack first (--no-deps: the new
+  # migrate service must not run before it). Set MELORIN_SKIP_PRE_UPDATE_BACKUP=1 only if you have a fresh backup elsewhere.
+  if [ "${MELORIN_SKIP_PRE_UPDATE_BACKUP:-0}" != "1" ]; then
+    info "Taking a pre-update backup..."
+    compose run --rm --no-deps backup python -c "import asyncio; from melorin.worker import jobs; print(asyncio.run(jobs.backup_job()))" \
+      || { err "Pre-update backup failed - nothing was migrated. Fix the backup (menu: status) or set MELORIN_SKIP_PRE_UPDATE_BACKUP=1."; return 1; }
+  fi
+  compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted. Roll back the code with: git checkout --detach $before"; return 1; }
   compose up -d --remove-orphans         || { err "Could not start the services."; return 1; }
   ok "Updated to $after. Your .env was kept (copy: var/env.before-update)."
   [ "$before" != "$after" ] && info "If this menu changed, close it and run 'melorin' again."

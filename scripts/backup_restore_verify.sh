@@ -7,7 +7,7 @@ set -euo pipefail
 : "${BACKUP_CHECKSUM_FILE:=${BACKUP_ARCHIVE}.sha256}"
 : "${RESTORE_VERIFY_DIR:=./var/restore-verify}"
 mkdir -p "$RESTORE_VERIFY_DIR"
-sha256sum --check "$BACKUP_CHECKSUM_FILE"
+( cd "$(dirname "$BACKUP_ARCHIVE")" && sha256sum --check "$(realpath --relative-to="$(dirname "$BACKUP_ARCHIVE")" "$BACKUP_CHECKSUM_FILE" 2>/dev/null || echo "$BACKUP_CHECKSUM_FILE")" )
 raw="$RESTORE_VERIFY_DIR/$(basename "${BACKUP_ARCHIVE%.age}").dump"
 trap 'rm -f "$raw"' EXIT
 age --decrypt --identity "$BACKUP_IDENTITY_FILE" --output "$raw" "$BACKUP_ARCHIVE"

@@ -39,6 +39,7 @@ export default function ReceiptReviewPanel({
           max_amount_rial: String(d.config.max_amount_rial),
           max_exposure_rial: String(d.config.max_exposure_rial),
           max_open_per_user: String(d.config.max_open_per_user),
+          max_open_per_origin: String(d.config.max_open_per_origin ?? 2),
         },
     );
   }, []);
@@ -86,6 +87,7 @@ export default function ReceiptReviewPanel({
         max_amount_rial: toInt(form.max_amount_rial),
         max_exposure_rial: toInt(form.max_exposure_rial),
         max_open_per_user: toInt(form.max_open_per_user),
+        max_open_per_origin: toInt(form.max_open_per_origin),
       };
       const r = await call(`${base}/receipt-review/settings`, {
         method: 'PUT',
@@ -146,7 +148,8 @@ export default function ReceiptReviewPanel({
     Number(form.minutes) !== c.minutes ||
     toInt(form.max_amount_rial) !== c.max_amount_rial ||
     toInt(form.max_exposure_rial) !== c.max_exposure_rial ||
-    toInt(form.max_open_per_user) !== c.max_open_per_user;
+    toInt(form.max_open_per_user) !== c.max_open_per_user ||
+    toInt(form.max_open_per_origin) !== (c.max_open_per_origin ?? 2);
 
   return (
     <Section
@@ -226,6 +229,15 @@ export default function ReceiptReviewPanel({
                 className="inp"
                 value={form.max_open_per_user}
                 onChange={(e) => setForm({ ...form, max_open_per_user: e.target.value })}
+              />
+            </Field>
+            <Field label="حداکثر موقت باز برای هر شبکه" hint="چند حساب تازه از یک شبکه نمی‌توانند سقف را دور بزنند">
+              <input
+                dir="ltr"
+                inputMode="numeric"
+                className="inp"
+                value={form.max_open_per_origin}
+                onChange={(e) => setForm({ ...form, max_open_per_origin: e.target.value })}
               />
             </Field>
           </div>

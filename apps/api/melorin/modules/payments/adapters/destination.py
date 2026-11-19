@@ -1,4 +1,5 @@
 from melorin.core.errors import AppError
+from melorin.modules.payments.redaction import strip_secrets
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
 
 
@@ -12,7 +13,8 @@ class DestinationAdapter:
         self.instruction_type = instruction_type
 
     async def create_payment_intent(self, payment, *, callback_url: str, settings: dict) -> IntentResult:
-        destination = settings.get(f"destination.{self.name}") or settings.get(f"gateway.{self.name}") or {}
+        # Only the destination (public) block, scrubbed again by key name; never fall back to ``gateway.*`` (it holds secrets).
+        destination = strip_secrets(settings.get(f"destination.{self.name}") or {})
         if not destination:
             raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت پیکربندی نشده است.", 409)
         return IntentResult(

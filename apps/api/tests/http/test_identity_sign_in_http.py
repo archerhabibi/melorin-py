@@ -346,3 +346,22 @@ async def test_admin_totp_pasted_with_a_separator_is_accepted():
         spaced = f"{code[:3]} {code[3:]}"
         r = await c.post(f"{API}/password/login", json={"email": "root@example.com", "password": PASSWORD, "totp_code": spaced})
         assert r.status_code == 200, r.text
+
+
+async def test_refresh_from_another_kind_of_client_burns_the_family_but_a_browser_update_does_not():
+    """A stolen refresh token replayed from a different client family gets no free rotation (audit V-06); an auto-updated
+    browser (same family, new version numbers) keeps its session."""
+    chrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    chrome_next = chrome.replace("120.0.0.0", "121.0.6167.85")
+    async with api_client() as (c, maker, _):
+        await add_user(maker)
+        r = await c.post(f"{API}/password/login", json={"email": "user@example.com", "password": PASSWORD}, headers={"user-agent": chrome})
+        first = r.json()
+        c.cookies.clear()
+        ok = await c.post(f"{API}/refresh", json={"refresh_token": first["refresh_token"]}, headers={"user-agent": chrome_next})
+        assert ok.status_code == 200, ok.text
+        c.cookies.clear()
+        stolen = await c.post(f"{API}/refresh", json={"refresh_token": ok.json()["refresh_token"]}, headers={"user-agent": "curl/8.5.0"})
+        assert stolen.status_code == 401 and _err(stolen) == "INVALID_REFRESH"
+        async with maker() as s:
+            assert all(t.revoked_at for t in (await s.scalars(select(RefreshToken))).all())  # the whole family is burned

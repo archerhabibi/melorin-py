@@ -16,8 +16,11 @@ set -euo pipefail
 umask 022
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
-# Pin production installs to a reviewed commit; override only during a deliberate release.
-REPO_REF="${REPO_REF:-9d8d4e0}"
+# Default ref: the newest release tag (vX.Y.Z), or `main` while no tag exists - the same rule as get.sh. Never a hidden commit pin.
+if [ -z "${REPO_REF:-}" ]; then
+  REPO_REF="$(git ls-remote --tags --refs "$REPO_URL" 'v[0-9]*' 2>/dev/null | sed 's#.*refs/tags/##' | sort -V | tail -n1)"
+  REPO_REF="${REPO_REF:-main}"
+fi
 APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
@@ -83,6 +86,30 @@ set_kv() { # set_kv KEY VALUE  (replace line or append)
   fi
 }
 
+# V-024: the bundled Compose network defaults to 172.28.0.0/16, which can overlap a provider/VPN route on the host. Pick the first
+# candidate that overlaps no existing IPv4 route; fall back to the default when python3/ip are unavailable.
+pick_subnet() {
+  command -v python3 >/dev/null 2>&1 && command -v ip >/dev/null 2>&1 || { printf '172.28.0.0/16'; return 0; }
+  ip -4 route show 2>/dev/null | python3 -c '
+import ipaddress, sys
+used = []
+for line in sys.stdin:
+    tok = line.split()
+    if tok and "/" in tok[0]:
+        try:
+            used.append(ipaddress.ip_network(tok[0], strict=False))
+        except ValueError:
+            pass
+for cand in ("172.28.0.0/16", "172.29.0.0/16", "172.30.0.0/16", "172.31.0.0/16", "10.213.0.0/16", "10.214.0.0/16"):
+    net = ipaddress.ip_network(cand)
+    if not any(net.overlaps(u) for u in used):
+        print(cand, end="")
+        break
+else:
+    print("172.28.0.0/16", end="")
+'
+}
+
 # Numeric Telegram ID of the main admin (not the @username). Digits only, 5-15 long; Persian and Arabic-Indic digits are folded.
 normalize_tg_id() { # normalize_tg_id VALUE -> prints ASCII digits or nothing
   local v="$1"
@@ -119,6 +146,9 @@ if [ ! -f .env ]; then
   cp .env.example "$ENV_FILE"
   PGPASS="$(rand)"
   set_kv MELORIN_ENV production
+  SUBNET="$(pick_subnet)"
+  set_kv MELORIN_SUBNET "$SUBNET"
+  set_kv MELORIN_TRUSTED_PROXY_IPS "[\"127.0.0.1\",\"::1\",\"${SUBNET}\"]"
   set_kv POSTGRES_PASSWORD "$PGPASS"
   set_kv MELORIN_DATABASE_URL "postgresql+asyncpg://melorin:${PGPASS}@postgres:5432/melorin"
   set_kv MELORIN_JWT_SECRET "$(rand)"
@@ -161,7 +191,7 @@ if [ ! -f .env ]; then
       echo ">> could not verify the bot token with Telegram (network or wrong token); continuing." >&2
     fi
   else
-    echo ">> no bot token set: the main bot will not start until MELORIN_TELEGRAM_TOKEN is added to .env."
+    echo ">> no bot token set: the main bot stays idle (disabled) until MELORIN_TELEGRAM_TOKEN is added to .env."
   fi
   unset BOT
   mv -f "$ENV_FILE" .env
@@ -257,8 +287,16 @@ if [ "$EXTERNAL_PROXY" = "true" ]; then
 fi
 echo "  SMTP / S3: not required. Enable them later in Admin -> Settings -> Integrations."
 echo "  Backups: encrypted, daily 02:00 UTC, stored locally in the api_storage volume (/app/var/backups)."
+if [ -z "${BACKUP_OFFSITE_URI:-}" ] && ! grep -q '^MELORIN_BACKUP_OFFSITE_URI=.\+' .env 2>/dev/null; then
+  echo "  !! No OFF-SITE backup target is configured: backups live on this same disk, so losing this server loses them too (audit V-027)."
+  echo "     Set BACKUP_OFFSITE_URI (an rclone remote, e.g. s3:bucket/melorin) and re-run, or add MELORIN_BACKUP_OFFSITE_URI to .env."
+fi
+if ! grep -Eq '^ALERT_TELEGRAM_CHAT_ID=.+' .env 2>/dev/null && ! grep -Eq '^ALERT_SMTP_HOST=.+' .env 2>/dev/null; then
+  echo "  !! No ALERT RECEIVER is configured: alerts (API down, backup stale, ...) and the host watchdog have nobody to notify (audit V-006)."
+  echo "     Set ALERT_TELEGRAM_BOT_TOKEN + ALERT_TELEGRAM_CHAT_ID (or ALERT_SMTP_HOST/ALERT_SMTP_FROM/ALERT_EMAIL_TO) in .env and restart alertmanager."
+fi
 echo "  Server log: changes made on this server are recorded automatically in ${APP_DIR}/var/ops-log.md (add reasons with scripts/ops_log.sh)."
-echo "  Reseller bots are disabled by default (compose profile 'reseller')."
+echo "  Reseller bots: the reseller runner always starts; it stays idle until a reseller registers a bot token in Core."
 if [ "${NEW_BACKUP_KEY:-0}" = 1 ]; then
   echo "  !! Copy ${APP_DIR}/secrets/backup/age-identity.txt to a safe place OFF this server."
   echo "     Without it the encrypted backups cannot be restored."

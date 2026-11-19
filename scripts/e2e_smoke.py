@@ -232,7 +232,9 @@ time.sleep(5)
 r = c.get(BASE + "/health/ready").json()
 check("outbox drains (pending == 0)", r.get("outbox_pending") == 0, str(r))
 check("worker heartbeat ok", r.get("worker") == "ok", str(r))
-for i in range(40):
+# V-017: the hard per-e-mail ceiling is 100 attempts / 15 min across every IP (the per-(e-mail, IP) limit of 10 cannot trip while the
+# source address rotates), so the probe must outlast it; 130 rotating-XFF attempts reach the 429.
+for i in range(130):
     r = c.post(
         f"{A}/auth/password/login",
         headers={"X-Forwarded-For": f"9.9.{i}.1"},

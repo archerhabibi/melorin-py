@@ -112,12 +112,26 @@ tls_diagnose() { # $1 = domain: say WHY https is not answering (rate limit, DNS,
     warnx "$1: certificate issuance reports an error, see: docker logs $(docker ps -qf name=caddy | head -1) | grep -i error"
   fi
 }
+# V-010: with EXTERNAL_PROXY=true nothing of ours listens on 443 (the operator's proxy does), so probing https://<domain>/ only
+# burns ~1 minute per domain and ends in a false warning. Probe the loopback ports the stack really publishes instead.
+if grep -q '^EXTERNAL_PROXY=true' var/install-mode 2>/dev/null; then
+  for pair in "store:18080" "admin:18081" "api:18000"; do
+    code=""; for _ in $(seq 1 6); do
+      path=/; [ "${pair%%:*}" = api ] && path=/health/live
+      code="$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${pair##*:}${path}" 2>/dev/null || true)"; [ "$code" = 200 ] && break; sleep 2
+    done
+    if [ "$code" = 200 ]; then ok "${pair%%:*} answers 200 on 127.0.0.1:${pair##*:} (external proxy mode)"
+    else warnx "${pair%%:*} did not answer 200 on 127.0.0.1:${pair##*:} (got '${code:-none}')"; fi
+  done
+  say "External proxy mode: public HTTPS is the host proxy's job, verify it with: curl -I https://<your-domain>/"
+else
 for k in MELORIN_DOMAIN MELORIN_ADMIN_DOMAIN; do
   d="$(env_get $k)"; [ -z "$d" ] && continue
   code=""; for _ in $(seq 1 12); do code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' "https://$d/" 2>/dev/null || true)"; [ "$code" = 200 ] && break; sleep 5; done
   if [ "$code" = 200 ]; then ok "https://$d answers 200 (TLS valid)"
   else warnx "https://$d did not answer 200 (got '${code:-none}')"; tls_diagnose "$d"; fi
 done
+fi
 tok="$(env_get MELORIN_TELEGRAM_TOKEN)"
 if [ -n "$tok" ]; then
   curl -fsS -m 10 "https://api.telegram.org/bot${tok}/getMe" >/dev/null 2>&1 && ok "Telegram bot token valid" || warnx "Telegram bot token could not be verified"

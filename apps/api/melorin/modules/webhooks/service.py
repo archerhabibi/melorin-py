@@ -1,8 +1,11 @@
+import asyncio
+import datetime
 import logging
 import secrets
 import socket
 import time
 import uuid
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -46,15 +49,27 @@ def delivery_out(d):
     }
 
 
-async def _safe(url: str):
+async def _resolve(host: str) -> list[str]:
+    """Resolve without blocking the event loop (audit V-013)."""
+    loop = asyncio.get_running_loop()
+    infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    return sorted({str(x[4][0]) for x in infos})
+
+
+async def _safe_resolved(url: str) -> tuple[str, list[str]]:
+    """Validate ``url`` once and return it with the exact addresses that were checked (the caller connects to one of them)."""
     try:
-        host = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url).hostname
-        ips = [str(x[4][0]) for x in socket.getaddrinfo(host, None)] if host else []
-        return wh.check_url(url, resolved_ips=ips)
+        host = urlsplit(url).hostname
+        ips = await _resolve(host) if host else []
+        return wh.check_url(url, resolved_ips=ips), ips
     except wh.WebhookUrlError as e:
         raise AppError("WEBHOOK_URL_FORBIDDEN", "آدرس وبهوک امن نیست.", 400) from e
     except (socket.gaierror, ValueError) as e:
         raise AppError("WEBHOOK_URL_INVALID", "دامنه وبهوک قابل resolve نیست.", 400) from e
+
+
+async def _safe(url: str):
+    return (await _safe_resolved(url))[0]
 
 
 async def create_endpoint(session: AsyncSession, store_id, url, events, description, actor_id):
@@ -127,7 +142,7 @@ async def rotate_secret(session, e, actor_id):
     old = decrypt(e.secret_enc)
     secret = secrets.token_urlsafe(32)
     e.previous_secret_enc = encrypt(old)
-    e.previous_secret_expires_at = utcnow() + __import__("datetime").timedelta(hours=24)
+    e.previous_secret_expires_at = utcnow() + datetime.timedelta(hours=24)
     e.secret_enc = encrypt(secret)
     audit.record(
         session,
@@ -218,15 +233,31 @@ async def deliver_one(session: AsyncSession, delivery_id):
     e = await session.get(WebhookEndpoint, d.endpoint_id)
     if not e or e.status != "active":
         return "disabled"
-    # Resolve immediately before opening the connection and reject DNS changes
-    # between validation and delivery. Redirects stay disabled.
-    validated = await _safe(e.url)
-    host = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(validated).hostname
-    ips_before = {x[4][0] for x in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)} if host else set()
-    await _safe(e.url)
-    ips_after = {x[4][0] for x in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)} if host else set()
-    if not ips_before or ips_before != ips_after:
-        raise AppError("WEBHOOK_DNS_CHANGED", "آدرس وبهوک هنگام ارسال تغییر کرده است.", 409)
+    # Resolve ONCE, validate every address, then connect to that very address (audit V-012): a second lookup by the HTTP client would
+    # let a short-TTL DNS answer public for the check and internal for the connection. A refusal is a failed attempt (audit V-014),
+    # not an exception that leaves the row to be re-claimed forever.
+    try:
+        validated, ips = await _safe_resolved(e.url)
+        if not ips:
+            raise AppError("WEBHOOK_URL_INVALID", "دامنه وبهوک قابل resolve نیست.", 400)
+    except AppError as exc:
+        d.attempts += 1
+        d.last_error = f"{exc.code}"[:500]
+        delay = wh.next_delay(d.attempts)
+        e.consecutive_failures += 1
+        if delay is None:
+            d.status = "failed"
+        else:
+            d.status, d.next_attempt_at = "pending", utcnow() + datetime.timedelta(seconds=delay)
+        if exc.code == "WEBHOOK_URL_FORBIDDEN" or e.consecutive_failures >= 10:
+            e.status = "auto_disabled"
+        await session.commit()
+        return d.status
+    parts = urlsplit(validated)
+    host = parts.hostname or ""
+    pinned_ip = ips[0]
+    netloc_ip = f"[{pinned_ip}]" if ":" in pinned_ip else pinned_ip
+    pinned_url = validated.replace(parts.netloc, f"{netloc_ip}{':' + str(parts.port) if parts.port else ''}", 1)
     d.status, d.attempts = "delivering", d.attempts + 1
     await session.commit()
     body = wh.canonical_body({"id": d.event_id, "type": d.event_type, "created_at": d.created_at.isoformat(), "data": d.payload})
@@ -241,7 +272,12 @@ async def deliver_one(session: AsyncSession, delivery_id):
     started = time.monotonic()
     try:
         async with outbound_client("webhook_delivery", timeout=10, follow_redirects=False) as c:
-            r = await c.post(e.url, content=body, headers=headers)
+            r = await c.post(
+                pinned_url,
+                content=body,
+                headers={**headers, "Host": parts.netloc.rsplit("@", 1)[-1]},
+                extensions={"sni_hostname": host},  # TLS name + certificate check stay those of the real host
+            )
         d.last_status_code, d.last_response_ms = r.status_code, int((time.monotonic() - started) * 1000)
         if 200 <= r.status_code < 300:
             d.status, d.delivered_at, d.last_error = "delivered", utcnow(), None
@@ -256,7 +292,7 @@ async def deliver_one(session: AsyncSession, delivery_id):
         if delay is None:
             d.status = "failed"
         else:
-            d.status, d.next_attempt_at = "pending", utcnow() + __import__("datetime").timedelta(seconds=delay)
+            d.status, d.next_attempt_at = "pending", utcnow() + datetime.timedelta(seconds=delay)
         if e.consecutive_failures >= 10:
             e.status = "auto_disabled"
     await session.commit()

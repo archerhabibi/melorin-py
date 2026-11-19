@@ -65,6 +65,9 @@ async def poll_tick(ctx):
 async def startup(ctx):
     # Polling is scheduled by ARQ cron below. Do not enqueue a chained job
     # from inside the running job: a fixed job id can stall the chain.
+    from melorin.core.logging import quiet_worker_heartbeat
+
+    quiet_worker_heartbeat()  # arq (re)configures its loggers before startup(), so the filter is attached here (audit V-026)
     return None
 
 

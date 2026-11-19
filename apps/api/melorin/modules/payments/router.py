@@ -6,12 +6,13 @@ from fastapi.responses import RedirectResponse
 
 from melorin.core import integrations
 from melorin.core.config import get_settings
-from melorin.core.deps import Session, StoreCtx
+from melorin.core import channel
+from melorin.core.deps import CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
-from melorin.core.ratelimit import RateLimit
-from melorin.modules.payments import bank_sms, queries, receipt_fingerprints, receipt_ocr, service
+from melorin.core.ratelimit import RateLimit, client_ip
+from melorin.modules.payments import bank_sms, provisional, queries, receipt_fingerprints, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
 from melorin.kernel.models.system import FileObject
@@ -52,8 +53,14 @@ async def get_payment(payment_id: uuid.UUID, ctx: StoreCtx, session: Session):
     return payment_out(await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت"))
 
 
-@router.post("/stores/{store_id}/payments/{payment_id}/receipt", response_model=PaymentOut)
+@router.post(
+    "/stores/{store_id}/payments/{payment_id}/receipt",
+    response_model=PaymentOut,
+    dependencies=[Depends(RateLimit("receipt-upload", 6, 60))],  # each upload may trigger a paid OCR call + a store notice (V-20/V-21)
+)
 async def upload_receipt(
+    request: Request,
+    auth: CurrentAuth,
     payment_id: uuid.UUID,
     ctx: StoreCtx,
     session: Session,
@@ -83,9 +90,11 @@ async def upload_receipt(
     digest = validate_upload(data, file.content_type or "")
     matches = await receipt_fingerprints.find_matches(session, sha256=digest, file_unique_id=file_unique_id, exclude_payment_id=p.id)
     receipt_fingerprints.reject_if_blocked(await receipt_fingerprints.get_policy(session, p.store_id), matches)
+    # The picture is read by the worker (payments.receipt_ocr), never inside this request (V01 V-21): the upload answers at once
+    # with what the customer typed, and the reading - capped per store per day - completes the claim a moment later.
     ocr_cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
-    facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "", ocr_cfg)
-    claim = bank_sms.build_claim(typed, facts, engine)
+    read_later = receipt_ocr.configured_engine(ocr_cfg) is not None and (file.content_type or "") in receipt_ocr.IMAGE_TYPES
+    claim = bank_sms.build_claim(typed, None, None)
     key = await get_storage().put(data, file.content_type or "")
     fo = FileObject(
         owner_user_id=user.id,
@@ -100,7 +109,11 @@ async def upload_receipt(
     await session.flush()
     await receipt_fingerprints.store_fingerprint(session, p, sha256=digest, file_unique_id=file_unique_id)
     duplicate = receipt_fingerprints.summarize(matches, store_id=p.store_id)
-    await service.attach_receipt(session, p, fo.id, claim, duplicate)  # commits the fingerprint with the receipt
+    # Only a website session carries the customer's own address; a bot session arrives from the bot's container, which says nothing.
+    origin = provisional.origin_tag(client_ip(request)) if auth.claims.channel == channel.SITE else None
+    await service.attach_receipt(
+        session, p, fo.id, claim, duplicate, read_later=read_later, origin=origin
+    )  # commits the fingerprint with the receipt
     await bank_sms.try_auto_verify_payment(session, p)
     await session.refresh(p)
     return payment_out(p)

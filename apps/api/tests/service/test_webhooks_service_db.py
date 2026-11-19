@@ -58,8 +58,10 @@ class FakeClient:
     async def __aexit__(self, *a):
         return False
 
-    async def post(self, url, content=None, headers=None):
-        FakeClient.calls.append({"url": url, "content": content, "headers": headers, "follow": self.kwargs.get("follow_redirects")})
+    async def post(self, url, content=None, headers=None, extensions=None):
+        FakeClient.calls.append(
+            {"url": url, "content": content, "headers": headers, "follow": self.kwargs.get("follow_redirects"), "ext": extensions}
+        )
         if isinstance(FakeClient.outcome, Exception):
             raise FakeClient.outcome
         return httpx.Response(FakeClient.outcome)
@@ -222,7 +224,9 @@ async def test_deliver_one_success_signs_body_and_marks_delivered(http):
         e.consecutive_failures = 3
         assert await svc.deliver_one(s, d.id) == "delivered"
         call = http.calls[0]
-        assert call["follow"] is False and call["url"] == URL
+        # The connection goes to the address that was validated (no second lookup); TLS name and Host stay the real host's.
+        assert call["follow"] is False and call["url"] == f"https://{PUBLIC_IP}/melorin"
+        assert call["ext"] == {"sni_hostname": "hooks.example.com"} and call["headers"]["Host"] == "hooks.example.com"
         h = call["headers"]
         assert h[wh.EVENT_ID_HEADER] == "d-1" and h[wh.EVENT_TYPE_HEADER] == "order.completed"
         assert wh.verify(secret, h[wh.SIGNATURE_HEADER], call["content"])  # receiver can verify what we sent
@@ -274,23 +278,29 @@ async def test_last_attempt_gives_up_and_ten_failures_auto_disable_the_endpoint(
         assert row.status == "failed"
 
 
-async def test_dns_rebinding_between_checks_aborts_delivery_before_any_request(http, monkeypatch):
+async def test_delivery_connects_to_the_one_validated_address_even_if_dns_changes_later(http, monkeypatch):
     async with open_session() as s:
         _, d, _ = await _pending(s)
-        # 1st/2nd lookups (validation) see the public IP, the 3rd/4th (pre/post) disagree -> the answer changed mid-delivery
-        answers = iter([[PUBLIC_IP], [PUBLIC_IP], [PUBLIC_IP], ["93.184.216.35"]])
+        answers = iter([[PUBLIC_IP], ["127.0.0.1"], ["127.0.0.1"]])
         monkeypatch.setattr(
             svc.socket, "getaddrinfo", lambda host, *a, **k: _dns(next(answers) if str(host).endswith("example.com") else [])(host, *a, **k)
         )
-        with pytest.raises(AppError) as err:
-            await svc.deliver_one(s, d.id)
-        assert err.value.code == "WEBHOOK_DNS_CHANGED" and http.calls == []
+        assert await svc.deliver_one(s, d.id) == "delivered"
+        assert http.calls[0]["url"].startswith(f"https://{PUBLIC_IP}/")  # the later (internal) answers are never used
 
 
-async def test_endpoint_resolving_to_private_ip_at_delivery_time_is_refused(http, monkeypatch):
+async def test_endpoint_resolving_to_private_ip_at_delivery_time_is_a_recorded_failure_and_disables_the_endpoint(http, monkeypatch):
     async with open_session() as s:
-        _, d, _ = await _pending(s)
+        e, d, _ = await _pending(s)
         monkeypatch.setattr(svc.socket, "getaddrinfo", _dns(["127.0.0.1"]))
-        with pytest.raises(AppError) as err:
-            await svc.deliver_one(s, d.id)
-        assert err.value.code == "WEBHOOK_URL_FORBIDDEN" and http.calls == []
+        assert await svc.deliver_one(s, d.id) in ("pending", "failed")  # accounted, not re-claimed forever (audit V-014)
+        assert http.calls == [] and d.attempts == 1 and d.last_error == "WEBHOOK_URL_FORBIDDEN"
+        assert e.status == "auto_disabled"
+
+
+async def test_cgnat_resolution_is_refused(http, monkeypatch):
+    async with open_session() as s:
+        e, d, _ = await _pending(s)
+        monkeypatch.setattr(svc.socket, "getaddrinfo", _dns(["100.100.100.200"]))
+        await svc.deliver_one(s, d.id)
+        assert http.calls == [] and e.status == "auto_disabled"

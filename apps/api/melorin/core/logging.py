@@ -26,6 +26,23 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(data, ensure_ascii=False)
 
 
+class _QuietHeartbeat(logging.Filter):
+    """arq writes two INFO lines per run; ``poll_tick`` runs every 2 s (~30k lines per 6 h of pure noise). Drop the success
+    lines of that one job; a failure ("!" marker / exception) and every other job stay visible (audit V-026)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno > logging.INFO or record.exc_info:
+            return True
+        msg = record.getMessage()
+        return not ("poll_tick" in msg and "!" not in msg)
+
+
+def quiet_worker_heartbeat() -> None:
+    lg = logging.getLogger("arq.worker")
+    if not any(isinstance(f, _QuietHeartbeat) for f in lg.filters):
+        lg.addFilter(_QuietHeartbeat())
+
+
 def setup_logging(level: str = "INFO") -> None:
     h = logging.StreamHandler(sys.stdout)
     h.setFormatter(JsonFormatter())
@@ -35,3 +52,4 @@ def setup_logging(level: str = "INFO") -> None:
     # httpx logs every request URL at INFO; for Telegram that URL carries the bot token.
     logging.getLogger("httpx").setLevel(max(logging.WARNING, root.level))
     logging.getLogger("httpcore").setLevel(max(logging.WARNING, root.level))
+    quiet_worker_heartbeat()

@@ -91,7 +91,7 @@ async def test_a_legacy_token_without_channel_is_refused_by_the_auth_dependency(
         u = await make_user(s)
         await s.commit()
         legacy = jwt.encode(
-            {"sub": str(u.id), "adm": False, "exp": 4102444800, "typ": "access"},
+            {"sub": str(u.id), "adm": False, "exp": 4102444800, "typ": "access", "iss": "melorin", "aud": "melorin-api", "jti": "legacy"},
             "test-only-jwt-signing-key-0123456789-abcdefghij",
             algorithm="HS256",
         )

@@ -2,6 +2,8 @@
 
 import pytest
 
+from melorin.core.errors import AppError
+
 from melorin.domain import admin_access as aa
 from melorin.domain import password_policy as pp
 
@@ -206,7 +208,12 @@ async def test_role_guard_ignores_a_customer_channel_session_of_an_admin_account
 
     user = types.SimpleNamespace(is_super_admin=True, admin_roles=["viewer"])
     customer_session = types.SimpleNamespace(is_admin_session=False)
-    await deps.admin_area_guard(_admin_request("/api/v1/admin/settings/x", "PUT"), _Untouchable(), customer_session, user)
+    # Fail closed (audit V-08): a customer session reaching an /admin/ path is refused here, leaving no role-denied event.
+    with pytest.raises(AppError) as err:
+        await deps.admin_area_guard(_admin_request("/api/v1/admin/settings/x", "PUT"), _Untouchable(), customer_session, user)
+    assert err.value.code == "ADMIN_ROLE_FORBIDDEN"
+    # ... while a non-admin path is simply not this guard's business.
+    await deps.admin_area_guard(_admin_request("/api/v1/me", "GET"), _Untouchable(), customer_session, user)
 
 
 def test_store_context_dependencies_require_the_request():

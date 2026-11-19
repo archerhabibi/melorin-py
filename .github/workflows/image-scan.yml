@@ -1,0 +1,32 @@
+name: image-scan
+# V-023: the base images are digest-pinned (good) but nothing refreshed them. Dependabot opens the bump PRs (see dependabot.yml);
+# this weekly job reports fixable HIGH/CRITICAL findings in the pinned base images so a stale pin is visible, not silent.
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [postgres, redis, nginx, caddy]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve the pinned reference
+        id: ref
+        run: |
+          case "${{ matrix.image }}" in
+            nginx) ref="$(grep -h '^FROM nginx' apps/store-web/Dockerfile | head -1 | sed 's/^FROM //')" ;;
+            *) ref="$(grep -ho '${{ matrix.image }}:[^ ]*@sha256:[0-9a-f]*' docker-compose.yml | head -1)" ;;
+          esac
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.ref.outputs.ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

@@ -125,7 +125,7 @@ payment -> failed, customer notified; the wallet can go negative if the credit w
 arrives later and matches the payment confirms it automatically.
 
 * Per store, **off by default** (`payments.grace.<store_id>`): `enabled`, `minutes` (1-60), `max_amount_rial` (5,000,000), `max_exposure_rial` (20,000,000),
-  `max_open_per_user` (1). Admin: Payments -> "بازبینی سریع و تأیید موقت"; reseller: bank-SMS tab.
+  `max_open_per_user` (1), `max_open_per_origin` (2: open credits per uploader network; a network with a revoked credit gets none). Admin: Payments -> "بازبینی سریع و تأیید موقت"; reseller: bank-SMS tab.
 * Never provisional: read amount != request, same receipt image (sha256) or reference already used, amount/exposure/per-customer cap reached,
   customer with a previously revoked provisional credit. The reason is shown in the queue and notified once.
 * API: `GET/PUT /admin/stores/{id}/receipt-review[/settings]`, `POST .../receipt-review/{payment_id}` `{approve, note}` (same under `/stores/{id}/reseller/`).

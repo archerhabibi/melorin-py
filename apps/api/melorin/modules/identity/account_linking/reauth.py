@@ -12,15 +12,13 @@ Codes use purpose ``identity_reauth``, are bound to the user id and are single u
 remove the last usable sign-in method.
 """
 
-import hmac
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit as platform_audit, events
 from melorin.core.email import email_available, send_email
 from melorin.core.errors import AppError
-from melorin.core.security import new_numeric_code, token_hash, verify_password
+from melorin.core.security import new_numeric_code, token_hash, verify_password, safe_equal
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.kernel.models.identity import Identity, User, VerificationCode
@@ -103,7 +101,7 @@ async def _verify_google(session: AsyncSession, user: User, id_token: str | None
         await session.commit()
         raise AppError("REAUTH_REQUIRED", "تأیید Google نامعتبر یا منقضی است.", 401, {"method": "google"}) from e
     owned = {i.subject for i in await _active_identities(session, user, "google")}
-    if not any(hmac.compare_digest(str(claims["sub"]), sub) for sub in owned):
+    if not any(safe_equal(str(claims["sub"]), sub) for sub in owned):
         platform_audit.security_event(session, "identity_unlink_reauth_failed", user.id, {"reason": "foreign_google_account"})
         await session.commit()
         raise AppError("REAUTH_REQUIRED", "این حساب Google متعلق به پروفایل شما نیست.", 401, {"method": "google"})
