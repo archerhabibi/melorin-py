@@ -205,7 +205,9 @@ async def test_flood_of_duplicate_callbacks_stores_a_bounded_number_of_small_row
         junk = {**params, **{f"x{i}": "A" * 10_000 for i in range(60)}}
         for _ in range(30):
             await payments.handle_callback(s, "fake_gw", junk)
-        rows = (await s.scalars(select(PaymentAttempt).where(PaymentAttempt.payment_id == p.id, PaymentAttempt.result == "duplicate"))).all()
+        rows = (
+            await s.scalars(select(PaymentAttempt).where(PaymentAttempt.payment_id == p.id, PaymentAttempt.result == "duplicate"))
+        ).all()
         assert len(rows) == payments.MAX_DUPLICATE_ATTEMPTS
         assert all(len(r.data) <= 20 and all(len(v) <= 200 for v in r.data.values()) for r in rows)
         assert await _balance(s, user, store) == 5_000
