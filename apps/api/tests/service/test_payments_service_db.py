@@ -1,6 +1,7 @@
 """M7.1: payment service against real tables - intent idempotency, callbacks (success, duplicate, tampered),
 review approval, failure and refund. A fake gateway adapter is plugged in through the registry."""
 
+import datetime as dt
 import uuid
 
 import pytest
@@ -151,47 +152,79 @@ async def test_only_wallet_topups_are_accepted_and_unknown_gateway_is_rejected(g
         assert exc.value.code == "GATEWAY_UNKNOWN"
 
 
-async def test_gateway_failure_on_create_is_unknown_and_never_blindly_retried(gateway, monkeypatch):
-    async def boom(*a, **k):
-        gateway.intents += 1
-        raise RuntimeError("gateway response lost after request")
+async def test_gateway_failure_is_unknown_and_same_key_never_reissues_create(gateway, monkeypatch):
+    calls = 0
 
-    # Count calls independently of the fake's normal successful implementation.
+    async def boom(*a, **k):
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("gateway 500")
+
     monkeypatch.setattr(gateway, "create_payment_intent", boom)
     async with open_session() as s:
         store, user = await _setup(s)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(AppError) as first:
             await _intent(s, store, user)
+        assert first.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN" and first.value.status == 503
         p = await s.scalar(select(Payment))
-        assert p.meta["external_operation"] == "unknown" and p.status == "pending"
+        assert p.meta["external_operation"] == "create_unknown" and p.meta["reconciliation_required"] is True
         assert (await s.scalar(select(PaymentAttempt.result).where(PaymentAttempt.payment_id == p.id))) == "unknown"
         with pytest.raises(AppError) as retry:
             await _intent(s, store, user)
-        assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN" and retry.value.status == 409
-        assert retry.value.details["payment_id"] == str(p.id)
-        assert gateway.intents == 1
+        assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN" and calls == 1
 
 
-async def test_stale_creating_intent_is_not_replayed_after_process_crash(gateway):
+async def test_abandoned_create_lease_is_promoted_to_unknown_without_reissuing(gateway):
     async with open_session() as s:
         store, user = await _setup(s)
-        p = Payment(
-            user_id=user.id,
-            store_id=store.id,
-            purpose="wallet_topup",
-            provider="fake_gw",
-            amount=5_000,
-            currency=store.currency,
-            status="pending",
-            idempotency_key="crashed-create",
-            meta={"external_operation": "creating"},
+        payment = Payment(
+            user_id=user.id, store_id=store.id, purpose="wallet_topup", provider="fake_gw", amount=5_000,
+            currency=store.currency, status="pending", idempotency_key="idem-stale",
+            meta={"external_operation": "creating", "create_started_at": (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=3)).isoformat()},
         )
-        s.add(p)
+        s.add(payment)
         await s.commit()
-        with pytest.raises(AppError) as retry:
-            await _intent(s, store, user, key="crashed-create")
-        assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN"
-        assert gateway.intents == 0
+        with pytest.raises(AppError) as exc:
+            await _intent(s, store, user, key="idem-stale")
+        assert exc.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN"
+        await s.refresh(payment)
+        assert payment.meta["external_operation"] == "create_unknown"
+        assert payment.meta["reconciliation_required"] is True and gateway.intents == 0
+
+
+async def test_unmatched_callback_cannot_resolve_an_unknown_create_or_credit_wallet(gateway, monkeypatch):
+    async def provider_claims_success(params, payment, *, settings):
+        return CallbackResult(str(payment.id), params.get("Authority"), True, dict(params))
+
+    monkeypatch.setattr(gateway, "verify_callback", provider_claims_success)
+    async with open_session() as s:
+        store, user = await _setup(s)
+        payment = Payment(
+            user_id=user.id, store_id=store.id, purpose="wallet_topup", provider="fake_gw", amount=5_000,
+            currency=store.currency, status="pending", idempotency_key="idem-unknown", meta={"external_operation": "create_unknown", "reconciliation_required": True},
+        )
+        s.add(payment)
+        await s.commit()
+        result = await payments.handle_callback(s, "fake_gw", {"pid": str(payment.id), "Status": "OK", "Authority": "AUTH-FROM-ANOTHER-PAYMENT"})
+        assert result.status == "pending"
+        assert await _balance(s, user, store) == 0
+        attempt = await s.scalar(select(PaymentAttempt).where(PaymentAttempt.payment_id == payment.id, PaymentAttempt.action == "callback"))
+        assert attempt.result == "unmatched_unknown"
+        assert attempt.data["provider_verification_succeeded"] is True
+
+
+async def test_same_key_while_provider_call_is_in_flight_is_not_reported_as_a_ready_intent(gateway, monkeypatch):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        payment = Payment(
+            user_id=user.id, store_id=store.id, purpose="wallet_topup", provider="fake_gw", amount=5_000,
+            currency=store.currency, status="pending", idempotency_key="idem-1", meta={"external_operation": "creating", "create_started_at": dt.datetime.now(dt.timezone.utc).isoformat()},
+        )
+        s.add(payment)
+        await s.commit()
+        with pytest.raises(AppError) as exc:
+            await _intent(s, store, user)
+        assert exc.value.code == "PAYMENT_INTENT_IN_PROGRESS" and gateway.intents == 0
 
 
 # ------------------------------------------------------------- callbacks

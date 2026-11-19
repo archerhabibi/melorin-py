@@ -25,6 +25,7 @@ log = logging.getLogger("melorin.payments")
 
 
 _CURRENCY_CHECKED = frozenset({"zarinpal", "external_gateway", "crypto", "telegram_stars"})
+CREATE_INTENT_IN_FLIGHT_SECONDS = 120  # comfortably above the gateway adapters' 15-second HTTP timeout
 
 
 def _check_currency(provider: str, currency: str) -> None:
@@ -69,25 +70,6 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
 
 
-def _existing_intent_result(payment: Payment) -> tuple[Payment, dict]:
-    """Return a completed intent, or fail closed when its provider outcome is not known.
-
-    A timeout/exception is not proof that a provider rejected the request: it may have
-    created a charge before the response was lost. Replaying the create call could then
-    create a second charge. Such intents must be reconciled with the provider first.
-    """
-    meta = payment.meta or {}
-    operation = meta.get("external_operation")
-    if operation == "created" and (payment.external_ref or meta.get("instructions") is not None):
-        return payment, meta.get("instructions") or {}
-    raise AppError(
-        "PAYMENT_INTENT_OUTCOME_UNKNOWN",
-        "نتیجه ایجاد پرداخت نزد درگاه هنوز مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست مجدداً ارسال نمی‌شود.",
-        409,
-        {"payment_id": str(payment.id), "action": "reconcile_with_provider"},
-    )
-
-
 async def create_intent(
     session: AsyncSession,
     *,
@@ -106,7 +88,31 @@ async def create_intent(
     if existing:
         if existing.amount != amount or existing.provider != provider or existing.purpose != purpose:
             raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با درخواست دیگری استفاده شده است.", 409)
-        return _existing_intent_result(existing)
+        operation = (existing.meta or {}).get("external_operation")
+        if operation == "created":
+            return existing, (existing.meta or {}).get("instructions", {})
+        if operation == "creating":
+            started_raw = (existing.meta or {}).get("create_started_at")
+            try:
+                if not isinstance(started_raw, str):
+                    raise ValueError("missing create start timestamp")
+                started = dt.datetime.fromisoformat(started_raw)
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=dt.timezone.utc)
+                stale = (utcnow() - started).total_seconds() > CREATE_INTENT_IN_FLIGHT_SECONDS
+            except ValueError:
+                stale = True
+            if stale:
+                existing.meta = {**(existing.meta or {}), "external_operation": "create_unknown", "reconciliation_required": True}
+                await session.commit()
+                raise AppError("PAYMENT_INTENT_OUTCOME_UNKNOWN", "درخواست ایجاد پرداخت بیش از زمان مجاز باز مانده است؛ برای جلوگیری از پرداخت تکراری، دوباره ارسال نمی‌شود.", 409)
+            raise AppError("PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید هنوز در حال پردازش است؛ کمی بعد وضعیت آن را بررسی کنید.", 409)
+        if operation in ("create_unknown", "unknown", None):
+            if operation is None:
+                existing.meta = {**(existing.meta or {}), "external_operation": "create_unknown", "reconciliation_required": True}
+                await session.commit()
+            raise AppError("PAYMENT_INTENT_OUTCOME_UNKNOWN", "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست دوباره ارسال نمی‌شود.", 409)
+        raise AppError("PAYMENT_INTENT_UNAVAILABLE", "وضعیت درخواست پرداخت قابل استفاده نیست؛ با پشتیبانی تماس بگیرید.", 409)
     if purpose != "wallet_topup":
         raise AppError("WALLET_ONLY", "پرداخت فقط برای شارژ کیف پول است؛ خرید از کیف پول انجام می‌شود.", 400)
     await flags.ensure_enabled(session, "payment", store_id=store.id)
@@ -128,22 +134,24 @@ async def create_intent(
         currency=store.currency,
         status=P.PENDING,
         idempotency_key=idempotency_key,
-        # Persist an explicit in-flight marker before crossing the network boundary.
-        # A process crash at any point after this commit is treated as an unknown
-        # provider outcome and is never blindly replayed.
-        meta={"external_operation": "creating"},
+        meta={"external_operation": "creating", "create_started_at": utcnow().isoformat()},
     )
     session.add(p)
     try:
         await session.flush()
         await session.commit()  # persist before the external call
-    except IntegrityError:
+    except IntegrityError as exc:
         await session.rollback()
         existing = await session.scalar(
             select(Payment).where(Payment.user_id == user.id, Payment.store_id == store.id, Payment.idempotency_key == idempotency_key)
         )
         if existing:
-            return _existing_intent_result(existing)
+            operation = (existing.meta or {}).get("external_operation")
+            if operation == "created":
+                return existing, (existing.meta or {}).get("instructions", {})
+            if operation in ("create_unknown", "unknown", None):
+                raise AppError("PAYMENT_INTENT_OUTCOME_UNKNOWN", "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ درخواست دوباره ارسال نمی‌شود.", 409) from exc
+            raise AppError("PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید در حال پردازش است؛ وضعیت آن را دوباره بررسی کنید.", 409) from exc
         raise
     try:
         res = await adapter.create_payment_intent(
@@ -151,16 +159,24 @@ async def create_intent(
         )
     except Exception as exc:
         log.warning("payment create failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
-        # Any exception after sending the request is ambiguous unless an adapter can
-        # positively prove that no provider-side operation was created. The current
-        # adapter contract cannot make that distinction, so record UNKNOWN and require
-        # reconciliation instead of permitting an unsafe retry.
-        p.meta = {"external_operation": "unknown", "error_type": type(exc).__name__}
+        # A timeout/transport error can happen after the provider accepted the request. Without a
+        # provider-side idempotency contract, retrying create here can charge the customer twice.
+        # Persist an explicit unknown outcome and require reconciliation instead of blind retry.
+        p.meta = {
+            "external_operation": "create_unknown",
+            "create_started_at": (p.meta or {}).get("create_started_at"),
+            "reconciliation_required": True,
+            "error_type": type(exc).__name__,
+        }
         session.add(PaymentAttempt(payment_id=p.id, action="create", result="unknown", data={"error_type": type(exc).__name__}))
         await session.commit()
-        raise
+        raise AppError(
+            "PAYMENT_INTENT_OUTCOME_UNKNOWN",
+            "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست را دوباره ارسال نکنید و با پشتیبانی تماس بگیرید.",
+            503,
+        ) from exc
     p.external_ref = res.external_ref
-    p.meta = {"external_operation": "created", "instructions": res.instructions}
+    p.meta = {"external_operation": "created", "instructions": res.instructions, "reconciliation_required": False}
     session.add(PaymentAttempt(payment_id=p.id, action="create", result="ok", data={"external_ref": res.external_ref}))
     await session.commit()
     return p, res.instructions
@@ -553,6 +569,29 @@ async def handle_callback(session: AsyncSession, provider: str, params: dict) ->
         session.commit()
     )  # read-only: releases the pooled connection before the outbound HTTP call (expire_on_commit=False keeps objects usable)
     res = await adapter.verify_callback(params, p, settings=cfg)
+    operation = (p.meta or {}).get("external_operation")
+    if operation in ("creating", "create_unknown", "unknown") and not p.external_ref:
+        # A callback authority alone is not enough to bind a lost create response to this payment:
+        # another customer's same-amount authority could otherwise be replayed against this pid.
+        # Even a positive provider verification is not sufficient without a trusted binding to this
+        # payment ID. Keep it pending and retain the result for an authenticated reconciliation flow.
+        session.add(
+            PaymentAttempt(
+                payment_id=pid_,
+                action="callback",
+                result="unmatched_unknown",
+                data={"raw": res.raw, "provider_verification_succeeded": res.succeeded},
+            )
+        )
+        await session.commit()
+        return p
+    if res.succeeded and res.external_ref:
+        locked = await session.get(Payment, pid_, with_for_update=True, populate_existing=True)
+        if locked is None:
+            raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+        if locked.external_ref and locked.external_ref != res.external_ref:
+            raise AppError("PAYMENT_REFERENCE_MISMATCH", "شناسه پرداخت درگاه با رکورد پرداخت سازگار نیست.", 409)
+        locked.external_ref = res.external_ref
     session.add(PaymentAttempt(payment_id=pid_, action="callback", result="ok" if res.succeeded else "failed", data=res.raw))
     await session.commit()
     return await (mark_succeeded(session, pid_) if res.succeeded else mark_failed(session, pid_, reason="پرداخت ناموفق بود."))

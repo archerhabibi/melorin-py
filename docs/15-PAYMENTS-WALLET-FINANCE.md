@@ -1,7 +1,7 @@
 # پرداخت، کیف پول و مالی / Payments, Wallet & Finance
 
 > **وضعیت / Status:** مرجع جاری / Current canonical
-> **آخرین بازبینی / Last review:** 2026-11-16
+> **آخرین بازبینی / Last review:** 2026-11-19
 > **فهرست / Index:** [00](00-DOCUMENTATION-INDEX.md)
 
 ## بخش فارسی
@@ -11,6 +11,8 @@
 **مسئولیت‌ها (تفکیک شده):** Payments دریافت و تأیید پول را انجام می‌دهد؛ Wallet اعتبار قابل استفاده مشتری را نگه می‌دارد؛ Consolidation اعتبار حساب‌های یک شخص را تجمیع می‌کند. تجربهٔ مشتری یک کیف پول است؛ بک‌اند سه مسئولیت جدا.
 
 **قواعد:** همهٔ خریدها از Wallet همان Store؛ پرداخت خارجی فقط شارژ است؛ هر تغییر موجودی یک تراکنش متوازن دفترکل با کلید idempotency است. کیف پول هر (Store، Currency) مستقل است و جمع نمی‌شود.
+
+**چرخهٔ ایجاد پرداخت و نتیجهٔ نامعلوم:** رکورد پرداخت قبل از تماس با درگاه با وضعیت `creating` و همان کلید idempotency پایدار می‌شود. درخواست تکراری در زمان اجرای تماس، `409 PAYMENT_INTENT_IN_PROGRESS` می‌گیرد و هرگز تماس دوم با درگاه ایجاد نمی‌کند. اگر تماس درگاه خطا بدهد یا پاسخ آن گم شود، نتیجه `create_unknown` و نیازمند تطبیق دستی ثبت می‌شود؛ همان کلید دیگر درخواست ایجاد را تکرار نمی‌کند. lease رهاشده پس از ۱۲۰ ثانیه نیز به `create_unknown` ارتقا می‌یابد. callback با شناسهٔ درگاهِ تطبیق‌نیافته به‌تنهایی مجوز اتصال تراکنش یا شارژ کیف پول نیست؛ برای جلوگیری از replay شناسهٔ پرداخت مشتری دیگر، در صف تطبیق باقی می‌ماند.
 
 **یکپارچه‌سازی:** کیف پول مبدأ حذف نمی‌شود (وضعیت `consolidated` + `consolidated_into_id`)؛ درخواست‌های جدید به کیف پول مرکزی می‌روند. مانع‌ها: پرداخت/سفارش در جریان، حساب نماینده، بدهی. جزئیات در سند 08.
 
@@ -23,6 +25,8 @@
 **Responsibilities (kept separate):** Payments receives and confirms money; Wallet holds the customer's usable credit; Consolidation merges the credit of one person's accounts. The customer sees one wallet; the backend keeps three responsibilities.
 
 **Rules:** every purchase is paid from the Wallet of the same Store; external payment only tops up; every balance change is a balanced ledger transaction with an idempotency key. Each (Store, Currency) wallet is independent and never summed with another.
+
+**Payment-intent creation and unknown outcomes:** persist the payment as `creating` before calling the gateway. A duplicate request while the gateway call is in flight receives `409 PAYMENT_INTENT_IN_PROGRESS`; it never starts a second gateway request. If the call fails or its response is lost, persist `create_unknown` and require reconciliation; the same idempotency key must never reissue create. An abandoned `creating` lease is promoted to `create_unknown` after 120 seconds. An unmatched callback authority alone must not be attached to a payment or credit a wallet: it may belong to another customer's same-amount transaction and remains for reconciliation.
 
 **Consolidation:** source wallets are not deleted (status `consolidated` + `consolidated_into_id`); new requests go to the central wallet. Blockers: in-flight payment/order, reseller account, debt. Details in doc 08.
 
