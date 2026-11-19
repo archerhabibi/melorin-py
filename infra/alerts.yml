@@ -50,6 +50,11 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations: {summary: "A worker job keeps failing on individual items (see the job label and the worker log)", summary_fa: "یک کار پس‌زمینه روی چند مورد پشت‌سرهم خطا می‌دهد", hint_fa: "برچسب «کار» را ببینید و لاگ worker را بخوانید."}
+      - alert: MelorinWorkerJobLockUnavailable
+        expr: sum by (job) (increase(melorin_job_runs_total{outcome="lock_error"}[5m])) > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "A scheduled worker job could not acquire its distributed lock", summary_fa: "یک کار پس‌زمینه به‌دلیل در دسترس نبودن قفل Redis اجرا نشد", hint_fa: "اتصال Redis و لاگ کانتینر worker را فوراً بررسی کنید."}
   # M7.6: traffic, business and housekeeping signals (HTTP, payments, provisioning, reseller bots, backups).
   - name: melorin-traffic
     rules:
