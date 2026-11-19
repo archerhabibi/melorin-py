@@ -283,11 +283,11 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 رجیستری `melorin.core.metrics` در حافظهٔ هر process جداگانه است. API مسیر `/metrics` را ارائه می‌کرد و تنها target در `infra/prometheus.yml` نیز `api:8000` بود؛ در حالی که ARQ worker در container/process جدا اجرا می‌شود. بنابراین counterهای `melorin_job_runs_total`، `melorin_job_item_failures_total` و histogramهای wrapper در worker ثبت می‌شدند اما Prometheus آن‌ها را scrape نمی‌کرد. در نتیجه alert موجود `MelorinJobItemFailures` عملاً ورودی worker را نمی‌دید و lock failure نیز سیگنال مانیتورینگ نداشت.
 
 اصلاح در [PR #135](https://github.com/archerhabibi/melorin-py/pull/135):
-- یک HTTP scrape endpoint کوچک در خود worker روی `worker:8001/metrics` اضافه شده؛ بدون publish کردن port روی host و فقط در شبکهٔ داخلی Compose.
+- یک HTTP scrape endpoint کوچک در processهای background یعنی ARQ worker و scheduler بکاپ روی `:8001/metrics` اضافه شده؛ بدون publish کردن port روی host و فقط در شبکهٔ داخلی Compose.
 - endpoint با همان `MELORIN_METRICS_TOKEN` احراز هویت Bearer می‌کند؛ در production نبود token به 503 منجر می‌شود و token اشتباه 401 می‌گیرد.
-- startup/shutdown مربوط به ARQ endpoint را مدیریت می‌کنند.
-- Prometheus target جدید `melorin-worker` را scrape می‌کند؛ `honor_labels` برچسب نام job واقعی را حفظ می‌کند.
+- startup/shutdown مربوط به ARQ و lifecycle مربوط به scheduler بکاپ endpointها را مدیریت می‌کنند.
+- Prometheus target جدید `melorin-worker` هر دو سرویس `worker:8001` و `backup:8001` را scrape می‌کند؛ `honor_labels` برچسب نام job واقعی را حفظ می‌کند.
 - alert بحرانی `MelorinWorkerJobLockUnavailable` برای `outcome="lock_error"` اضافه شده است.
 - تست‌ها احراز هویت، مسیر توسعه، نبود token در production، lifecycle و پیکربندی scrape/alert را می‌پوشانند.
 
-اعتبارسنجی محلی: 18 تست مرتبط worker/metrics موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API نیز با Docker ساخته شد. CI کامل PR #135 هنوز باید بررسی شود.
+اعتبارسنجی محلی: 19 تست مرتبط worker/metrics/backup موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API نیز با Docker ساخته شد. CI کامل PR #135 هنوز باید بررسی شود.
