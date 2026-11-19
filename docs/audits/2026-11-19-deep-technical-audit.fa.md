@@ -276,3 +276,18 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 
 
 وضعیت CI پس از پیگیری: PRهای #130، #131، #132 و #133 همگی هر سه job را با موفقیت گذرانده‌اند. برای PR #134، web E2E موفق شده و quality و PostgreSQL هنوز در حال اجرا هستند؛ تا پایان آن‌ها این PR را تأیید نهایی‌شده تلقی نمی‌کنیم.
+
+
+### یافتهٔ تکمیلی: AUD-008 — متریک‌های worker به Prometheus نمی‌رسیدند (P1)
+
+رجیستری `melorin.core.metrics` در حافظهٔ هر process جداگانه است. API مسیر `/metrics` را ارائه می‌کرد و تنها target در `infra/prometheus.yml` نیز `api:8000` بود؛ در حالی که ARQ worker در container/process جدا اجرا می‌شود. بنابراین counterهای `melorin_job_runs_total`، `melorin_job_item_failures_total` و histogramهای wrapper در worker ثبت می‌شدند اما Prometheus آن‌ها را scrape نمی‌کرد. در نتیجه alert موجود `MelorinJobItemFailures` عملاً ورودی worker را نمی‌دید و lock failure نیز سیگنال مانیتورینگ نداشت.
+
+اصلاح در [PR #135](https://github.com/archerhabibi/melorin-py/pull/135):
+- یک HTTP scrape endpoint کوچک در خود worker روی `worker:8001/metrics` اضافه شده؛ بدون publish کردن port روی host و فقط در شبکهٔ داخلی Compose.
+- endpoint با همان `MELORIN_METRICS_TOKEN` احراز هویت Bearer می‌کند؛ در production نبود token به 503 منجر می‌شود و token اشتباه 401 می‌گیرد.
+- startup/shutdown مربوط به ARQ endpoint را مدیریت می‌کنند.
+- Prometheus target جدید `melorin-worker` را scrape می‌کند؛ `honor_labels` برچسب نام job واقعی را حفظ می‌کند.
+- alert بحرانی `MelorinWorkerJobLockUnavailable` برای `outcome="lock_error"` اضافه شده است.
+- تست‌ها احراز هویت، مسیر توسعه، نبود token در production، lifecycle و پیکربندی scrape/alert را می‌پوشانند.
+
+اعتبارسنجی محلی: 18 تست مرتبط worker/metrics موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API نیز با Docker ساخته شد. CI کامل PR #135 هنوز باید بررسی شود.
