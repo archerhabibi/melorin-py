@@ -4,9 +4,10 @@ All 23 jobs (22 periodic ``*_job`` + ``poll_tick``) go through :func:`tracked_jo
 job itself: the return value and any exception are passed through unchanged. What it adds, identically for each job:
 
 * **lock** - a Redis ``SET NX EX`` lock per job name so a slow run is never overlapped by the next tick (ARQ's
-  ``unique=True`` only de-duplicates one scheduled slot). Fail-open: no Redis, or a Redis error, means "run anyway".
+  ``unique=True`` only de-duplicates one scheduled slot). Fail-closed: if Redis is absent or errors, the job is not
+  executed; the exception is surfaced to ARQ and counted as ``lock_error``.
 * **timeout** - optional ``asyncio.wait_for`` budget (off by default; ARQ's ``job_timeout`` stays the hard limit).
-* **metrics** - ``melorin_job_runs_total{job,outcome}`` (ok / error / timeout / skipped), the duration histogram
+* **metrics** - ``melorin_job_runs_total{job,outcome}`` (ok / error / timeout / skipped / lock_error), the duration histogram
   ``melorin_job_duration_seconds{job}`` and the gauge ``melorin_job_last_success_timestamp{job}`` for staleness alerts.
 * **error policy** - one place that logs the failure (with traceback) and re-raises.
 """
@@ -42,22 +43,28 @@ def item_failed(job: str) -> None:
 
 DEFAULT_LOCK_TTL = 130  # a little above ARQ's default job_timeout (120 s)
 
+
+class JobLockUnavailableError(RuntimeError):
+    """A scheduled job was refused because its distributed overlap guard is unavailable."""
+
+
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
 
 
 async def _acquire(name: str, ttl: int) -> tuple[bool, str | None]:
-    """``(may_run, token)``. Fail-open: any Redis problem lets the job run (the lock is a guard, not a gate)."""
+    """Acquire the distributed overlap guard or refuse to run when its state is unknown."""
     try:
         redis = get_redis()
         if redis is None:
-            return True, None
+            raise JobLockUnavailableError("Redis is not configured")
         token = uuid.uuid4().hex
         if await redis.set(LOCK_PREFIX + name, token, nx=True, ex=ttl):
             return True, token
         return False, None
-    except Exception:  # noqa: BLE001 - lock infrastructure must never stop a job
-        log.warning("job %s: lock backend unavailable, running without a lock", name)
-        return True, None
+    except JobLockUnavailableError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - an unknown lock state must never be treated as unlocked
+        raise JobLockUnavailableError("Redis could not confirm the worker lock") from exc
 
 
 async def _release(name: str, token: str | None) -> None:
@@ -87,7 +94,12 @@ def tracked_job(
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             token: str | None = None
             if lock:
-                may_run, token = await _acquire(name, lock_ttl)
+                try:
+                    may_run, token = await _acquire(name, lock_ttl)
+                except JobLockUnavailableError:
+                    metrics.inc("melorin_job_runs_total", job=name, outcome="lock_error")
+                    log.exception("job %s refused: distributed lock is unavailable", name)
+                    raise
                 if not may_run:
                     metrics.inc("melorin_job_runs_total", job=name, outcome="skipped")
                     log.info("job %s skipped: previous run still holds the lock", name)
