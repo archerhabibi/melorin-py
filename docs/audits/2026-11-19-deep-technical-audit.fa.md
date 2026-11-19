@@ -275,7 +275,7 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 این‌ها تست‌های آفلاین/شبیه‌سازی‌شده‌اند و جایگزین restore واقعی از backup رمزنگاری‌شده در مقصد مستقل یا deploy روی host Production نیستند.
 
 
-وضعیت CI پس از پیگیری: PRهای #130، #131، #132 و #133 همگی هر سه job را با موفقیت گذرانده‌اند. برای PR #134، web E2E موفق شده و quality و PostgreSQL هنوز در حال اجرا هستند؛ تا پایان آن‌ها این PR را تأیید نهایی‌شده تلقی نمی‌کنیم.
+وضعیت CI پس از پیگیری: PRهای #130، #131، #132 و #133 همگی هر سه job را با موفقیت گذرانده‌اند. PR #134 نیز هر سه job (quality، PostgreSQL، web E2E) را با موفقیت گذرانده است.
 
 
 ### یافتهٔ تکمیلی: AUD-008 — متریک‌های worker به Prometheus نمی‌رسیدند (P1)
@@ -291,3 +291,6 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - تست‌ها احراز هویت، مسیر توسعه، نبود token در production، lifecycle و پیکربندی scrape/alert را می‌پوشانند.
 
 اعتبارسنجی محلی: 19 تست مرتبط worker/metrics/backup موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API نیز با Docker ساخته شد. CI کامل PR #135 هنوز باید بررسی شود.
+
+
+وضعیت CI برای PR #135: run مربوط به head نهایی پس از آخرین تغییرات در صف اجراست؛ تست‌های محلی و promtool روی نسخهٔ نهایی مجدداً موفق شدند.
