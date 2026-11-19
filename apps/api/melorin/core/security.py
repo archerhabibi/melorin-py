@@ -55,7 +55,7 @@ def safe_equal(a: str | bytes | None, b: str | bytes | None) -> bool:
 _SCRYPT = dict(log2n=16, r=8, p=2, dklen=32)  # mutable on purpose: tests/conftest.py lowers log2n for speed (guarded by a contract test)
 _SCRYPT_MAXMEM = 160 * 1024 * 1024
 # Each scrypt costs ~64 MiB: bound how many run at once so a login flood cannot exhaust the container's memory.
-_KDF_SLOTS = asyncio.Semaphore(3)
+_KDF_SLOTS = asyncio.Semaphore(2)  # per API process; with 2 uvicorn workers => at most 4 x 64 MiB at once
 
 
 def _scrypt(password: str, salt: bytes, log2n: int, r: int, p: int) -> bytes:

@@ -1,0 +1,8 @@
+# Test fixtures and historical generated patch files contain obviously fake credentials (V-029).
+title = "melorin gitleaks config"
+[extend]
+useDefault = true
+[allowlist]
+description = "fake credentials used by tests and archived patches"
+paths = ['''(^|/)tests?/''', '''\.patch$''', '''docs/.*\.md$''']
+regexes = ['''abcdefgh1234''']

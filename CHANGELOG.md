@@ -20,6 +20,8 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 - Web nginx: 6 MB bodies, 404 for missing assets, gzip; Prometheus lifecycle endpoint off (V-008, V-009, V-024).
 - Alerts: `MelorinApiDown` and `MelorinAlertSeriesAbsent`; the main Telegram bot idles (healthy) when no token is configured (V-006, V-005).
 - Python 3.12 is enforced at import (V-02); grace credit has a `min_account_age_hours` setting and needs a proof signal (V-22).
+- Third pass: the OCR base URL goes through the shared outbound policy at save time and (resolved, non-blocking) before every vision call (V-021); a per-store daily cap (`MELORIN_RECEIPT_OCR_DAILY_CAP`, default 300) stops a customer burning the paid OCR budget (V-21); a failed Google sign-in also drops the single-use nonce cookie (V-11).
+- API runs 2 uvicorn workers by default (`MELORIN_API_WORKERS`) with a concurrency limit and 2 concurrent KDFs per process (V-028); CI gets a SQLite lane (V-40) and a gitleaks allow-list for fake fixtures (V-029).
 
 ## [Unreleased] - 2026-11-18
 
