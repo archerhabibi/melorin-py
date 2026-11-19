@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit, events, flags
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.core.invariants import require
 from melorin.core.crypto import decrypt
 from melorin.domain.order_state import PaymentStatus
 from melorin.kernel.models.identity import User
@@ -464,8 +465,7 @@ async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_
                 ) from exc
             raise
         await _lock_payment(session, payment_id)
-        confirmed = await _lock_refund_op(session, payment_id)
-        assert confirmed is not None
+        confirmed = require(await _lock_refund_op(session, payment_id), "refund operation")
         confirmed.external_ref = result.external_ref or f"refund-{confirmed.id}"
         await session.commit()  # the gateway outcome is durable BEFORE the ledger changes
         raw = result.raw
