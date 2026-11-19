@@ -260,6 +260,10 @@ if [ "$EXTERNAL_PROXY" = "true" ]; then
 fi
 echo "  SMTP / S3: not required. Enable them later in Admin -> Settings -> Integrations."
 echo "  Backups: encrypted, daily 02:00 UTC, stored locally in the api_storage volume (/app/var/backups)."
+if [ -z "${BACKUP_OFFSITE_URI:-}" ] && ! grep -q '^MELORIN_BACKUP_OFFSITE_URI=.\+' .env 2>/dev/null; then
+  echo "  !! No OFF-SITE backup target is configured: backups live on this same disk, so losing this server loses them too (audit V-027)."
+  echo "     Set BACKUP_OFFSITE_URI (an rclone remote, e.g. s3:bucket/melorin) and re-run, or add MELORIN_BACKUP_OFFSITE_URI to .env."
+fi
 echo "  Server log: changes made on this server are recorded automatically in ${APP_DIR}/var/ops-log.md (add reasons with scripts/ops_log.sh)."
 echo "  Reseller bots: the reseller runner always starts; it stays idle until a reseller registers a bot token in Core."
 if [ "${NEW_BACKUP_KEY:-0}" = 1 ]; then

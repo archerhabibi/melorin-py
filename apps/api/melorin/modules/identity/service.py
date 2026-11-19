@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import uuid
 from urllib.parse import parse_qsl
 
@@ -91,6 +92,12 @@ async def issue_tokens(
     )
 
 
+def _ua_class(ua: str | None) -> str:
+    """A browser's coarse identity: the user-agent with every version number removed, so an auto-update does not log anyone out
+    but a refresh token replayed from a different browser/OS family is noticed (audit V-06)."""
+    return re.sub(r"[\d._]+", "", (ua or "").lower()).strip()[:200]
+
+
 async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> TokenPair:
     from melorin.core import channel as ch
     from melorin.kernel.models.stores import Store
@@ -106,6 +113,14 @@ async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> Token
         raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
     if rt.expires_at.replace(tzinfo=rt.expires_at.tzinfo or dt.UTC) < utcnow():
         raise AppError("INVALID_REFRESH", "نشست منقضی شده است.", 401)
+    ua = request.headers.get("user-agent") if request is not None else None
+    if rt.user_agent and ua and _ua_class(rt.user_agent) != _ua_class(ua):
+        # The token was minted for one kind of client and is being presented by another: treat it as stolen, kill the family
+        # before it can mint a second pair (closes the "one free refresh" window of a stolen token).
+        await session.execute(update(RefreshToken).where(RefreshToken.family_id == rt.family_id).values(revoked_at=utcnow()))
+        audit.security_event(session, "refresh_client_mismatch", rt.user_id)
+        await session.commit()
+        raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
     if rt.channel not in ch.CHANNELS or (rt.channel == ch.ADMIN) != (rt.store_id is None):
         raise AppError("INVALID_REFRESH", "نشست قدیمی است؛ دوباره وارد شوید.", 401)  # legacy / unbound family
     user = await session.get(User, rt.user_id)
@@ -126,7 +141,7 @@ async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> Token
     rt.revoked_at = utcnow()
     # Rotation is atomic: the old token is revoked before the replacement is issued (same channel, same store), and
     # reuse of the old token revokes its whole family.
-    pair = await issue_tokens(session, user, chan, family=rt.family_id)
+    pair = await issue_tokens(session, user, chan, family=rt.family_id, ua=ua or rt.user_agent)
     await session.commit()
     return pair
 

@@ -11,6 +11,8 @@
 #   0) Exit
 #
 # Shortcuts:  melorin install|update|status|restart|logs|panel
+# Deliberately WITHOUT -e (unlike get.sh): the interactive menu must survive a failed action and return to the prompt; every
+# step that matters checks its own status (`|| { err ...; return 1; }`). Audit V-036.
 set -uo pipefail
 
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -270,6 +272,15 @@ do_update() {
   if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
     local newest; newest="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)"
     if [ -n "$newest" ]; then info "Newest release tag is $newest; updating to it instead of moving '$REPO_REF'."; REPO_REF="$newest"; fi
+  fi
+  # Optional release-signature gate (audit V-020): MELORIN_REQUIRE_SIGNED_TAGS=1 refuses any ref that is not a tag signed by a key
+  # already in this host's GPG keyring (import the maintainer's public key first). Off by default so unsigned pre-release tags still work.
+  if [ "${MELORIN_REQUIRE_SIGNED_TAGS:-0}" = "1" ]; then
+    git rev-parse --verify --quiet "refs/tags/${REPO_REF}" >/dev/null \
+      || { err "MELORIN_REQUIRE_SIGNED_TAGS=1 but '$REPO_REF' is not a tag."; return 1; }
+    git verify-tag "$REPO_REF" >/dev/null 2>&1 \
+      || { err "Tag $REPO_REF has no valid signature from a trusted key - refusing to update."; return 1; }
+    info "Tag $REPO_REF signature verified."
   fi
   git -c advice.detachedHead=false checkout --quiet --detach "$(resolve_ref)" \
     || { err "Checkout failed - there are local edits to tracked files in $APP_DIR."; return 1; }

@@ -45,7 +45,8 @@ RUN useradd --create-home --uid 10001 appuser
 COPY apps/api/melorin ./melorin
 COPY apps/api/alembic ./alembic
 COPY apps/api/alembic.ini apps/api/pyproject.toml ./
-COPY scripts ./scripts
+# Only what runs INSIDE this image (backup + restore-verification tooling); the installer/ops scripts stay on the host (audit V-025).
+COPY scripts/backup_secure.sh scripts/backup_panel.sh scripts/backup_restore_drill.sh scripts/backup_restore_verify.sh scripts/verify_panel_backup.sh scripts/telegram_healthcheck.py ./scripts/
 RUN mkdir -p /app/var/storage && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8000
