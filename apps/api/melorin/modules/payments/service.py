@@ -113,8 +113,8 @@ async def create_intent(
             raise AppError(
                 "PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید هنوز در حال پردازش است؛ کمی بعد وضعیت آن را بررسی کنید.", 409
             )
-        if operation in ("create_unknown", "unknown", None):
-            if operation is None:
+        if operation in ("create_unknown", "unknown", "create_failed", None):
+            if operation != "create_unknown":
                 existing.meta = {**(existing.meta or {}), "external_operation": "create_unknown", "reconciliation_required": True}
                 await session.commit()
             raise AppError(
@@ -159,7 +159,7 @@ async def create_intent(
             operation = (existing.meta or {}).get("external_operation")
             if operation == "created":
                 return existing, (existing.meta or {}).get("instructions", {})
-            if operation in ("create_unknown", "unknown", None):
+            if operation in ("create_unknown", "unknown", "create_failed", None):
                 raise AppError(
                     "PAYMENT_INTENT_OUTCOME_UNKNOWN", "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ درخواست دوباره ارسال نمی‌شود.", 409
                 ) from exc
