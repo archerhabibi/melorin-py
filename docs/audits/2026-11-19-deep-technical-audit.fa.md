@@ -394,3 +394,14 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 | `account_number` | string یا null | فقط رقم، طول 8 تا 26 |
 
 `clean_settings` مقادیر boolean را از integer تفکیک می‌کند، کلیدهای ناشناخته را رد می‌کند و `None` را برای reset به default می‌پذیرد. UI مشترک در `packages/web-kit/src/bankSms.js` دقیقاً همین پنج فیلد را ارسال می‌کند. بنابراین اصلاح schema باید این قرارداد را حفظ کند؛ مدل Pydantic باید strict باشد، فیلدهای ناشناخته را رد کند و semantics مربوط به `None` را از بین نبرد. این بررسی صرفاً دامنهٔ اصلاح را دقیق کرده و هنوز تغییری در schema یا OpenAPI ایجاد نشده است.
+
+
+### اصلاح قرارداد Bank SMS — PR #142 در 2026-11-20
+
+- [PR #142](https://github.com/archerhabibi/melorin-py/pull/142) با شاخهٔ مستقل `fix/bank-sms-settings-openapi-contract` ایجاد شد؛ هدف آن `main` است و هنوز ادغام نشده است.
+- `BankSmsSettingsIn` به‌عنوان مدل تو‌در‌توی Pydantic اضافه شد. پنج فیلد مجاز از نظر نوع و محدوده تعریف شده‌اند؛ integerها از boolean تفکیک می‌شوند، کلیدهای اضافی رد می‌شوند و `None` برای reset به مقدار پیش‌فرض حفظ شده است.
+- snapshot مربوط به OpenAPI و فایل TypeScript تولیدشده نیز در همان PR به‌روزرسانی شده‌اند تا `settings` دیگر `Record<string, never>` نباشد.
+- تست قرارداد جدید برای مرزهای عددی، strict بودن نوع‌ها، کلید ناشناخته و semantics مربوط به reset اضافه شده است.
+- دو run مربوط به CI در زمان ثبت این یادداشت در وضعیت queued بودند؛ بنابراین هنوز نتیجهٔ تست یا اعتبار snapshot را سبز اعلام نمی‌کنیم. پس از تکمیل CI باید ناسازگاری احتمالی تولید مجدد OpenAPI/types بررسی شود.
+
+این PR مشکل schema را در backend و قرارداد تولیدشده هدف می‌گیرد؛ cast موجود در Admin Web تا زمان اتصال این قرارداد به شاخهٔ مهاجرت UI عمداً حذف نشده است. PRهای #139 تا #142 باز هستند و هیچ تغییری به `main` وارد نشده است.
