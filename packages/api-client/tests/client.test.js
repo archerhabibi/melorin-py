@@ -83,3 +83,31 @@ test('raw: bearer + one refresh on 401, body verbatim, unread Response back', as
   assert.equal(calls[0][1].headers.Authorization, 'Bearer old');
   assert.equal(calls[1][1].headers.Authorization, 'Bearer new');
 });
+
+
+test('rawGet builds a schema-path URL, preserves binary response and auth refresh', async () => {
+  const calls = [];
+  let token = 'old';
+  const binary = new Response(new Uint8Array([0, 1, 2]), { status: 200, headers: { 'Content-Type': 'image/png' } });
+  const api = createApiClient({
+    baseUrl: 'https://api.example.test',
+    getAccessToken: () => token,
+    refresh: async () => ((token = 'new'), true),
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return calls.length === 1 ? reply(401, {}) : binary;
+    },
+  });
+  const response = await api.rawGet('/api/v1/admin/payments/{payment_id}/receipt', {
+    params: { path: { payment_id: 'pay/1' } },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Content-Type'), 'image/png');
+  assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [0, 1, 2]);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, 'https://api.example.test/api/v1/admin/payments/pay%2F1/receipt');
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal(calls[0].init.headers.Accept, '*/*');
+  assert.equal(calls[0].init.headers.Authorization, 'Bearer old');
+  assert.equal(calls[1].init.headers.Authorization, 'Bearer new');
+});

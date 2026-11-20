@@ -8,7 +8,7 @@ import { Drawer, Field, Section, Switch, num, tint } from '../../shared/kit.tsx'
 import { Badge, dt, sid } from '../../shared/ui.tsx';
 
 import { prov, reviewable, refundable, ago, copy, ProviderChip, Amount } from './paymentsShared.tsx';
-import type { CallFn, Json, Toast } from '../../shared/types.ts';
+import type { Json, Toast } from '../../shared/types.ts';
 
 export function RowActions({ p, busy, on, compact = false }: { p?: Json; busy?: Json; on?: Json; compact?: Json }) {
   const b = compact ? '!px-2' : '';
@@ -147,14 +147,14 @@ export function PaymentDrawer({
   on,
   onClose,
   toast,
-  call,
+  receipt,
 }: {
   p?: Json;
   busy?: Json;
   on?: Json;
   onClose?: Json;
   toast: Toast;
-  call: CallFn;
+  receipt: (paymentId: string) => Promise<Response>;
 }) {
   const [img, setImg] = useState<Json>(null);
   const [loadingImg, setLoadingImg] = useState(false);
@@ -170,7 +170,7 @@ export function PaymentDrawer({
   const preview = async () => {
     setLoadingImg(true);
     try {
-      const r = await call(`/api/v1/admin/payments/${p.id}/receipt`);
+      const r = await receipt(String(p.id));
       if (!r.ok) return toast('نمایش رسید ناموفق بود');
       const blob = await r.blob();
       if (blob.type.startsWith('image/')) setImg(URL.createObjectURL(blob));

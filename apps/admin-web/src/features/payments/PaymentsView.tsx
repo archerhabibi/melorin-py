@@ -125,6 +125,10 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       params: { path: { payment_id: id } },
       body: { reason },
     });
+  const receipt = (paymentId: string) =>
+    client.rawGet('/api/v1/admin/payments/{payment_id}/receipt', {
+      params: { path: { payment_id: paymentId } },
+    });
   const on = {
     approve: async (p: Json) => {
       if (
@@ -149,7 +153,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
     },
     receipt: async (p: Json) => {
       try {
-        const r = await call(`/api/v1/admin/payments/${p.id}/receipt`);
+        const r = await receipt(String(p.id));
         if (!r.ok) return toast('نمایش رسید ناموفق بود');
         const url = URL.createObjectURL(await r.blob());
         window.open(url, '_blank', 'noopener');
@@ -412,7 +416,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           p={open}
           busy={busy === open.id}
           on={on}
-          call={call}
+          receipt={receipt}
           toast={toast}
           onClose={() => setSel(null)}
         />

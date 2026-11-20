@@ -112,6 +112,8 @@ export function createApiClient({
   return {
     request,
     raw,
+    /** @param {string} path @param {{ params?: { path?: Record<string, any>, query?: Record<string, any> }, headers?: Record<string, string>, signal?: AbortSignal }} [init] */
+    rawGet: (path, init = {}) => raw(`${buildPath(path, init.params?.path)}${buildQuery(init.params?.query)}`, { method: 'GET', headers: { Accept: '*/*', ...(init.headers || {}) }, signal: init.signal }),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
     get: (path, init) => request('get', path, init),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
