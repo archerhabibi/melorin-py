@@ -62,7 +62,7 @@ class BankSmsSettingsIn(BaseModel):
     time_tolerance_minutes: StrictInt | None = Field(default=None, ge=0, le=30)
     require_claimed_time: StrictBool | None = None
     max_auto_amount_rial: StrictInt | None = Field(default=None, ge=1, le=10**13)
-    account_number: str | None = Field(default=None, max_length=128)
+    account_number: str | None = None
 
 
 class BankSmsSourceIn(BaseModel):
