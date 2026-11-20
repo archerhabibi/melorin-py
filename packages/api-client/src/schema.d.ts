@@ -7511,6 +7511,22 @@ export interface components {
             payment_id: string;
         };
         /**
+         * BankSmsSettingsIn
+         * @description Typed subset of bank-SMS matching settings; null values reset individual settings to defaults.
+         */
+        BankSmsSettingsIn: {
+            /** Account Number */
+            account_number?: string | null;
+            /** Max Auto Amount Rial */
+            max_auto_amount_rial?: number | null;
+            /** Require Claimed Time */
+            require_claimed_time?: boolean | null;
+            /** Time Tolerance Minutes */
+            time_tolerance_minutes?: number | null;
+            /** Window Minutes */
+            window_minutes?: number | null;
+        };
+        /**
          * BankSmsSourceIn
          * @description Everything is optional: only the sent fields change. The token is created with the source and shown once.
          */
@@ -7524,7 +7540,7 @@ export interface components {
             /** Senders */
             senders?: string[] | null;
             /** Settings */
-            settings?: Record<string, never> | null;
+            settings?: components["schemas"]["BankSmsSettingsIn"] | null;
         };
         /** Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post */
         Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post: {
