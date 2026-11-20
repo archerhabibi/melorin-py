@@ -69,6 +69,31 @@ afterEach(() => {
 });
 
 describe('receipt review panel (time-boxed manual review)', () => {
+  it('uses the reseller receipt-review route with a typed store path parameter', async () => {
+    const requests = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
+      const target = String(url);
+      requests.push([target, init]);
+      if (target.includes('/receipt-duplicates/settings')) return json({ policy: 'warn' });
+      return json(queue());
+    }));
+    const call = vi.fn(async () => json({ ok: true }));
+    render(
+      <>
+        <ReceiptReviewPanel
+          call={call}
+          toast={vi.fn()}
+          base="/api/v1/stores/s-reseller/reseller"
+        />
+        <DialogHost />
+      </>,
+    );
+    expect(await screen.findByText(/تا تأیید موقت/)).toBeInTheDocument();
+    expect(requests.some(([url]) =>
+      url.includes('/api/v1/stores/s-reseller/reseller/receipt-review'),
+    )).toBe(true);
+  });
+
   it('formats the countdown as mm:ss and never goes negative', () => {
     expect(clock(240)).toBe('۰۴:۰۰');
     expect(clock(-5)).toBe('۰۰:۰۰');
