@@ -6,7 +6,7 @@ import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.ts
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptDuplicatePolicy from './ReceiptDuplicatePolicy.tsx';
 import type { CallFn, Json, Toast } from '../../shared/types.ts';
-import { JSON_H, CUR, toInt, clock } from './receiptHelpers';
+import { CUR, toInt, clock } from './receiptHelpers';
 import { Row } from './ReceiptRow';
 
 const ADMIN_QUEUE = '/api/v1/admin/stores/{store_id}/receipt-review' as const;
@@ -42,7 +42,7 @@ export default function ReceiptReviewPanel({
   const [now, setNow] = useState(() => Date.now());
   const client = useMemo(() => typedClient(API_BASE), []);
   const isReseller = base?.includes('/reseller') ?? false;
-  const storeId = base?.match(/\\/stores\\/([^/]+)/)?.[1] || '';
+  const storeId = base?.split('/stores/')[1]?.split('/')[0] || '';
   const skew = useRef(0);
 
   const apply = useCallback((d: Json) => {
