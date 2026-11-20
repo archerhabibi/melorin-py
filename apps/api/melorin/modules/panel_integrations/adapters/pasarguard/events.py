@@ -179,7 +179,8 @@ def _fingerprint(item: dict) -> str:
         text = json.dumps(item, sort_keys=True, default=str)
     except (TypeError, ValueError):
         text = repr(item)
-    return hashlib.sha1(text.encode("utf-8", "ignore"), usedforsecurity=False).hexdigest()[:12]
+    # Non-cryptographic dedup fingerprint (never a signature or auth check), so SHA-1 is fine here.
+    return hashlib.sha1(text.encode("utf-8", "ignore"), usedforsecurity=False).hexdigest()[:12]  # nosemgrep: insecure-hash-algorithm-sha1
 
 
 MAX_TRIES = 1000
