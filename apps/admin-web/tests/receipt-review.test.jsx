@@ -54,7 +54,10 @@ function setup(q = queue()) {
   return { calls, toast };
 }
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe('receipt review panel (time-boxed manual review)', () => {
   it('formats the countdown as mm:ss and never goes negative', () => {
@@ -199,15 +202,21 @@ describe('receipt OCR settings', () => {
     expect(screen.getByText(/abcdef12.*۱|abcdef12.*1 پرداخت در فروشگاه دیگر/)).toBeInTheDocument();
   });
 
-  it('shows the duplicate-picture policy (warn by default) and saves a switch to block', async () => {
-    const { calls, toast } = setup();
+  it('shows the duplicate-picture policy (warn by default) and saves a switch to block through the typed admin route', async () => {
+    const requests = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
+      requests.push([String(url), init]);
+      const policy = init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn';
+      return json({ policy });
+    }));
+    const { toast } = setup();
     const block = await screen.findByRole('radio', { name: 'رد کردن' });
     expect(screen.getByRole('radio', { name: 'فقط هشدار' })).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(block);
     await waitFor(() => expect(toast).toHaveBeenCalledWith('تنظیم رسید تکراری ذخیره شد'));
-    expect(calls.find(([m, p]) => m === 'PUT' && p === `${BASE}/receipt-duplicates/settings`)[2]).toBe(
-      JSON.stringify({ policy: 'block' }),
-    );
+    const put = requests.find(([url, init]) => url.includes('/api/v1/admin/stores/s-main/receipt-duplicates/settings') && init.method === 'PUT');
+    expect(put).toBeTruthy();
+    expect(JSON.parse(put[1].body)).toEqual({ policy: 'block' });
     expect(screen.getByRole('radio', { name: 'رد کردن' })).toHaveAttribute('aria-checked', 'true');
   });
 });
