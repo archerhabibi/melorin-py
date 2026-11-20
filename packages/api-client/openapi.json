@@ -1132,8 +1132,6 @@
           "max_auto_amount_rial": {
             "anyOf": [
               {
-                "maximum": 10000000000000,
-                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -1156,8 +1154,6 @@
           "time_tolerance_minutes": {
             "anyOf": [
               {
-                "maximum": 30,
-                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1169,8 +1165,6 @@
           "window_minutes": {
             "anyOf": [
               {
-                "maximum": 10080,
-                "minimum": 5,
                 "type": "integer"
               },
               {
