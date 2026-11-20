@@ -5,7 +5,7 @@ import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react
 import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
 import type { RequestBody } from '@melorin/api-client';
 import { API_BASE, typedClient } from '../../api/api.ts';
-import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
+import { Empty, Field, Section, Switch, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
 import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
