@@ -326,3 +326,45 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - [PR #141](https://github.com/archerhabibi/melorin-py/pull/141): صف بازبینی رسید، ذخیره تنظیمات grace و تصمیم‌های تأیید/رد به API نوع‌دار منتقل شدند؛ هر دو route ادمین و نماینده پوشش داده شده‌اند. این PR به‌صورت stacked روی #139 ساخته شده تا تغییرات مشترک ReceiptReviewPanel مستقل و بدون تعارض بازبینی شوند. CI هنوز آغاز نشده/در انتظار ثبت run است.
 
 در این سه مرحله، helper عمومی فقط برای دریافت فایل binary رسید در ReceiptReviewPanel باقی مانده است؛ این مسیر دانلود در گام جداگانه با API client خام اما path-typed بررسی خواهد شد. PRهای #139 تا #141 باز هستند و هیچ‌کدام merge نشده‌اند.
+
+
+
+### بازبینی CI مهاجرت Admin Web — 2026-11-20
+
+وضعیت headهای PRها از GitHub Actions دوباره بررسی شد:
+
+| PR | موضوع | نتیجهٔ آخرین CI | جزئیات |
+|---|---|---|---|
+| #137 | عملیات کوپن | موفق | quality، PostgreSQL و web E2E سبز |
+| #138 | دانلود binary رسید پرداخت | موفق | quality، PostgreSQL و web E2E سبز |
+| #139 | سیاست رسید تکراری | ناموفق | PostgreSQL و web E2E سبز؛ quality فقط در `npm run format:check` شکست خورد |
+| #140 | عملیات Bank SMS | ناموفق | PostgreSQL و web E2E سبز؛ quality فقط در `npm run format:check` شکست خورد |
+| #141 | صف و تصمیم‌های بازبینی رسید | ناموفق | PostgreSQL و web E2E سبز؛ quality فقط در `npm run format:check` شکست خورد |
+
+جزئیات مرحلهٔ Prettier از logهای همان job:
+- #139: `apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx` و `apps/admin-web/tests/receipt-review.test.jsx`.
+- #140: `apps/admin-web/tests/bank-sms-panel.test.jsx`.
+- #141: همان دو فایل مرتبط با ReceiptDuplicatePolicy و receipt-review در tree این PR.
+
+بنابراین شکست این سه pipeline در این run ناشی از تست PostgreSQL یا Web E2E نیست؛ gate قالب‌بندی Admin Web است. این PRها تا اصلاح قالب‌بندی و اجرای مجدد CI نباید green تلقی شوند. #137 و #138 همچنان سبز هستند.
+
+### وضعیت PRهای اصلاحی ممیزی
+
+در بررسی مجدد headهای PRهای #130 تا #135، همه باز و merge نشده‌اند، mergeable گزارش شده‌اند و آخرین run هرکدام موفق است. هیچ‌یک از تغییرات به main وارد نشده‌اند.
+
+### نکتهٔ تکمیلی در قرارداد OpenAPI مربوط به Bank SMS
+
+در بازبینی PR #140 یک ناهماهنگی schema شناسایی شد: فیلد `settings` در schema تولیدشدهٔ `BankSmsSourceIn` به شکل `Record<string, never>` تایپ شده، در حالی که مدل backend یک دیکشنری تنظیمات را می‌پذیرد و UI چند فیلد مشخص را ارسال می‌کند. در کد فعلی برای عبور از این محدودیت از cast به `SourceBody` استفاده شده است. این cast نباید به‌عنوان حل مسئله تلقی شود.
+
+راه‌حل پیشنهادی در PR مستقل بعدی:
+- تعریف مدل Pydantic مشخص برای تنظیمات Bank SMS (از جمله `window_minutes`، `time_tolerance_minutes`، `require_claimed_time`، `max_auto_amount_rial` و `account_number` در صورت پشتیبانی backend)؛
+- ممنوع کردن فیلدهای ناشناخته در schema ورودی؛
+- افزودن تست‌های validation برای مقادیر مجاز/نامعتبر؛
+- بازتولید OpenAPI و client types؛
+- حذف cast سمت Admin Web و اتکا به schema دقیق.
+
+این مورد هنوز اصلاح نشده و باید به‌عنوان بدهی قرارداد API باز بماند.
+
+### وضعیت ادغام و مرزهای اعتبارسنجی
+
+تمام PRهای #130 تا #141 همچنان باز هستند؛ هیچ PRی merge نشده و `main` تغییر نکرده است. تست‌های واقعی providerها، تنظیم secrets مربوط به Deploy و restore واقعی از S3 همچنان خارج از شواهد این دور باقی می‌مانند.
