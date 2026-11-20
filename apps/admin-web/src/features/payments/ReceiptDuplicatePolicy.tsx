@@ -30,7 +30,7 @@ export function duplicateLine(dup: Json) {
 
 export default function ReceiptDuplicatePolicy({ toast, base }: { toast: Toast; base?: string }) {
   const client = useMemo(() => typedClient(API_BASE), []);
-  const storeId = base?.split('/').filter(Boolean).at(-1) || '';
+  const storeId = base?.match(/\/stores\/([^/]+)/)?.[1] || '';
   const [policy, setPolicy] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
   const isReseller = base?.includes('/reseller') ?? false;
