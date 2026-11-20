@@ -262,15 +262,7 @@ describe('receipt OCR settings', () => {
   });
 
   it('shows the duplicate-picture policy (warn by default) and saves a switch to block through the typed admin route', async () => {
-    const requests = [];
-    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
-      const target = String(url);
-      requests.push([target, init]);
-      if (target.includes('/receipt-review') && !target.includes('/receipt-duplicates')) return json(queue());
-      const policy = init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn';
-      return json({ policy });
-    }));
-    const { toast } = setup();
+    const { requests, toast } = setup();
     const block = await screen.findByRole('radio', { name: 'رد کردن' });
     expect(screen.getByRole('radio', { name: 'فقط هشدار' })).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(block);
