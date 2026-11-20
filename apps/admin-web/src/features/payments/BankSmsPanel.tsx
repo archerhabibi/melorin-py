@@ -1,8 +1,10 @@
 // تأیید خودکار کارت‌به‌کارت با پیامک بانک (main store): settings, one-time webhook token, the forwarded SMS inbox and the
 // human fallback (pair / ignore). Core decides every match; this panel only edits settings and shows what Core stored.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
 import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
+import type { RequestBody } from '@melorin/api-client';
+import { API_BASE, typedClient } from '../../api/api.ts';
 import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
@@ -15,7 +17,17 @@ const STATUS: Rec = {
   ignored: ['نادیده', 'b-mu'],
   unparsed: ['نامفهوم', 'b-bd'],
 };
-const JSON_H = { 'Content-Type': 'application/json' };
+const SOURCE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/source' as const;
+const OVERVIEW_PATH = '/api/v1/admin/stores/{store_id}/bank-sms' as const;
+const TOKEN_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/token' as const;
+const RECONCILE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/reconcile' as const;
+const IGNORE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore' as const;
+const LINK_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link' as const;
+type SourceBody = RequestBody<typeof SOURCE_PATH, 'put'>;
+const apiError = (error: Json, fallback: string) => {
+  const detail = error?.detail;
+  return error?.error?.message || (typeof detail === 'string' ? detail : detail?.message) || fallback;
+};
 
 export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; toast: Toast; payments?: Json }) {
   const [store, setStore] = useState<Json>(null);
@@ -24,6 +36,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
   const [token, setToken] = useState<Json>(null);
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState('');
+  const client = useMemo(() => typedClient(API_BASE), []);
 
   const apply = (d: Json) => {
     setData(d);
@@ -31,23 +44,30 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
   };
 
   useEffect(() => {
-    call('/api/v1/me/stores')
-      .then((r: Json) => (r.ok ? r.json() : []))
-      .then((l: Json) => setStore((l.find((x: Json) => x.kind === 'main') || {}).id || false))
+    client
+      .get('/api/v1/me/stores')
+      .then(({ data, response }) => {
+        if (!response.ok) return setStore(false);
+        const stores = (data as Json[]) || [];
+        setStore((stores.find((x: Json) => x.kind === 'main') || {}).id || false);
+      })
       .catch(() => setStore(false));
-  }, [call]);
+  }, [client]);
 
   const base = store ? `/api/v1/admin/stores/${store}/bank-sms` : null;
+  const pathParams = { path: { store_id: String(store || '') } };
   const load = useCallback(async () => {
     if (!base) return;
     try {
-      const r = await call(`${base}${filter ? `?status=${filter}` : ''}`);
-      if (r.ok) apply(await r.json());
-      else toast(await errText(r, 'دریافت پیامک‌های بانک ناموفق بود'));
+      const { data, response, error } = await client.get(OVERVIEW_PATH, {
+        params: { ...pathParams, query: { status: filter || undefined } },
+      });
+      if (response.ok) apply(data as Json);
+      else toast(apiError(error as Json, 'دریافت پیامک‌های بانک ناموفق بود'));
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     }
-  }, [base, call, filter, toast]);
+  }, [base, client, filter, store, toast]);
   useEffect(() => {
     load();
   }, [load]);
@@ -65,9 +85,12 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
   const save = () =>
     run('save', async () => {
       const body = sourceBody(form);
-      const r = await call(`${base}/source`, { method: 'PUT', headers: JSON_H, body: JSON.stringify(body) });
-      if (!r.ok) return toast(await errText(r, 'ذخیره ناموفق بود'));
-      const d = await r.json();
+      const { data, response, error } = await client.put(SOURCE_PATH, {
+        params: pathParams,
+        body: body as SourceBody,
+      });
+      if (!response.ok) return toast(apiError(error as Json, 'ذخیره ناموفق بود'));
+      const d = data as Json;
       if (d.token) setToken(d.token);
       toast('تنظیمات ذخیره شد');
       load();
@@ -82,27 +105,26 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
         }))
       )
         return;
-      const r = await call(`${base}/token`, { method: 'POST' });
-      if (!r.ok) return toast(await errText(r, 'تعویض توکن ناموفق بود'));
-      setToken((await r.json()).token);
+      const { data, response, error } = await client.post(TOKEN_PATH, { params: pathParams });
+      if (!response.ok) return toast(apiError(error as Json, 'تعویض توکن ناموفق بود'));
+      setToken((data as Json).token);
       load();
     });
   const reconcile = () =>
     run('reconcile', async () => {
-      const r = await call(`${base}/reconcile`, { method: 'POST' });
-      if (!r.ok) return toast(await errText(r, 'بررسی دوباره ناموفق بود'));
-      const d = await r.json();
+      const { data, response, error } = await client.post(RECONCILE_PATH, { params: pathParams });
+      if (!response.ok) return toast(apiError(error as Json, 'بررسی دوباره ناموفق بود'));
+      const d = data as Json;
       toast(d.matched ? `${num(d.matched)} پرداخت تطبیق و شارژ شد` : 'مورد جدیدی برای تطبیق نبود');
       load();
     });
   const ignore = (m: Json, ignored: Json) =>
     run(m.id, async () => {
-      const r = await call(`${base}/${m.id}/ignore`, {
-        method: 'POST',
-        headers: JSON_H,
-        body: JSON.stringify({ ignored }),
+      const { response, error } = await client.post(IGNORE_PATH, {
+        params: { path: { store_id: String(store), sms_id: String(m.id) } },
+        body: { ignored },
       });
-      if (!r.ok) return toast(await errText(r, 'ناموفق بود'));
+      if (!response.ok) return toast(apiError(error as Json, 'ناموفق بود'));
       load();
     });
   const link = (m: Json, paymentId: Json) =>
@@ -118,13 +140,12 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
         ))
       )
         return;
-      const r = await call(`${base}/${m.id}/link`, {
-        method: 'POST',
-        headers: JSON_H,
-        body: JSON.stringify({ payment_id: paymentId }),
+      const { response, error } = await client.post(LINK_PATH, {
+        params: { path: { store_id: String(store), sms_id: String(m.id) } },
+        body: { payment_id: String(paymentId) },
       });
-      toast(r.ok ? 'پرداخت تأیید و کیف پول شارژ شد' : await errText(r, 'اتصال ناموفق بود'));
-      r.ok && load();
+      toast(response.ok ? 'پرداخت تأیید و کیف پول شارژ شد' : apiError(error as Json, 'اتصال ناموفق بود'));
+      response.ok && load();
     });
 
   if (store === false || !form || !data) {
