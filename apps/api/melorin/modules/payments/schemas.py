@@ -54,6 +54,17 @@ def payment_out(p) -> PaymentOut:
     )
 
 
+class BankSmsSettingsIn(BaseModel):
+    """Typed subset of bank-SMS matching settings; null values reset individual settings to defaults."""
+
+    model_config = ConfigDict(extra="forbid")
+    window_minutes: StrictInt | None = Field(default=None, ge=5, le=10080)
+    time_tolerance_minutes: StrictInt | None = Field(default=None, ge=0, le=30)
+    require_claimed_time: StrictBool | None = None
+    max_auto_amount_rial: StrictInt | None = Field(default=None, ge=1, le=10**13)
+    account_number: str | None = Field(default=None, max_length=128)
+
+
 class BankSmsSourceIn(BaseModel):
     """Everything is optional: only the sent fields change. The token is created with the source and shown once."""
 
@@ -62,7 +73,7 @@ class BankSmsSourceIn(BaseModel):
     is_enabled: bool | None = None
     auto_verify: bool | None = None
     senders: list[str] | None = None
-    settings: dict | None = None
+    settings: BankSmsSettingsIn | None = None
 
 
 class BankSmsLinkIn(BaseModel):
