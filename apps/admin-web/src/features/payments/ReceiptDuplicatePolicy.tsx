@@ -33,18 +33,23 @@ export default function ReceiptDuplicatePolicy({ toast, base }: { toast: Toast; 
   const storeId = base?.split('/').filter(Boolean).at(-1) || '';
   const [policy, setPolicy] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
-  const path = '/api/v1/admin/stores/{store_id}/receipt-duplicates/settings' as const;
+  const isReseller = base?.includes('/reseller') ?? false;
+  const adminPath = '/api/v1/admin/stores/{store_id}/receipt-duplicates/settings' as const;
+  const resellerPath = '/api/v1/stores/{store_id}/reseller/receipt-duplicates/settings' as const;
 
   const load = useCallback(async () => {
     try {
-      const { data, response } = await client.get(path, { params: { path: { store_id: storeId } } });
+      const result = isReseller
+        ? await client.get(resellerPath, { params: { path: { store_id: storeId } } })
+        : await client.get(adminPath, { params: { path: { store_id: storeId } } });
+      const { data, response } = result;
       if (!response.ok) return; // an older server without this feature: show nothing
       const d = data as Json;
       if (d?.policy) setPolicy(d.policy);
     } catch {
       /* transient */
     }
-  }, [client, storeId]);
+  }, [client, isReseller, storeId]);
   useEffect(() => {
     load();
   }, [load]);
@@ -53,10 +58,11 @@ export default function ReceiptDuplicatePolicy({ toast, base }: { toast: Toast; 
     if (busy || next === policy) return;
     setBusy(true);
     try {
-      const { data, response, error } = await client.put(path, {
-        params: { path: { store_id: storeId } },
-        body: { policy: next },
-      });
+      const options = { params: { path: { store_id: storeId } }, body: { policy: next } };
+      const result = isReseller
+        ? await client.put(resellerPath, options)
+        : await client.put(adminPath, options);
+      const { data, response, error } = result;
       if (!response.ok) {
         const e = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
         return toast(e.error?.message || (typeof e.detail === 'string' ? e.detail : '') || 'ذخیره ناموفق بود');
