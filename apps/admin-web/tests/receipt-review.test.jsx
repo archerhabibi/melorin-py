@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import ReceiptReviewPanel from '../src/features/payments/ReceiptReviewPanel.tsx';
 import { clock } from '../src/features/payments/receiptHelpers.ts';
 import ReceiptOcrSettings from '../src/features/payments/ReceiptOcrSettings.tsx';
+import ReceiptDuplicatePolicy from '../src/features/payments/ReceiptDuplicatePolicy.tsx';
 import { DialogHost } from '../src/shared/ui.tsx';
 
 const json = (body, status = 200) =>
@@ -200,6 +201,29 @@ describe('receipt OCR settings', () => {
     );
     expect(await screen.findByText('تصویر تکراری')).toBeInTheDocument();
     expect(screen.getByText(/abcdef12.*۱|abcdef12.*1 پرداخت در فروشگاه دیگر/)).toBeInTheDocument();
+  });
+
+  it('uses the typed reseller route and extracts the store id before the reseller suffix', async () => {
+    const requests = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
+      requests.push([String(url), init]);
+      return json({ policy: init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn' });
+    }));
+    render(
+      <ReceiptDuplicatePolicy
+        toast={vi.fn()}
+        base="/api/v1/stores/s-reseller/reseller"
+      />,
+    );
+    const block = await screen.findByRole('radio', { name: 'رد کردن' });
+    await userEvent.click(block);
+    await waitFor(() =>
+      expect(requests.some(([url, init]) =>
+        url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT',
+      )).toBe(true),
+    );
+    const put = requests.find(([url, init]) => url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT');
+    expect(JSON.parse(put[1].body)).toEqual({ policy: 'block' });
   });
 
   it('shows the duplicate-picture policy (warn by default) and saves a switch to block through the typed admin route', async () => {
