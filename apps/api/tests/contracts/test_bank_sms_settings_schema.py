@@ -23,15 +23,9 @@ def test_bank_sms_settings_accept_supported_values(payload, expected):
 @pytest.mark.parametrize(
     "payload",
     [
-        {"window_minutes": 4},
-        {"window_minutes": 10081},
         {"window_minutes": True},
-        {"time_tolerance_minutes": -1},
-        {"time_tolerance_minutes": 31},
         {"time_tolerance_minutes": False},
         {"require_claimed_time": 1},
-        {"max_auto_amount_rial": 0},
-        {"max_auto_amount_rial": 10**13 + 1},
         {"max_auto_amount_rial": True},
         {"unknown_setting": 1},
     ],
@@ -39,6 +33,22 @@ def test_bank_sms_settings_accept_supported_values(payload, expected):
 def test_bank_sms_settings_reject_invalid_values(payload):
     with pytest.raises(ValidationError):
         BankSmsSettingsIn.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"window_minutes": 4},
+        {"window_minutes": 10081},
+        {"time_tolerance_minutes": -1},
+        {"time_tolerance_minutes": 31},
+        {"max_auto_amount_rial": 0},
+        {"max_auto_amount_rial": 10**13 + 1},
+    ],
+)
+def test_bank_sms_schema_leaves_domain_ranges_to_business_validation(payload):
+    # Request-schema bounds would mask the stable BANK_SMS_SETTING_INVALID domain error.
+    assert BankSmsSettingsIn.model_validate(payload).model_dump(exclude_unset=True) == payload
 
 
 def test_bank_sms_source_settings_are_typed_and_nullable_for_reset():
