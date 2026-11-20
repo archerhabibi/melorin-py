@@ -306,3 +306,14 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - worktree موقت پس از آزمایش حذف شد؛ هیچ ref راه‌دور یا `main` تغییر نکرد.
 
 این بررسی مکمل CI مستقل هر PR است؛ تا زمانی که CI نهایی PR #135 سبز نشود، آن را تأیید نهایی تلقی نمی‌کنیم.
+
+
+### ادامهٔ ممیزی: مهاجرت تدریجی API پنل ادمین به قرارداد OpenAPI
+
+برای کاهش خطاهای ناشی از مسیرها و payloadهای بدون نوع در Admin Web، مهاجرت را به تغییرات کوچک و PRهای مستقل تقسیم کردم:
+
+- [PR #137](https://github.com/archerhabibi/melorin-py/pull/137): عملیات ساخت و تغییر وضعیت کوپن به API client نوع‌دار منتقل شد؛ payload ساخت با schema تولیدشدهٔ `AdminCouponIn` منطبق شد و تست قرارداد UI/API اضافه شد. اعتبارسنجی محلی: 312 تست Admin Web، TypeScript، ESLint، Prettier و production build موفق.
+- [PR #138](https://github.com/archerhabibi/melorin-py/pull/138): دریافت binary رسید پرداخت از مسیر generic به `rawGet` با مسیر و پارامترهای path نوع‌دار منتقل شد؛ تست refresh پس از 401، احراز هویت، content type و encoding مسیر اضافه شد. اعتبارسنجی محلی: 8 تست API client، 310 تست Admin Web، TypeScript، ESLint، Prettier و production build موفق؛ CI run مربوط به head نهایی نیز موفق.
+- [PR #139](https://github.com/archerhabibi/melorin-py/pull/139): GET/PUT تنظیم سیاست رسید تکراری به API client نوع‌دار منتقل شد؛ شناسهٔ فروشگاه path parameter و بدنهٔ PUT از schema تولیدشده استفاده می‌کنند. CI در حال اجراست؛ تا پایان آن نتیجهٔ نهایی اعلام نمی‌شود.
+
+این مهاجرت هنوز کامل نیست. بخش‌هایی از پنل پرداخت، به‌ویژه عملیات Bank SMS و صف بازبینی رسید، همچنان از helper عمومی استفاده می‌کنند و در مراحل بعدی به‌صورت PRهای مجزا بررسی خواهند شد. هیچ‌یک از PRهای فوق merge نشده‌اند و `main` دست‌نخورده باقی مانده است.
