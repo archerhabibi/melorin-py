@@ -3,10 +3,11 @@
 // upload time. "warn" (default) accepts the receipt and flags it for the reviewer; "block" refuses it before it is stored.
 // The same relative path serves the admin (`/admin/stores/:id`) and the reseller (`/stores/:id/reseller`) base.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy } from 'lucide-react';
-import { Segmented, errText } from '../../shared/kit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+import { Segmented } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
+import { API_BASE, typedClient } from '../../api/api.ts';
 
 const OPTIONS = [
   ['warn', 'فقط هشدار'],
@@ -27,21 +28,23 @@ export function duplicateLine(dup: Json) {
   return parts.length ? `همین تصویر قبلاً برای پرداخت ${parts.join(' و ')} ثبت شده است.` : '';
 }
 
-export default function ReceiptDuplicatePolicy({ call, toast, base }: { call: CallFn; toast: Toast; base?: string }) {
+export default function ReceiptDuplicatePolicy({ toast, base }: { toast: Toast; base?: string }) {
+  const client = useMemo(() => typedClient(API_BASE), []);
+  const storeId = base?.split('/').filter(Boolean).at(-1) || '';
   const [policy, setPolicy] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
-  const url = `${base}/receipt-duplicates/settings`;
+  const path = '/api/v1/admin/stores/{store_id}/receipt-duplicates/settings' as const;
 
   const load = useCallback(async () => {
     try {
-      const r = await call(url);
-      if (!r.ok) return; // an older server without this feature: show nothing
-      const d = await r.json();
+      const { data, response } = await client.get(path, { params: { path: { store_id: storeId } } });
+      if (!response.ok) return; // an older server without this feature: show nothing
+      const d = data as Json;
       if (d?.policy) setPolicy(d.policy);
     } catch {
       /* transient */
     }
-  }, [call, url]);
+  }, [client, storeId]);
   useEffect(() => {
     load();
   }, [load]);
@@ -50,9 +53,15 @@ export default function ReceiptDuplicatePolicy({ call, toast, base }: { call: Ca
     if (busy || next === policy) return;
     setBusy(true);
     try {
-      const r = await call(url, { method: 'PUT', body: JSON.stringify({ policy: next }) });
-      if (!r.ok) return toast(await errText(r, 'ذخیره ناموفق بود'));
-      setPolicy((await r.json()).policy);
+      const { data, response, error } = await client.put(path, {
+        params: { path: { store_id: storeId } },
+        body: { policy: next },
+      });
+      if (!response.ok) {
+        const e = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
+        return toast(e.error?.message || (typeof e.detail === 'string' ? e.detail : '') || 'ذخیره ناموفق بود');
+      }
+      setPolicy((data as Json).policy);
       toast('تنظیم رسید تکراری ذخیره شد');
     } catch {
       toast('ارتباط با سرور برقرار نشد');
