@@ -368,3 +368,29 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 ### وضعیت ادغام و مرزهای اعتبارسنجی
 
 تمام PRهای #130 تا #141 همچنان باز هستند؛ هیچ PRی merge نشده و `main` تغییر نکرده است. تست‌های واقعی providerها، تنظیم secrets مربوط به Deploy و restore واقعی از S3 همچنان خارج از شواهد این دور باقی می‌مانند.
+
+
+
+### پیگیری بعدی — بازخوانی دقیق لاگ‌های CI در 2026-11-20
+
+پس از دریافت لاگ کامل jobهای quality، فهرست فایل‌های Prettier با دقت از خود خروجی runner استخراج شد. این فهرست از برداشت اولیهٔ خلاصه‌شده معتبرتر است:
+
+- PR #139: `apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx` و `apps/admin-web/tests/receipt-review.test.jsx`.
+- PR #140: فقط `apps/admin-web/tests/bank-sms-panel.test.jsx`.
+- PR #141: `apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx` و `apps/admin-web/tests/receipt-review.test.jsx`.
+
+در هر سه run، مرحلهٔ format در Store Web موفق است؛ تست‌های receipt-review نیز در بخش اجرای تست‌های Admin Web اجرا شده‌اند، اما job پیش‌تر در format:check متوقف می‌شود. PostgreSQL و Web E2E برای هر سه run موفق‌اند. هنوز commit اصلاح قالب‌بندی روی این PRها ثبت نشده و این موارد باز و قرمز باقی می‌مانند؛ تا زمانی که قالب‌بندی به‌صورت واقعی در branch اصلاح و CI دوباره اجرا نشده باشد، نباید آن‌ها را حل‌شده گزارش کرد.
+
+### بررسی قرارداد واقعی تنظیمات Bank SMS
+
+مدل تنظیمات موجود در backend در `apps/api/melorin/modules/payments/bank_sms/config.py` منبع معتبر قواعد دامنه است. جدول `_SETTING_RULES` پنج کلید مجاز را تعریف می‌کند:
+
+| کلید | نوع | قاعده |
+|---|---|---|
+| `window_minutes` | integer | 5 تا 10080؛ پیش‌فرض 720 |
+| `time_tolerance_minutes` | integer | 0 تا 30؛ پیش‌فرض 5 |
+| `require_claimed_time` | boolean | پیش‌فرض true |
+| `max_auto_amount_rial` | integer یا null | 1 تا 10^13 |
+| `account_number` | string یا null | فقط رقم، طول 8 تا 26 |
+
+`clean_settings` مقادیر boolean را از integer تفکیک می‌کند، کلیدهای ناشناخته را رد می‌کند و `None` را برای reset به default می‌پذیرد. UI مشترک در `packages/web-kit/src/bankSms.js` دقیقاً همین پنج فیلد را ارسال می‌کند. بنابراین اصلاح schema باید این قرارداد را حفظ کند؛ مدل Pydantic باید strict باشد، فیلدهای ناشناخته را رد کند و semantics مربوط به `None` را از بین نبرد. این بررسی صرفاً دامنهٔ اصلاح را دقیق کرده و هنوز تغییری در schema یا OpenAPI ایجاد نشده است.
