@@ -37,13 +37,22 @@ const queue = (over = {}) => ({
 
 function setup(q = queue()) {
   const calls = [];
+  const requests = [];
+  vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
+    const target = String(url);
+    requests.push([target, init]);
+    if (target.includes('/receipt-duplicates/settings')) {
+      const policy = init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn';
+      return json({ policy });
+    }
+    if (target.includes('/receipt-review/settings') && init.method === 'PUT') return json(q.config);
+    if (target.match(/\/receipt-review\/[^/]+$/) && init.method === 'POST') return json({ ok: true });
+    if (target.includes('/receipt-review') && !target.includes('/settings')) return json(q);
+    return json({ detail: 'not found' }, 404);
+  }));
   const call = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
-    if (path.endsWith('/receipt-duplicates/settings'))
-      return json({ policy: o.method === 'PUT' ? JSON.parse(o.body).policy : 'warn' });
-    if (o.method === 'PUT') return json(q.config);
-    if (o.method === 'POST') return json({ ok: true });
-    return json(q);
+    return json({ ok: true });
   });
   const toast = vi.fn();
   render(
@@ -52,9 +61,8 @@ function setup(q = queue()) {
       <DialogHost />
     </>,
   );
-  return { calls, toast };
+  return { calls, requests, toast };
 }
-
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -81,39 +89,41 @@ describe('receipt review panel (time-boxed manual review)', () => {
 
   it('confirms a provisional credit after an explicit dialog and posts the decision', async () => {
     const prov = item({ state: 'open', auto_approve_at: null, credited_at: iso(-120) });
-    const { calls } = setup(queue({ waiting: [], provisional: [prov], exposure_rial: 1500000 }));
+    const { requests } = setup(queue({ waiting: [], provisional: [prov], exposure_rial: 1500000 }));
     await userEvent.click(await screen.findByRole('button', { name: /تأیید نهایی/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'تأیید' }));
-    await waitFor(() => expect(calls.some(([m]) => m === 'POST')).toBe(true));
-    const post = calls.find(([m]) => m === 'POST');
-    expect(post[1]).toBe(`${BASE}/receipt-review/p1`);
-    expect(JSON.parse(post[2])).toEqual({ approve: true });
+    await waitFor(() => expect(requests.some(([url, init]) => url.includes('/receipt-review/p1') && init.method === 'POST')).toBe(true));
+    const post = requests.find(([url, init]) => url.includes('/receipt-review/p1') && init.method === 'POST');
+    expect(JSON.parse(post[1].body)).toEqual({ approve: true });
   });
 
   it('revoking warns that the wallet can go negative and only then calls the API', async () => {
     const prov = item({ state: 'open', auto_approve_at: null, credited_at: iso(-120) });
-    const { calls } = setup(queue({ waiting: [], provisional: [prov] }));
+    const { requests } = setup(queue({ waiting: [], provisional: [prov] }));
     await userEvent.click(await screen.findByRole('button', { name: /لغو و برگشت اعتبار/ }));
     expect(await screen.findByText(/کیف پول منفی می‌شود/)).toBeInTheDocument();
-    expect(calls.some(([m]) => m === 'POST')).toBe(false);
+    expect(requests.some(([url, init]) => url.includes('/receipt-review/p1') && init.method === 'POST')).toBe(false);
     await userEvent.click(screen.getAllByRole('button', { name: /لغو و برگشت اعتبار/ }).at(-1));
-    await waitFor(() => expect(calls.some(([m]) => m === 'POST')).toBe(true));
-    expect(JSON.parse(calls.find(([m]) => m === 'POST')[2])).toEqual({ approve: false });
+    await waitFor(() => expect(requests.some(([url, init]) => url.includes('/receipt-review/p1') && init.method === 'POST')).toBe(true));
+    const post = requests.find(([url, init]) => url.includes('/receipt-review/p1') && init.method === 'POST');
+    expect(JSON.parse(post[1].body)).toEqual({ approve: false });
   });
 
   it('saves the grace settings as integers', async () => {
-    const { calls } = setup(queue({ config: { ...queue().config, enabled: false } }));
+    const { requests } = setup(queue({ config: { ...queue().config, enabled: false } }));
     await userEvent.click(await screen.findByRole('switch', { name: 'تأیید موقت' }));
     await userEvent.click(screen.getByRole('button', { name: 'ذخیره' }));
-    await waitFor(() => expect(calls.some(([m]) => m === 'PUT')).toBe(true));
-    const body = JSON.parse(calls.find(([m]) => m === 'PUT')[2]);
+    await waitFor(() => expect(requests.some(([url, init]) => url.includes('/receipt-review/settings') && init.method === 'PUT')).toBe(true));
+    const body = JSON.parse(requests.find(([url, init]) => url.includes('/receipt-review/settings') && init.method === 'PUT')[1].body);
     expect(body).toMatchObject({ enabled: true, minutes: 5, max_amount_rial: 5000000, max_open_per_user: 1 });
   });
 
   it('renders nothing when the server has no such endpoint (older backend)', async () => {
+    const fetchMock = vi.fn(async () => json({ detail: 'not found' }, 404));
+    vi.stubGlobal('fetch', fetchMock);
     const call = vi.fn(async () => json({ source: {}, messages: [] }));
     const { container } = render(<ReceiptReviewPanel call={call} toast={vi.fn()} base={BASE} />);
-    await waitFor(() => expect(call).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });
