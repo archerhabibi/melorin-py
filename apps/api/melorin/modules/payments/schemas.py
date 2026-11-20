@@ -58,10 +58,10 @@ class BankSmsSettingsIn(BaseModel):
     """Typed subset of bank-SMS matching settings; null values reset individual settings to defaults."""
 
     model_config = ConfigDict(extra="forbid")
-    window_minutes: StrictInt | None = Field(default=None, ge=5, le=10080)
-    time_tolerance_minutes: StrictInt | None = Field(default=None, ge=0, le=30)
+    window_minutes: StrictInt | None = None
+    time_tolerance_minutes: StrictInt | None = None
     require_claimed_time: StrictBool | None = None
-    max_auto_amount_rial: StrictInt | None = Field(default=None, ge=1, le=10**13)
+    max_auto_amount_rial: StrictInt | None = None
     account_number: str | None = None
 
 
