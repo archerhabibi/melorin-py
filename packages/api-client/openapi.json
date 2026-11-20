@@ -1121,7 +1121,6 @@
           "account_number": {
             "anyOf": [
               {
-                "maxLength": 128,
                 "type": "string"
               },
               {
