@@ -55,7 +55,7 @@ def payment_out(p) -> PaymentOut:
 
 
 class BankSmsSettingsIn(BaseModel):
-    """Typed subset of bank-SMS matching settings; null values reset individual settings to defaults."""
+    """Typed keys and value types; range checks stay in the domain layer to preserve business errors."""
 
     model_config = ConfigDict(extra="forbid")
     window_minutes: StrictInt | None = None
