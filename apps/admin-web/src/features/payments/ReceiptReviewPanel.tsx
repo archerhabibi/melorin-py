@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RequestBody } from '@melorin/api-client';
+import { API_BASE, typedClient } from '../../api/api.ts';
 import { Check, Undo2 } from 'lucide-react';
 import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
@@ -6,6 +8,19 @@ import ReceiptDuplicatePolicy from './ReceiptDuplicatePolicy.tsx';
 import type { CallFn, Json, Toast } from '../../shared/types.ts';
 import { JSON_H, CUR, toInt, clock } from './receiptHelpers';
 import { Row } from './ReceiptRow';
+
+const ADMIN_QUEUE = '/api/v1/admin/stores/{store_id}/receipt-review' as const;
+const RESELLER_QUEUE = '/api/v1/stores/{store_id}/reseller/receipt-review' as const;
+const ADMIN_SETTINGS = '/api/v1/admin/stores/{store_id}/receipt-review/settings' as const;
+const RESELLER_SETTINGS = '/api/v1/stores/{store_id}/reseller/receipt-review/settings' as const;
+const ADMIN_RESOLVE = '/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}' as const;
+const RESELLER_RESOLVE = '/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}' as const;
+type SettingsBody = RequestBody<typeof ADMIN_SETTINGS, 'put'>;
+type ResolveBody = RequestBody<typeof ADMIN_RESOLVE, 'post'>;
+const apiError = (error: Json, fallback: string) => {
+  const detail = error?.detail;
+  return error?.error?.message || (typeof detail === 'string' ? detail : detail?.message) || fallback;
+};
 
 export default function ReceiptReviewPanel({
   call,
@@ -25,6 +40,9 @@ export default function ReceiptReviewPanel({
   const [busy, setBusy] = useState('');
   const [failed, setFailed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const client = useMemo(() => typedClient(API_BASE), []);
+  const isReseller = base?.includes('/reseller') ?? false;
+  const storeId = base?.match(/\\/stores\\/([^/]+)/)?.[1] || '';
   const skew = useRef(0);
 
   const apply = useCallback((d: Json) => {
@@ -46,19 +64,22 @@ export default function ReceiptReviewPanel({
   const load = useCallback(async () => {
     if (!base) return;
     try {
-      const r = await call(`${base}/receipt-review`);
-      if (!r.ok) {
+      const result = isReseller
+        ? await client.get(RESELLER_QUEUE, { params: { path: { store_id: storeId } } })
+        : await client.get(ADMIN_QUEUE, { params: { path: { store_id: storeId } } });
+      const { data, response, error } = result;
+      if (!response.ok) {
         setFailed(true);
-        return toast(await errText(r, 'دریافت صف بازبینی ناموفق بود'));
+        return toast(apiError(error as Json, 'دریافت صف بازبینی ناموفق بود'));
       }
-      const d = await r.json();
+      const d = data as Json;
       if (!d?.config) return setFailed(true); // an older server without this feature: show nothing instead of breaking the page
       setFailed(false);
       apply(d);
     } catch {
       /* transient: the next poll retries */
     }
-  }, [apply, base, call, toast]);
+  }, [apply, base, client, isReseller, storeId, toast]);
   useEffect(() => {
     load();
     const poll = setInterval(load, 15000);
@@ -89,12 +110,12 @@ export default function ReceiptReviewPanel({
         max_open_per_user: toInt(form.max_open_per_user),
         max_open_per_origin: toInt(form.max_open_per_origin),
       };
-      const r = await call(`${base}/receipt-review/settings`, {
-        method: 'PUT',
-        headers: JSON_H,
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) return toast(await errText(r, 'ذخیره ناموفق بود'));
+      const options = { params: { path: { store_id: storeId } }, body: body as SettingsBody };
+      const result = isReseller
+        ? await client.put(RESELLER_SETTINGS, options)
+        : await client.put(ADMIN_SETTINGS, options);
+      const { response, error } = result;
+      if (!response.ok) return toast(apiError(error as Json, 'ذخیره ناموفق بود'));
       toast(form.enabled ? 'تأیید موقت فعال شد' : 'تنظیمات ذخیره شد');
       setForm(null);
       load();
@@ -116,12 +137,15 @@ export default function ReceiptReviewPanel({
         },
       );
       if (!ok) return;
-      const r = await call(`${base}/receipt-review/${item.payment_id}`, {
-        method: 'POST',
-        headers: JSON_H,
-        body: JSON.stringify({ approve }),
-      });
-      if (!r.ok) return toast(await errText(r, 'ثبت تصمیم ناموفق بود'));
+      const options = {
+        params: { path: { store_id: storeId, payment_id: String(item.payment_id) } },
+        body: { approve } as ResolveBody,
+      };
+      const result = isReseller
+        ? await client.post(RESELLER_RESOLVE, options)
+        : await client.post(ADMIN_RESOLVE, options);
+      const { response, error } = result;
+      if (!response.ok) return toast(apiError(error as Json, 'ثبت تصمیم ناموفق بود'));
       toast(approve ? 'تأیید شد' : provisional ? 'شارژ موقت لغو شد' : 'رسید رد شد');
       load();
       onChanged?.();
