@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BankSmsPanel from '../src/features/payments/BankSmsPanel.tsx';
@@ -42,13 +42,22 @@ const waiting = {
 
 function setup({ src = source(), messages = [deposit()], put } = {}) {
   const calls = [];
+  const requests = [];
+  vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
+    const target = String(url);
+    requests.push([target, init]);
+    if (target.endsWith('/api/v1/me/stores')) return json([{ id: STORE, kind: 'main' }]);
+    if (target.includes('/bank-sms/source') && init.method === 'PUT')
+      return put ? put() : json({ source: src, token: null });
+    if (target.includes('/bank-sms/token') && init.method === 'POST') return json({ token: 'mlr_sms_SECRET' });
+    if (target.includes('/bank-sms/reconcile') && init.method === 'POST') return json({ ok: true, matched: 0 });
+    if (target.includes('/bank-sms') && !target.includes('/receipt-review')) return json({ source: src, messages });
+    return json({ error: 'n/a' }, 404);
+  }));
   const call = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
-    if (path === '/api/v1/me/stores') return json([{ id: STORE, kind: 'main' }]);
     if (path.endsWith('/receipt-review')) return json({ error: 'n/a' }, 404);
-    if (o.method === 'PUT') return put ? put() : json({ source: src, token: null });
-    if (o.method === 'POST') return json({ ok: true, matched: 0 });
-    return json({ source: src, messages });
+    return json({ ok: true });
   });
   const toast = vi.fn();
   render(
@@ -57,15 +66,16 @@ function setup({ src = source(), messages = [deposit()], put } = {}) {
       <DialogHost />
     </>,
   );
-  return { calls, toast };
+  return { calls, requests, toast };
 }
 
 describe('admin bank-SMS auto verification panel', () => {
+  afterEach(() => vi.unstubAllGlobals());
   it('targets the main store and lists the ambiguous deposit for a human decision', async () => {
-    const { calls } = setup();
+    const { requests } = setup();
     expect(await screen.findByText('302570009152325001')).toBeInTheDocument();
     expect(screen.getAllByText('نیاز به بررسی').length).toBeGreaterThan(0);
-    expect(calls.some(([m, p]) => m === 'GET' && p === BASE)).toBe(true);
+    expect(requests.some(([url, init]) => url.includes(BASE) && !init.method)).toBe(true);
   });
 
   it('offers only the receipt with the same amount when pairing', async () => {
@@ -85,14 +95,13 @@ describe('admin bank-SMS auto verification panel', () => {
   });
 
   it('sends the tuning settings as integers (Persian digits accepted)', async () => {
-    const { calls } = setup();
+    const { requests } = setup();
     const win = await screen.findByLabelText(/بازه‌ی پذیرش/);
     await userEvent.clear(win);
     await userEvent.type(win, '۳۶۰');
     await userEvent.click(screen.getByRole('button', { name: 'ذخیره' }));
-    await waitFor(() => expect(calls.some(([m]) => m === 'PUT')).toBe(true));
-    const put = calls.find(([m]) => m === 'PUT');
-    expect(put[1]).toBe(`${BASE}/source`);
-    expect(JSON.parse(put[2]).settings.window_minutes).toBe(360);
+    await waitFor(() => expect(requests.some(([url, init]) => url.includes(`${BASE}/source`) && init.method === 'PUT')).toBe(true));
+    const put = requests.find(([url, init]) => url.includes(`${BASE}/source`) && init.method === 'PUT');
+    expect(JSON.parse(put[1].body).settings.window_minutes).toBe(360);
   });
 });
