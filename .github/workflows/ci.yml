@@ -49,6 +49,8 @@ jobs:
       - run: lint-imports
       - run: ruff check melorin --config pyproject.toml
       - run: mypy --config-file pyproject.toml  # T41/T-R09: type-checked packages are listed in pyproject.toml; mypy is hash-locked in requirements-dev.txt
+      - name: Diagnose Bank SMS schema test formatting
+        run: ruff format --diff tests/contracts/test_bank_sms_settings_schema.py --config pyproject.toml
       - run: ruff format --check melorin tests alembic --config pyproject.toml
       - run: python -m compileall -q melorin
       - run: pytest -q -n auto -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=75
