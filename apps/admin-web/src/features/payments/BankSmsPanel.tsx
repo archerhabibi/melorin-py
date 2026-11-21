@@ -24,9 +24,19 @@ const RECONCILE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/reconcile' as c
 const IGNORE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore' as const;
 const LINK_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link' as const;
 type SourceBody = RequestBody<typeof SOURCE_PATH, 'put'>;
-const apiError = (error: Json, fallback: string) => {
-  const detail = error?.detail;
-  return error?.error?.message || (typeof detail === 'string' ? detail : detail?.message) || fallback;
+const apiError = (error: unknown, fallback: string) => {
+  if (!error || typeof error !== 'object') return fallback;
+  const payload = error as { detail?: unknown; error?: { message?: unknown } };
+  const detail = payload.detail;
+  return (
+    (typeof payload.error?.message === 'string' ? payload.error.message : null) ||
+    (typeof detail === 'string'
+      ? detail
+      : detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string'
+        ? detail.message
+        : null) ||
+    fallback
+  );
 };
 
 export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; toast: Toast; payments?: Json }) {
@@ -48,8 +58,8 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
       .get('/api/v1/me/stores')
       .then(({ data, response }) => {
         if (!response.ok) return setStore(false);
-        const stores = (data as Json[]) || [];
-        setStore((stores.find((x: Json) => x.kind === 'main') || {}).id || false);
+        const stores = (Array.isArray(data) ? data : []) as { id?: string; kind?: string }[];
+        setStore(stores.find((x) => x.kind === 'main')?.id || false);
       })
       .catch(() => setStore(false));
   }, [client]);
@@ -63,7 +73,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
         params: { ...pathParams, query: { status: filter || undefined } },
       });
       if (response.ok) apply(data as Json);
-      else toast(apiError(error as Json, 'دریافت پیامک‌های بانک ناموفق بود'));
+      else toast(apiError(error, 'دریافت پیامک‌های بانک ناموفق بود'));
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     }
