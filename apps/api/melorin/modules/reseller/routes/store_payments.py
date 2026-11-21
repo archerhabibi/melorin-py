@@ -17,6 +17,7 @@ from melorin.modules.payments.schemas import (
     GraceResolveIn,
     GraceSettingsIn,
     ReceiptDupSettingsIn,
+    ReceiptDupSettingsOut,
     payment_out,
 )
 from melorin.modules.reseller.schemas import (
@@ -141,12 +142,12 @@ async def reseller_receipt_review_resolve(payment_id: uuid.UUID, body: GraceReso
 
 
 # ----- Duplicate receipt pictures (the reseller's own store) -----
-@router.get("/stores/{store_id}/reseller/receipt-duplicates/settings")
+@router.get("/stores/{store_id}/reseller/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def reseller_receipt_dup_settings(ctx: OwnerCtx, session: Session):
     return {"policy": await receipt_fingerprints.get_policy(session, ctx.store.id)}
 
 
-@router.put("/stores/{store_id}/reseller/receipt-duplicates/settings")
+@router.put("/stores/{store_id}/reseller/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def reseller_receipt_dup_save_settings(body: ReceiptDupSettingsIn, ctx: OwnerCtx, session: Session):
     return await receipt_fingerprints.save_policy(session, ctx.store, body.policy, actor_id=ctx.user.id, actor_type="reseller")
 

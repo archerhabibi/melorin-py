@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ReceiptReviewPanel from '../src/features/payments/ReceiptReviewPanel.tsx';
 import { clock } from '../src/features/payments/receiptHelpers.ts';
@@ -35,12 +35,26 @@ const queue = (over = {}) => ({
   ...over,
 });
 
+/** The duplicate-policy control talks to the typed client (global fetch), not to the panel's `call`. */
+function stubPolicyApi(
+  respond = (init) => json({ policy: init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn' }),
+) {
+  const requests = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url, init = {}) => {
+      requests.push({ url: String(url), method: init.method, body: init.body ? JSON.parse(init.body) : undefined });
+      return respond(init);
+    }),
+  );
+  return requests;
+}
+
 function setup(q = queue()) {
+  stubPolicyApi();
   const calls = [];
   const call = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
-    if (path.endsWith('/receipt-duplicates/settings'))
-      return json({ policy: o.method === 'PUT' ? JSON.parse(o.body).policy : 'warn' });
     if (o.method === 'PUT') return json(q.config);
     if (o.method === 'POST') return json({ ok: true });
     return json(q);
@@ -203,53 +217,69 @@ describe('receipt OCR settings', () => {
     expect(screen.getByText(/abcdef12.*۱|abcdef12.*1 پرداخت در فروشگاه دیگر/)).toBeInTheDocument();
   });
 
-  it('uses the typed reseller route and extracts the store id before the reseller suffix', async () => {
-    const requests = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url, init = {}) => {
-        requests.push([String(url), init]);
-        return json({ policy: init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn' });
-      }),
-    );
+  it('saves through the typed reseller route and takes the store id from before the /reseller suffix', async () => {
+    const requests = stubPolicyApi();
     render(<ReceiptDuplicatePolicy toast={vi.fn()} base="/api/v1/stores/s-reseller/reseller" />);
-    const block = await screen.findByRole('radio', { name: 'رد کردن' });
-    await userEvent.click(block);
-    await waitFor(() =>
-      expect(
-        requests.some(
-          ([url, init]) =>
-            url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT',
-        ),
-      ).toBe(true),
-    );
-    const put = requests.find(
-      ([url, init]) =>
-        url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT',
-    );
-    expect(JSON.parse(put[1].body)).toEqual({ policy: 'block' });
+    await userEvent.click(await screen.findByRole('radio', { name: 'رد کردن' }));
+    await waitFor(() => expect(requests.some((r) => r.method === 'PUT')).toBe(true));
+    const URL = '/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings';
+    expect(requests.find((r) => r.method === 'GET').url).toContain(URL);
+    const put = requests.find((r) => r.method === 'PUT');
+    expect(put.url).toContain(URL);
+    expect(put.body).toEqual({ policy: 'block' });
   });
 
   it('shows the duplicate-picture policy (warn by default) and saves a switch to block through the typed admin route', async () => {
-    const requests = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url, init = {}) => {
-        requests.push([String(url), init]);
-        const policy = init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn';
-        return json({ policy });
-      }),
-    );
     const { toast } = setup();
+    const requests = stubPolicyApi();
+    cleanup();
+    render(<ReceiptDuplicatePolicy toast={toast} base={BASE} />);
     const block = await screen.findByRole('radio', { name: 'رد کردن' });
     expect(screen.getByRole('radio', { name: 'فقط هشدار' })).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(block);
     await waitFor(() => expect(toast).toHaveBeenCalledWith('تنظیم رسید تکراری ذخیره شد'));
-    const put = requests.find(
-      ([url, init]) => url.includes('/api/v1/admin/stores/s-main/receipt-duplicates/settings') && init.method === 'PUT',
-    );
-    expect(put).toBeTruthy();
-    expect(JSON.parse(put[1].body)).toEqual({ policy: 'block' });
+    const put = requests.find((r) => r.method === 'PUT');
+    expect(put.url).toContain('/api/v1/admin/stores/s-main/receipt-duplicates/settings');
+    expect(put.body).toEqual({ policy: 'block' });
     expect(screen.getByRole('radio', { name: 'رد کردن' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('keeps the old choice and shows the server message when saving fails', async () => {
+    const toast = vi.fn();
+    stubPolicyApi((init) =>
+      init.method === 'PUT'
+        ? json({ error: { code: 'FORBIDDEN', message: 'دسترسی ندارید.' } }, 403)
+        : json({ policy: 'warn' }),
+    );
+    render(<ReceiptDuplicatePolicy toast={toast} base={BASE} />);
+    await userEvent.click(await screen.findByRole('radio', { name: 'رد کردن' }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('دسترسی ندارید.'));
+    expect(screen.getByRole('radio', { name: 'فقط هشدار' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('reports a network failure instead of throwing', async () => {
+    const toast = vi.fn();
+    let failing = false;
+    stubPolicyApi((init) => {
+      if (init.method === 'PUT') throw new TypeError('network down');
+      failing = true;
+      return json({ policy: 'warn' });
+    });
+    render(<ReceiptDuplicatePolicy toast={toast} base={BASE} />);
+    await userEvent.click(await screen.findByRole('radio', { name: 'رد کردن' }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('ارتباط با سرور برقرار نشد'));
+    expect(failing).toBe(true);
+  });
+
+  it('renders nothing when the policy cannot be loaded, and never calls the API for an unrecognised base', async () => {
+    stubPolicyApi(() => json({ error: { message: 'x' } }, 500));
+    const { container, unmount } = render(<ReceiptDuplicatePolicy toast={vi.fn()} base={BASE} />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(container).toBeEmptyDOMElement();
+    unmount();
+    const requests = stubPolicyApi();
+    const other = render(<ReceiptDuplicatePolicy toast={vi.fn()} base="/api/v1/admin/payments/p1" />);
+    expect(other.container).toBeEmptyDOMElement();
+    expect(requests).toEqual([]);
   });
 });

@@ -26,6 +26,7 @@ from __future__ import annotations
 import dataclasses
 import re
 import uuid
+from typing import get_args
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,10 +36,11 @@ from melorin.core.errors import AppError
 from melorin.domain.order_state import PaymentStatus
 from melorin.kernel.models.payments import Payment, PaymentReceiptFingerprint
 from melorin.kernel.models.stores import Store
+from melorin.modules.payments.schemas import ReceiptDupPolicy
 
 KEY = "payments.receipt_dup.{}"
-POLICIES = ("warn", "block")
-DEFAULT_POLICY = "warn"
+POLICIES: tuple[str, ...] = get_args(ReceiptDupPolicy)
+DEFAULT_POLICY: ReceiptDupPolicy = "warn"
 MAX_MATCHES = 20
 _DEAD = (PaymentStatus.FAILED, PaymentStatus.CANCELLED)
 _FILE_UNIQUE_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")

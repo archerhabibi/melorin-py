@@ -171,7 +171,7 @@ export default function ReceiptReviewPanel({
         ))}
       </ol>
 
-      <ReceiptDuplicatePolicy toast={toast} base={base} />
+      <ReceiptDuplicatePolicy key={base} toast={toast} base={base} />
 
       <details className="group rounded-xl border border-[var(--ln)]" open={!c.enabled}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-xs font-extrabold">
