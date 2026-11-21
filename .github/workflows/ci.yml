@@ -100,6 +100,11 @@ jobs:
         working-directory: apps/admin-web
       - run: npm run typecheck
         working-directory: apps/admin-web
+      - name: Diagnose receipt review formatting
+        run: |
+          npx prettier tests/receipt-review.test.jsx > /tmp/receipt-review.formatted
+          diff -u tests/receipt-review.test.jsx /tmp/receipt-review.formatted || true
+        working-directory: apps/admin-web
       - run: npm run format:check
         working-directory: apps/admin-web
       - run: npm test
