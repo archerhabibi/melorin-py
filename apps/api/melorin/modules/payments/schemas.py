@@ -1,5 +1,6 @@
 import datetime as dt
 import uuid
+from typing import Literal
 
 from melorin.modules.payments.redaction import strip_secrets
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -96,3 +97,9 @@ class ReceiptDupSettingsIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     policy: str
+
+
+class PaymentCreateReconcileIn(BaseModel):
+    action: Literal["bind", "abandon"]
+    external_ref: str | None = Field(default=None, max_length=200)
+    reason: str | None = Field(default=None, max_length=500)
