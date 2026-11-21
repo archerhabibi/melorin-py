@@ -36,6 +36,10 @@ jobs:
       - run: python ../../scripts/check_release_matrix.py
       - run: python ../../scripts/check_g001_g010.py
       - run: python ../../scripts/check_quality_config.py
+      - name: Diagnose generated OpenAPI snapshot
+        run: |
+          python ../../scripts/gen_api_client.py --write
+          git -C ../.. diff -- packages/api-client/openapi.json
       - run: python ../../scripts/gen_api_client.py --check
       - run: python ../../scripts/check_ops_p0.py
       - run: python ../../scripts/gen_docs.py --check
