@@ -39,8 +39,7 @@ jobs:
       - name: Diagnose generated OpenAPI snapshot
         run: |
           python ../../scripts/gen_api_client.py --write
-          (cd ../../packages/api-client && npm run generate)
-          git -C ../.. diff -- packages/api-client/openapi.json packages/api-client/src/schema.d.ts
+          git -C ../.. diff -- packages/api-client/openapi.json
       - run: python ../../scripts/gen_api_client.py --check
       - run: python ../../scripts/check_ops_p0.py
       - run: python ../../scripts/gen_docs.py --check
