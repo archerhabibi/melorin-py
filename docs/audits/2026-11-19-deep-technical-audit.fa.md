@@ -424,3 +424,22 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - اجرای CI مربوط به این head در زمان ثبت این به‌روزرسانی queued است؛ بنابراین snapshot commit‌شده، PostgreSQL lane و quality نهایی هنوز green اعلام نمی‌شوند.
 - در اجرای تشخیصی پیشین، Web E2E موفق بود؛ quality بعداً به‌خاطر format شدن فایل تست قرارداد متوقف شد. آن فایل در head جدید اصلاح شده و باید در CI تازه تأیید شود.
 - هیچ PRی merge نشده و main تغییر نکرده است.
+
+
+### وضعیت تکمیلی remediation و CI — 2026-11-21، 10:40 UTC
+
+اصلاحات قالب‌بندی‌ای که در یادداشت قبلی هنوز باز گزارش شده بودند، اکنون روی branchهای واقعی commit شده‌اند:
+
+- PR #139: فایل `ReceiptDuplicatePolicy.tsx` و تست `receipt-review.test.jsx` با Prettier اصلاح شدند؛ head فعلی `4a6f7a590e702c971baf2765dd357748c312a2c2`.
+- PR #140: تست `bank-sms-panel.test.jsx` با Prettier اصلاح شد؛ head فعلی `a1ac7ffd17a62d4373cf668157fbdd529d3009a9`.
+- PR #141: تست `receipt-review.test.jsx` با Prettier اصلاح شد. چون PR به‌صورت stacked روی #139 قرار دارد و base در همین فاصله جلو رفت، شاخه با merge commit غیرمخرب همگام شد؛ head فعلی `02d73dc6d9d1db348e00778cffff67ca9a4d3e8e`. PR همچنان روی base شاخهٔ #139 قرار دارد.
+- PR #142: تست schema با Ruff format اصلاح شد؛ head فعلی `1e9d2685f8f4b61888bc39958b51fe14a4c46638`. اعداد محدودیت‌های OpenAPI نیز به نمایش float مورد انتظار generator بازگردانده شده‌اند.
+
+مرحله‌های تشخیصی موقت CI که فقط برای استخراج diff قالب‌بندی و snapshot اضافه شده بودند، از workflowهای مربوط حذف شده‌اند. بنابراین اجرای بعدی CI، snapshot و format را بدون دست‌کاری workspace و روی فایل‌های commit‌شده بررسی می‌کند.
+
+در اجرای پیشین، Web E2E برای PRهای #139 تا #142 موفق بود و PostgreSQL lane نیز برای #139، #140، #141 و #142 در اجراهای مربوطه موفق گزارش شده است؛ با این حال quality gate هنوز در حال اجرای تست‌های کامل بود. runهای جدید پس از اصلاحات قالب‌بندی و حذف diagnosticها نیز در صف یا در حال اجرا هستند. تا تکمیل همهٔ jobها، وضعیت این PRها green اعلام نمی‌شود.
+
+وضعیت Git:
+- PRهای #139 تا #142 باز و merge نشده‌اند.
+- PR #141 پس از همگام‌سازی base، از نظر GitHub mergeable است؛ وضعیت نهایی آن به CI وابسته است.
+- هیچ PRی merge نشده و `main` تغییر نکرده است.
