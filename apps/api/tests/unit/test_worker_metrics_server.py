@@ -74,6 +74,69 @@ async def test_worker_metrics_endpoint_allows_unconfigured_development_mode(monk
         await server.wait_closed()
 
 
+@pytest.mark.asyncio
+async def test_non_ascii_authorization_is_rejected_not_crashed(monkeypatch):
+    monkeypatch.setattr(metrics_server, "get_settings", lambda: SimpleNamespace(is_dev=False, metrics_token="scrape-secret"))
+    server = await metrics_server.start_metrics_server({}, host="127.0.0.1", port=0)
+    port = server.sockets[0].getsockname()[1]
+    try:
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write("GET /metrics HTTP/1.1\r\nAuthorization: Bearer tökén\r\n\r\n".encode("latin-1"))
+        await writer.drain()
+        response = (await reader.read()).decode()
+        writer.close()
+        assert response.startswith("HTTP/1.1 401 Unauthorized")
+    finally:
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_head_query_string_and_methods(monkeypatch):
+    monkeypatch.setattr(metrics_server, "get_settings", lambda: SimpleNamespace(is_dev=True, metrics_token=""))
+    monkeypatch.setattr(metrics_server, "render", lambda: "m 1\n")
+    server = await metrics_server.start_metrics_server({}, host="127.0.0.1", port=0)
+    port = server.sockets[0].getsockname()[1]
+
+    async def raw(line: str) -> str:
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write(f"{line}\r\nHost: x\r\n\r\n".encode())
+        await writer.drain()
+        data = (await reader.read()).decode()
+        writer.close()
+        return data
+
+    try:
+        assert (await raw("GET /metrics?x=1 HTTP/1.1")).startswith("HTTP/1.1 200 OK")
+        head = await raw("HEAD /metrics HTTP/1.1")
+        assert head.startswith("HTTP/1.1 200 OK") and head.endswith("\r\n\r\n")
+        assert (await raw("POST /metrics HTTP/1.1")).startswith("HTTP/1.1 405")
+        assert (await raw("GET /other HTTP/1.1")).startswith("HTTP/1.1 404")
+        assert (await raw("GET /metrics HTTP/2")).startswith("HTTP/1.1 400")
+    finally:
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_bind_failure_is_not_fatal():
+    ctx: dict = {}
+    first = await metrics_server.start_metrics_server(ctx, host="127.0.0.1", port=0)
+    port = first.sockets[0].getsockname()[1]
+    try:
+        assert await metrics_server.start_metrics_server({}, host="127.0.0.1", port=port) is None
+    finally:
+        await metrics_server.stop_metrics_server(ctx)
+    await metrics_server.stop_metrics_server(ctx)  # idempotent
+
+
+def test_worker_and_backup_publish_no_host_port():
+    root = Path(__file__).resolve().parents[4]
+    compose = yaml.safe_load((root / "docker-compose.yml").read_text())
+    for name in ("worker", "backup"):
+        assert "ports" not in compose["services"][name]
+
+
 def test_prometheus_scrapes_worker_and_alerts_on_lock_failures():
     root = Path(__file__).resolve().parents[4]
     config = yaml.safe_load((root / "infra/prometheus.yml").read_text())
@@ -98,6 +161,7 @@ def test_prometheus_scrapes_worker_and_alerts_on_lock_failures():
 
 @pytest.mark.asyncio
 async def test_arq_lifecycle_starts_and_stops_worker_metrics_server(monkeypatch):
+    monkeypatch.setattr(metrics_server, "HOST", "127.0.0.1")
     monkeypatch.setattr(metrics_server, "PORT", 0)
     monkeypatch.setattr(metrics_server, "get_settings", lambda: SimpleNamespace(is_dev=True, metrics_token=""))
 
