@@ -174,6 +174,102 @@ async def test_gateway_failure_is_unknown_and_same_key_never_reissues_create(gat
         assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN" and calls == 1
 
 
+async def test_definitive_gateway_rejection_allows_same_key_retry(gateway, monkeypatch):
+    calls = 0
+    real = gateway.create_payment_intent
+
+    async def refuse_once(payment, *, callback_url, settings):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise AppError("GATEWAY_ERROR", "refused", 502)
+        return await real(payment, callback_url=callback_url, settings=settings)
+
+    monkeypatch.setattr(gateway, "create_payment_intent", refuse_once)
+    async with open_session() as s:
+        store, user = await _setup(s)
+        with pytest.raises(AppError) as first:
+            await _intent(s, store, user)
+        assert first.value.code == "GATEWAY_ERROR"
+        p, instructions = await _intent(s, store, user)
+        assert calls == 2 and p.meta["external_operation"] == "created" and instructions
+        assert await s.scalar(select(func.count()).select_from(Payment)) == 1
+
+
+async def test_local_adapter_without_side_effect_retries_a_stuck_creating_row(gateway):
+    gateway.create_has_external_side_effect = False
+    async with open_session() as s:
+        store, user = await _setup(s)
+        payment = Payment(
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="idem-1",
+            meta={"external_operation": "create_unknown", "reconciliation_required": True},
+        )
+        s.add(payment)
+        await s.commit()
+        p, instructions = await _intent(s, store, user)
+        assert p.meta["external_operation"] == "created" and instructions and gateway.intents == 1
+
+
+async def test_legacy_complete_row_without_operation_marker_is_returned_as_is(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        payment = Payment(
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="idem-1",
+            external_ref="AUTH-OLD",
+            meta={"instructions": {"type": "redirect"}},
+        )
+        s.add(payment)
+        await s.commit()
+        p, instructions = await _intent(s, store, user)
+        assert p.id == payment.id and instructions == {"type": "redirect"} and gateway.intents == 0
+
+
+async def test_admin_can_bind_or_abandon_an_unknown_create(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        admin = await make_user(s, super_admin=True)
+        rows = []
+        for key in ("idem-bind", "idem-drop"):
+            pay = Payment(
+                user_id=user.id,
+                store_id=store.id,
+                purpose="wallet_topup",
+                provider="fake_gw",
+                amount=5_000,
+                currency=store.currency,
+                status="pending",
+                idempotency_key=key,
+                meta={"external_operation": "create_unknown", "reconciliation_required": True},
+            )
+            s.add(pay)
+            rows.append(pay)
+        await s.commit()
+        bound = await payments.reconcile_unknown_create(s, rows[0].id, action="bind", actor_id=admin.id, external_ref="AUTH-REAL")
+        assert bound.external_ref == "AUTH-REAL" and bound.meta["external_operation"] == "created" and bound.status == "pending"
+        with pytest.raises(AppError) as again:
+            await payments.reconcile_unknown_create(s, rows[0].id, action="abandon", actor_id=admin.id)
+        assert again.value.code == "PAYMENT_NOT_RECONCILABLE"
+        dropped = await payments.reconcile_unknown_create(s, rows[1].id, action="abandon", actor_id=admin.id, reason="not at provider")
+        assert dropped.status == "failed"
+        with pytest.raises(AppError) as missing:
+            await payments.reconcile_unknown_create(s, rows[1].id, action="bind", actor_id=admin.id, external_ref="x")
+        assert missing.value.code == "PAYMENT_NOT_RECONCILABLE"
+
+
 async def test_legacy_create_failed_payment_is_promoted_to_unknown_without_reissuing(gateway):
     async with open_session() as s:
         store, user = await _setup(s)

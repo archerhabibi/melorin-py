@@ -104,6 +104,37 @@ describe('Wallet shows the Telegram ID', () => {
     expect(posts).toBe(1);
     expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('درخواست شارژ قبلی'));
   });
+
+  it('allows a different amount once the previous payment was received (no dead end after reload)', async () => {
+    const keys = [];
+    const coreFetch = vi.fn(async (path, opts = {}) => {
+      if (path.endsWith('/wallet/transactions')) return json([]);
+      if (path.endsWith('/wallet/topups') && opts.method === 'POST') {
+        keys.push(opts.headers['Idempotency-Key']);
+        return json({
+          id: `p${keys.length}`,
+          amount: 1,
+          currency: 'IRT',
+          status: 'pending',
+          instructions: { card_number: '1234' },
+        });
+      }
+      return json([]);
+    });
+    const notify = vi.fn();
+    const first = render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(1));
+    first.unmount();
+
+    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '2000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).not.toBe(keys[0]);
+    expect(notify).not.toHaveBeenCalled();
+  });
 });
 
 describe('Tickets take pictures', () => {
