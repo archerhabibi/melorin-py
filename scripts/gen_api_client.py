@@ -21,6 +21,22 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGET = ROOT / "packages" / "api-client" / "openapi.json"
 
 
+def _normalize_integer_constraints(value: object) -> None:
+    """Canonicalize integral bounds: JSON integer and float spellings are equivalent."""
+    if isinstance(value, dict):
+        if value.get("type") == "integer":
+            for key in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"):
+                bound = value.get(key)
+                if isinstance(bound, (int, float)) and not isinstance(bound, bool):
+                    if float(bound).is_integer():
+                        value[key] = int(bound)
+        for child in value.values():
+            _normalize_integer_constraints(child)
+    elif isinstance(value, list):
+        for child in value:
+            _normalize_integer_constraints(child)
+
+
 def render() -> str:
     os.environ.setdefault("MELORIN_ENV", "development")
     os.environ.setdefault(
@@ -30,9 +46,9 @@ def render() -> str:
     sys.path.insert(0, str(ROOT / "apps" / "api"))
     from melorin.app import app  # noqa: PLC0415 - env must be set before the import
 
-    return (
-        json.dumps(app.openapi(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    )
+    schema = app.openapi()
+    _normalize_integer_constraints(schema)
+    return json.dumps(schema, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def main() -> int:
