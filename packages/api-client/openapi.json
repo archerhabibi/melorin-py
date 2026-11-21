@@ -1236,8 +1236,7 @@
               {
                 "type": "null"
               }
-            ],
-            "title": "Settings"
+            ]
           }
         },
         "title": "BankSmsSourceIn",
