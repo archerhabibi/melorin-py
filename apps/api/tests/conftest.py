@@ -104,3 +104,4 @@ def _hermetic_job_lock(request: pytest.FixtureRequest, monkeypatch: pytest.Monke
 
     redis = TestRedisLock()
     monkeypatch.setattr(wrap, "get_redis", lambda: redis)
+    monkeypatch.setattr(wrap, "LOCK_RETRY_DELAY", 0)  # the retry loop is covered explicitly; other tests must not sleep

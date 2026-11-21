@@ -18,3 +18,10 @@ def test_alert_state_and_prometheus_rules_are_wired():
     assert (
         "rule_files:" in prometheus and "./infra:/etc/prometheus/infra:ro" in compose and "/etc/prometheus/infra/alerts.yml" in prometheus
     )
+
+
+def test_fail_closed_job_lock_has_a_metric_and_an_alert():
+    wrap = read_source(ROOT / "melorin/worker/wrap.py")
+    rules = (PROJECT / "infra/alerts.yml").read_text()
+    assert 'outcome="lock_error"' in wrap
+    assert "MelorinJobLockUnavailable" in rules and 'outcome="lock_error"' in rules
