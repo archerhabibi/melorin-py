@@ -83,3 +83,14 @@ test('raw: bearer + one refresh on 401, body verbatim, unread Response back', as
   assert.equal(calls[0][1].headers.Authorization, 'Bearer old');
   assert.equal(calls[1][1].headers.Authorization, 'Bearer new');
 });
+
+test('typed calls leave `response` unread so callers can still read the server message from it', async () => {
+  const api = createApiClient({ fetch: async () => reply(409, { error: { code: 'COUPON_EXISTS', message: 'کد تکراری است' } }) });
+  const r = await api.request('post', '/x', { body: {} });
+  assert.deepEqual(r.error, { error: { code: 'COUPON_EXISTS', message: 'کد تکراری است' } });
+  assert.equal(r.response.bodyUsed, false);
+  assert.equal((await r.response.json()).error.message, 'کد تکراری است');
+  const ok = await createApiClient({ fetch: async () => reply(200, { a: 1 }) }).request('get', '/x');
+  assert.deepEqual(ok.data, { a: 1 });
+  assert.deepEqual(await ok.response.json(), { a: 1 });
+});
