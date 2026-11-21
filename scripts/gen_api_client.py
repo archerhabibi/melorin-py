@@ -11,6 +11,7 @@ No database or Redis is touched: importing the app and calling ``app.openapi()``
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import sys
@@ -51,6 +52,16 @@ def main() -> int:
         )
         return 0
     if not TARGET.exists() or TARGET.read_text(encoding="utf-8") != fresh:
+        existing = TARGET.read_text(encoding="utf-8").splitlines(keepends=True) if TARGET.exists() else []
+        expected = fresh.splitlines(keepends=True)
+        sys.stderr.writelines(
+            difflib.unified_diff(
+                existing,
+                expected,
+                fromfile="packages/api-client/openapi.json (committed)",
+                tofile="packages/api-client/openapi.json (generated)",
+            )
+        )
         print(
             "packages/api-client/openapi.json is stale. Run:\n"
             "  python scripts/gen_api_client.py --write && (cd packages/api-client && npm run generate)",
