@@ -111,3 +111,16 @@ test('rawGet builds a schema-path URL, preserves binary response and auth refres
   assert.equal(calls[0].init.headers.Authorization, 'Bearer old');
   assert.equal(calls[1].init.headers.Authorization, 'Bearer new');
 });
+
+test('rawGet: query string, extra headers and a missing path parameter', async () => {
+  const calls = [];
+  const api = createApiClient({
+    baseUrl: 'https://api.example.test/',
+    fetch: async (url, init) => (calls.push({ url, init }), new Response('ok')),
+  });
+  await api.rawGet('/api/v1/admin/audit', { params: { query: { limit: 5, tag: ['a', 'b'], skip: undefined } }, headers: { Accept: 'text/csv' } });
+  assert.equal(calls[0].url, 'https://api.example.test/api/v1/admin/audit?limit=5&tag=a&tag=b');
+  assert.equal(calls[0].init.headers.Accept, 'text/csv');
+  await assert.rejects(() => api.rawGet('/api/v1/admin/payments/{payment_id}/receipt', { params: { path: {} } }), /Missing path parameter: payment_id/);
+  assert.equal(calls.length, 1);
+});

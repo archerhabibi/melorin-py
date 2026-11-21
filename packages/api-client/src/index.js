@@ -113,7 +113,13 @@ export function createApiClient({
     request,
     raw,
     /** @param {string} path @param {{ params?: { path?: Record<string, any>, query?: Record<string, any> }, headers?: Record<string, string>, signal?: AbortSignal }} [init] */
-    rawGet: (path, init = {}) => raw(`${buildPath(path, init.params?.path)}${buildQuery(init.params?.query)}`, { method: 'GET', headers: { Accept: '*/*', ...(init.headers || {}) }, signal: init.signal }),
+    // async on purpose: a missing path parameter must surface as a rejected promise, like every other failure
+    rawGet: async (path, init = {}) =>
+      raw(`${buildPath(path, init.params?.path)}${buildQuery(init.params?.query)}`, {
+        method: 'GET',
+        headers: { Accept: '*/*', ...(init.headers || {}) },
+        signal: init.signal,
+      }),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
     get: (path, init) => request('get', path, init),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */

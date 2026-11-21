@@ -8,6 +8,10 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Admin web: typed receipt downloads
+- `@melorin/api-client` gets `rawGet(path, init)`: a typed GET for binary endpoints (receipt images). The path must exist in the OpenAPI snapshot, path parameters are required exactly when the operation declares them, `query` is typed, and a missing parameter is a rejected promise. It shares the bearer-token / single-refresh transport with every other verb.
+- Payments screen: the three receipt viewers (payment list, drawer, receipt-review queue) use that typed download and one `openBlobInTab` helper instead of hand-built `/api/v1/admin/payments/${id}/receipt` strings; the drawer ignores a download that finishes after the admin moved to another payment; the destinations effect depends on the typed client it actually uses.
+
 ### Audit remediation (V-AUDIT / V01 reports)
 - Receipt OCR is a worker job (`payments.receipt_ocr`, `modules/payments/ocr_job.py`), no longer part of the upload request (V01 V-21): the upload answers at once (`receipt_read.ocr_state = pending`), the per-store daily vision budget is spent in the worker, and the grace credit waits (`ocr_pending`, at most 1 h) for a pending reading.
 - One outbound-address policy (`domain/netpolicy.py`): CGNAT, NAT64, 6to4, Teredo and mapped forms are refused; numeric hosts (`127.1`, `0x7f.1`, `2130706433`) are parsed; used by webhooks, domain verification and panel URLs (V-011).

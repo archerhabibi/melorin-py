@@ -1,13 +1,15 @@
 // Payments screen — review queue, KPIs, filters, detail drawer and gateway settings.
 // Data comes only from GET /api/v1/admin/payments (+ /settings); actions use the existing
 // /review, /refund and /receipt endpoints, so no backend change is required.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Copy, Receipt, Settings2, ShieldAlert, Undo2, X, XCircle } from 'lucide-react';
 
 import { Drawer, Field, Section, Switch, num, tint } from '../../shared/kit.tsx';
 import { Badge, dt, sid } from '../../shared/ui.tsx';
 
 import { prov, reviewable, refundable, ago, copy, ProviderChip, Amount } from './paymentsShared.tsx';
+import { openBlobInTab } from './receiptFile.ts';
+import type { ReceiptFetcher } from './receiptFile.ts';
 import type { Json, Toast } from '../../shared/types.ts';
 
 export function RowActions({ p, busy, on, compact = false }: { p?: Json; busy?: Json; on?: Json; compact?: Json }) {
@@ -154,11 +156,13 @@ export function PaymentDrawer({
   on?: Json;
   onClose?: Json;
   toast: Toast;
-  receipt: (paymentId: string) => Promise<Response>;
+  receipt: ReceiptFetcher;
 }) {
   const [img, setImg] = useState<Json>(null);
   const [loadingImg, setLoadingImg] = useState(false);
+  const shownId = useRef(p.id);
   useEffect(() => {
+    shownId.current = p.id;
     setImg(null);
   }, [p.id]);
   useEffect(
@@ -170,15 +174,13 @@ export function PaymentDrawer({
   const preview = async () => {
     setLoadingImg(true);
     try {
-      const r = await receipt(String(p.id));
+      const id = p.id;
+      const r = await receipt(String(id));
       if (!r.ok) return toast('نمایش رسید ناموفق بود');
       const blob = await r.blob();
+      if (shownId.current !== id) return; // the drawer moved to another payment while the download ran
       if (blob.type.startsWith('image/')) setImg(URL.createObjectURL(blob));
-      else {
-        const u = URL.createObjectURL(blob);
-        window.open(u, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(u), 60000);
-      }
+      else openBlobInTab(blob);
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     } finally {

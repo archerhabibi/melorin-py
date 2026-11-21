@@ -6,6 +6,7 @@ import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
 import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
+import type { ReceiptFetcher } from './receiptFile.ts';
 import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const STATUS: Rec = {
@@ -17,7 +18,17 @@ const STATUS: Rec = {
 };
 const JSON_H = { 'Content-Type': 'application/json' };
 
-export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; toast: Toast; payments?: Json }) {
+export default function BankSmsPanel({
+  call,
+  toast,
+  payments,
+  receipt,
+}: {
+  call: CallFn;
+  toast: Toast;
+  payments?: Json;
+  receipt?: ReceiptFetcher;
+}) {
   const [store, setStore] = useState<Json>(null);
   const [data, setData] = useState<Json>(null);
   const [form, setForm] = useState<Json>(null);
@@ -144,7 +155,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
         call={call}
         toast={toast}
         base={`/api/v1/admin/stores/${store}`}
-        receiptPath={(id: Json) => `/api/v1/admin/payments/${id}/receipt`}
+        receipt={receipt}
         onChanged={load}
       />
       <Section
