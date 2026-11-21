@@ -187,8 +187,9 @@ async def test_policy_endpoint_validates_and_is_audited():
         admin = await _admin(c, maker)
         assert (await c.get(f"{ADMIN}/stores/{main.id}/receipt-duplicates/settings", headers=admin)).json() == {"policy": "warn"}
         r = await _set_policy(c, admin, main.id, "ban-everyone")
-        assert r.status_code == 422 and _err(r) == "RECEIPT_DUP_POLICY_INVALID"
-        assert (await _set_policy(c, admin, main.id, "block")).status_code == 200
+        assert r.status_code == 422 and _err(r) == "VALIDATION_ERROR"  # the policy is a closed enum in the API contract
+        saved = await _set_policy(c, admin, main.id, "block")
+        assert saved.status_code == 200 and saved.json() == {"policy": "block"}
         assert (await c.get(f"{ADMIN}/stores/{main.id}/receipt-duplicates/settings", headers=admin)).json() == {"policy": "block"}
         r = await c.put(f"{ADMIN}/stores/{main.id}/receipt-duplicates/settings", json={"policy": "warn", "x": 1}, headers=admin)
         assert r.status_code == 422  # unknown fields are refused
