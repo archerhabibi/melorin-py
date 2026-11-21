@@ -78,7 +78,7 @@ describe('admin bank-SMS auto verification panel', () => {
     const { requests } = setup();
     expect(await screen.findByText('302570009152325001')).toBeInTheDocument();
     expect(screen.getAllByText('نیاز به بررسی').length).toBeGreaterThan(0);
-    expect(requests.some(([url, init]) => url.includes(BASE) && !init.method)).toBe(true);
+    expect(requests.some(([url, init]) => url.includes(BASE) && init.method === 'GET')).toBe(true);
   });
 
   it('offers only the receipt with the same amount when pairing', async () => {
