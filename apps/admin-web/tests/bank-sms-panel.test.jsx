@@ -43,17 +43,20 @@ const waiting = {
 function setup({ src = source(), messages = [deposit()], put } = {}) {
   const calls = [];
   const requests = [];
-  vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
-    const target = String(url);
-    requests.push([target, init]);
-    if (target.endsWith('/api/v1/me/stores')) return json([{ id: STORE, kind: 'main' }]);
-    if (target.includes('/bank-sms/source') && init.method === 'PUT')
-      return put ? put() : json({ source: src, token: null });
-    if (target.includes('/bank-sms/token') && init.method === 'POST') return json({ token: 'mlr_sms_SECRET' });
-    if (target.includes('/bank-sms/reconcile') && init.method === 'POST') return json({ ok: true, matched: 0 });
-    if (target.includes('/bank-sms') && !target.includes('/receipt-review')) return json({ source: src, messages });
-    return json({ error: 'n/a' }, 404);
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url, init = {}) => {
+      const target = String(url);
+      requests.push([target, init]);
+      if (target.endsWith('/api/v1/me/stores')) return json([{ id: STORE, kind: 'main' }]);
+      if (target.includes('/bank-sms/source') && init.method === 'PUT')
+        return put ? put() : json({ source: src, token: null });
+      if (target.includes('/bank-sms/token') && init.method === 'POST') return json({ token: 'mlr_sms_SECRET' });
+      if (target.includes('/bank-sms/reconcile') && init.method === 'POST') return json({ ok: true, matched: 0 });
+      if (target.includes('/bank-sms') && !target.includes('/receipt-review')) return json({ source: src, messages });
+      return json({ error: 'n/a' }, 404);
+    }),
+  );
   const call = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
     if (path.endsWith('/receipt-review')) return json({ error: 'n/a' }, 404);
@@ -100,7 +103,9 @@ describe('admin bank-SMS auto verification panel', () => {
     await userEvent.clear(win);
     await userEvent.type(win, '۳۶۰');
     await userEvent.click(screen.getByRole('button', { name: 'ذخیره' }));
-    await waitFor(() => expect(requests.some(([url, init]) => url.includes(`${BASE}/source`) && init.method === 'PUT')).toBe(true));
+    await waitFor(() =>
+      expect(requests.some(([url, init]) => url.includes(`${BASE}/source`) && init.method === 'PUT')).toBe(true),
+    );
     const put = requests.find(([url, init]) => url.includes(`${BASE}/source`) && init.method === 'PUT');
     expect(JSON.parse(put[1].body).settings.window_minutes).toBe(360);
   });
