@@ -13,6 +13,7 @@ from melorin.kernel.models.catalog import Coupon
 from melorin.modules.catalog.schemas import (
     CatalogItem,
     CouponIn,
+    CouponOut,
     CouponPatch,
     CouponValidateIn,
     BundleOut,
@@ -316,13 +317,13 @@ def _rule_from_in(body: CouponIn, store: Store, creator_type: str) -> cdom.Coupo
     )
 
 
-@public.get("/stores/{store_id}/coupons")
+@public.get("/stores/{store_id}/coupons", response_model=list[CouponOut])
 async def list_coupons(ctx: OwnerCtx, session: Session):
     rows = await queries.coupons_of_store(session, ctx.store.id)
     return [service.coupon_out(c) for c in rows]
 
 
-@public.post("/stores/{store_id}/coupons", status_code=201)
+@public.post("/stores/{store_id}/coupons", response_model=CouponOut, status_code=201)
 async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
     creator = "admin" if ctx.is_admin and not ctx.is_owner else "reseller"
     rule = _rule_from_in(body, ctx.store, creator)
@@ -369,7 +370,7 @@ async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
     return service.coupon_out(c)
 
 
-@public.patch("/stores/{store_id}/coupons/{coupon_id}")
+@public.patch("/stores/{store_id}/coupons/{coupon_id}", response_model=CouponOut)
 async def patch_coupon(coupon_id: uuid.UUID, body: CouponPatch, ctx: OwnerCtx, session: Session):
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c or c.owner_key != str(ctx.store.id):
