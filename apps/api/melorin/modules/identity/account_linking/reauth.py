@@ -15,6 +15,7 @@ remove the last usable sign-in method.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.invariants import require as require_present
 from melorin.core import audit as platform_audit, events
 from melorin.core.email import email_available, send_email
 from melorin.core.errors import AppError
@@ -119,8 +120,8 @@ async def require(
     """Raise ``REAUTH_REQUIRED`` unless the caller gave the proof that fits the account."""
     method = await method_for(session, user)
     if method == "password":
-        assert user.password_hash is not None
-        if not password or not await verify_password(password, user.password_hash):
+        stored_hash = require_present(user.password_hash, "password hash")
+        if not password or not await verify_password(password, stored_hash):
             platform_audit.security_event(session, "identity_unlink_reauth_failed", user.id)
             await session.commit()
             raise AppError("REAUTH_REQUIRED", "برای این تغییر رمز فعلی لازم است.", 401)

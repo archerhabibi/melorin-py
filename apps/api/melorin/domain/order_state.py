@@ -1,4 +1,5 @@
 import dataclasses
+from melorin.core.invariants import InvariantViolation
 from enum import StrEnum
 
 
@@ -147,5 +148,6 @@ def set_vpn_status(account, dst: VpnStatus, *, source: VpnSource) -> VpnTransiti
     changed = src != str(dst)
     if changed:
         account.status = dst
-    assert str(account.status) == str(dst)
+    if str(account.status) != str(dst):  # a real invariant: must survive python -O
+        raise InvariantViolation(f"vpn account status {account.status!s} != {dst!s} after transition")
     return VpnTransition(src=src, dst=str(dst), source=str(source), changed=changed)
