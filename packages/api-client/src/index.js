@@ -70,7 +70,9 @@ export function createApiClient({
     };
     let response = await send();
     if (response.status === 401 && refresh && (await refresh())) response = await send();
-    const text = response.status === 204 ? '' : await response.text();
+    // Parse a CLONE: the caller keeps an unread `response`, so `errText(response)` / `response.json()` still work after a
+    // failed call (an already-consumed body would silently turn every server message into the generic fallback).
+    const text = response.status === 204 ? '' : await response.clone().text();
     let payload;
     try {
       payload = text ? JSON.parse(text) : undefined;
