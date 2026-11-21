@@ -100,12 +100,6 @@ jobs:
         working-directory: apps/admin-web
       - run: npm run typecheck
         working-directory: apps/admin-web
-      - name: Diagnose Bank SMS formatting
-        run: |
-          npx prettier --write tests/bank-sms-panel.test.jsx
-          git -C ../.. diff -- apps/admin-web/tests/bank-sms-panel.test.jsx
-          git -C ../.. checkout -- apps/admin-web/tests/bank-sms-panel.test.jsx
-        working-directory: apps/admin-web
       - run: npm run format:check
         working-directory: apps/admin-web
       - run: npm test
