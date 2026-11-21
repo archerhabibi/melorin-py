@@ -7510,6 +7510,104 @@ export interface components {
              */
             payment_id: string;
         };
+        /** BankSmsMessageOut */
+        BankSmsMessageOut: {
+            /** Amount Rial */
+            amount_rial: number | null;
+            /** Balance Gap */
+            balance_gap: boolean;
+            /** Balance Rial */
+            balance_rial: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Direction */
+            direction: ("deposit" | "withdrawal") | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Matched By */
+            matched_by: ("auto" | "admin") | null;
+            /** Note */
+            note: string | null;
+            /** Occurred At */
+            occurred_at: string | null;
+            /** Payment Id */
+            payment_id: string | null;
+            /** Sender */
+            sender: string | null;
+            /** Serial */
+            serial: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unmatched" | "matched" | "ambiguous" | "ignored" | "unparsed";
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+        };
+        /** BankSmsOverviewOut */
+        BankSmsOverviewOut: {
+            /** Messages */
+            messages: components["schemas"]["BankSmsMessageOut"][];
+            source: components["schemas"]["BankSmsSourceOut"];
+        };
+        /** BankSmsReconcileOut */
+        BankSmsReconcileOut: {
+            /** Checked */
+            checked: number;
+            /** Matched */
+            matched: number;
+        };
+        /**
+         * BankSmsSaveOut
+         * @description ``token`` is present only when the save created the source (shown once, never stored in clear).
+         */
+        BankSmsSaveOut: {
+            source: components["schemas"]["BankSmsSourceOut"];
+            /** Token */
+            token: string | null;
+        };
+        /**
+         * BankSmsSettingsIn
+         * @description The tuning knobs. Types are declared here for the OpenAPI contract; ranges and unknown keys are still decided by
+         *     ``bank_sms.clean_settings`` (stable ``BANK_SMS_SETTING_INVALID`` errors), so extras are accepted and rejected there.
+         *     ``null`` resets a knob to its default.
+         */
+        BankSmsSettingsIn: {
+            /** Account Number */
+            account_number?: string | null;
+            /** Max Auto Amount Rial */
+            max_auto_amount_rial?: number | null;
+            /** Require Claimed Time */
+            require_claimed_time?: boolean | null;
+            /** Time Tolerance Minutes */
+            time_tolerance_minutes?: number | null;
+            /** Window Minutes */
+            window_minutes?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** BankSmsSettingsOut */
+        BankSmsSettingsOut: {
+            /** Account Number */
+            account_number: string | null;
+            /** Max Auto Amount Rial */
+            max_auto_amount_rial: number | null;
+            /** Require Claimed Time */
+            require_claimed_time: boolean;
+            /** Time Tolerance Minutes */
+            time_tolerance_minutes: number;
+            /** Window Minutes */
+            window_minutes: number;
+        };
         /**
          * BankSmsSourceIn
          * @description Everything is optional: only the sent fields change. The token is created with the source and shown once.
@@ -7523,8 +7621,37 @@ export interface components {
             is_enabled?: boolean | null;
             /** Senders */
             senders?: string[] | null;
-            /** Settings */
-            settings?: Record<string, never> | null;
+            settings?: components["schemas"]["BankSmsSettingsIn"] | null;
+        };
+        /** BankSmsSourceOut */
+        BankSmsSourceOut: {
+            /** Auto Verify */
+            auto_verify: boolean;
+            /** Bank */
+            bank: string;
+            /** Configured */
+            configured: boolean;
+            /** Has Token */
+            has_token: boolean;
+            /** Is Enabled */
+            is_enabled: boolean;
+            /** Last Received At */
+            last_received_at: string | null;
+            /** Senders */
+            senders: string[];
+            settings: components["schemas"]["BankSmsSettingsOut"];
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Token Hint */
+            token_hint: string | null;
+        };
+        /** BankSmsTokenOut */
+        BankSmsTokenOut: {
+            /** Token */
+            token: string;
         };
         /** Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post */
         Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post: {
@@ -16078,7 +16205,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -16109,7 +16236,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsReconcileOut"];
                 };
             };
             /** @description Validation Error */
@@ -16144,7 +16271,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsSaveOut"];
                 };
             };
             /** @description Validation Error */
@@ -16175,7 +16302,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsTokenOut"];
                 };
             };
             /** @description Validation Error */
@@ -16211,7 +16338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -16247,7 +16374,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -21753,7 +21880,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -21784,7 +21911,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsReconcileOut"];
                 };
             };
             /** @description Validation Error */
@@ -21819,7 +21946,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsSaveOut"];
                 };
             };
             /** @description Validation Error */
@@ -21850,7 +21977,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsTokenOut"];
                 };
             };
             /** @description Validation Error */
@@ -21886,7 +22013,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -21922,7 +22049,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */

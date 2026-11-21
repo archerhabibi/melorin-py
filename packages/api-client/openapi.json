@@ -1114,6 +1114,340 @@
         "title": "BankSmsLinkIn",
         "type": "object"
       },
+      "BankSmsMessageOut": {
+        "properties": {
+          "amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Rial"
+          },
+          "balance_gap": {
+            "title": "Balance Gap",
+            "type": "boolean"
+          },
+          "balance_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Rial"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "deposit",
+                  "withdrawal"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "matched_by": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched By"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Id"
+          },
+          "sender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "status": {
+            "enum": [
+              "unmatched",
+              "matched",
+              "ambiguous",
+              "ignored",
+              "unparsed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "store_id",
+          "status",
+          "direction",
+          "amount_rial",
+          "balance_rial",
+          "occurred_at",
+          "serial",
+          "sender",
+          "payment_id",
+          "matched_by",
+          "note",
+          "balance_gap",
+          "created_at"
+        ],
+        "title": "BankSmsMessageOut",
+        "type": "object"
+      },
+      "BankSmsOverviewOut": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/BankSmsMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/BankSmsSourceOut"
+          }
+        },
+        "required": [
+          "source",
+          "messages"
+        ],
+        "title": "BankSmsOverviewOut",
+        "type": "object"
+      },
+      "BankSmsReconcileOut": {
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "integer"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked",
+          "matched"
+        ],
+        "title": "BankSmsReconcileOut",
+        "type": "object"
+      },
+      "BankSmsSaveOut": {
+        "description": "``token`` is present only when the save created the source (shown once, never stored in clear).",
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/BankSmsSourceOut"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "required": [
+          "source",
+          "token"
+        ],
+        "title": "BankSmsSaveOut",
+        "type": "object"
+      },
+      "BankSmsSettingsIn": {
+        "additionalProperties": true,
+        "description": "The tuning knobs. Types are declared here for the OpenAPI contract; ranges and unknown keys are still decided by\n``bank_sms.clean_settings`` (stable ``BANK_SMS_SETTING_INVALID`` errors), so extras are accepted and rejected there.\n``null`` resets a knob to its default.",
+        "properties": {
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "max_auto_amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Amount Rial"
+          },
+          "require_claimed_time": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Claimed Time"
+          },
+          "time_tolerance_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Tolerance Minutes"
+          },
+          "window_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Minutes"
+          }
+        },
+        "title": "BankSmsSettingsIn",
+        "type": "object"
+      },
+      "BankSmsSettingsOut": {
+        "properties": {
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "max_auto_amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Amount Rial"
+          },
+          "require_claimed_time": {
+            "title": "Require Claimed Time",
+            "type": "boolean"
+          },
+          "time_tolerance_minutes": {
+            "title": "Time Tolerance Minutes",
+            "type": "integer"
+          },
+          "window_minutes": {
+            "title": "Window Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_minutes",
+          "time_tolerance_minutes",
+          "require_claimed_time",
+          "max_auto_amount_rial",
+          "account_number"
+        ],
+        "title": "BankSmsSettingsOut",
+        "type": "object"
+      },
       "BankSmsSourceIn": {
         "additionalProperties": false,
         "description": "Everything is optional: only the sent fields change. The token is created with the source and shown once.",
@@ -1168,16 +1502,104 @@
           "settings": {
             "anyOf": [
               {
-                "type": "object"
+                "$ref": "#/components/schemas/BankSmsSettingsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "BankSmsSourceIn",
+        "type": "object"
+      },
+      "BankSmsSourceOut": {
+        "properties": {
+          "auto_verify": {
+            "title": "Auto Verify",
+            "type": "boolean"
+          },
+          "bank": {
+            "title": "Bank",
+            "type": "string"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "has_token": {
+            "title": "Has Token",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "last_received_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Settings"
+            "title": "Last Received At"
+          },
+          "senders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Senders",
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/BankSmsSettingsOut"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "token_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Hint"
           }
         },
-        "title": "BankSmsSourceIn",
+        "required": [
+          "store_id",
+          "configured",
+          "bank",
+          "is_enabled",
+          "auto_verify",
+          "has_token",
+          "token_hint",
+          "senders",
+          "settings",
+          "last_received_at"
+        ],
+        "title": "BankSmsSourceOut",
+        "type": "object"
+      },
+      "BankSmsTokenOut": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "BankSmsTokenOut",
         "type": "object"
       },
       "Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post": {
@@ -18681,7 +19103,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsOverviewOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -18727,7 +19151,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsReconcileOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -18783,7 +19209,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsSaveOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -18829,7 +19257,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsTokenOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -18895,7 +19325,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -18961,7 +19393,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -27810,7 +28244,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsOverviewOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -27856,7 +28292,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsReconcileOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -27912,7 +28350,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsSaveOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -27958,7 +28398,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsTokenOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28024,7 +28466,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28090,7 +28534,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"

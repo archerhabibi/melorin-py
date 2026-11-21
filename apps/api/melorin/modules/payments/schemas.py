@@ -1,5 +1,6 @@
 import datetime as dt
 import uuid
+from typing import Literal
 
 from melorin.modules.payments.redaction import strip_secrets
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -54,6 +55,19 @@ def payment_out(p) -> PaymentOut:
     )
 
 
+class BankSmsSettingsIn(BaseModel):
+    """The tuning knobs. Types are declared here for the OpenAPI contract; ranges and unknown keys are still decided by
+    ``bank_sms.clean_settings`` (stable ``BANK_SMS_SETTING_INVALID`` errors), so extras are accepted and rejected there.
+    ``null`` resets a knob to its default."""
+
+    model_config = ConfigDict(extra="allow")
+    window_minutes: StrictInt | None = None
+    time_tolerance_minutes: StrictInt | None = None
+    require_claimed_time: StrictBool | None = None
+    max_auto_amount_rial: StrictInt | None = None
+    account_number: str | None = None
+
+
 class BankSmsSourceIn(BaseModel):
     """Everything is optional: only the sent fields change. The token is created with the source and shown once."""
 
@@ -62,7 +76,7 @@ class BankSmsSourceIn(BaseModel):
     is_enabled: bool | None = None
     auto_verify: bool | None = None
     senders: list[str] | None = None
-    settings: dict | None = None
+    settings: BankSmsSettingsIn | None = None
 
 
 class BankSmsLinkIn(BaseModel):
@@ -71,6 +85,69 @@ class BankSmsLinkIn(BaseModel):
 
 class BankSmsIgnoreIn(BaseModel):
     ignored: bool = True
+
+
+# ----- Bank SMS: response models (the admin and reseller screens read the same shapes; they feed the generated TS types) -----
+BankSmsStatus = Literal["unmatched", "matched", "ambiguous", "ignored", "unparsed"]
+
+
+class BankSmsSettingsOut(BaseModel):
+    window_minutes: int
+    time_tolerance_minutes: int
+    require_claimed_time: bool
+    max_auto_amount_rial: int | None
+    account_number: str | None
+
+
+class BankSmsSourceOut(BaseModel):
+    store_id: uuid.UUID
+    configured: bool
+    bank: str
+    is_enabled: bool
+    auto_verify: bool
+    has_token: bool
+    token_hint: str | None
+    senders: list[str]
+    settings: BankSmsSettingsOut
+    last_received_at: dt.datetime | None
+
+
+class BankSmsMessageOut(BaseModel):
+    id: uuid.UUID
+    store_id: uuid.UUID
+    status: BankSmsStatus
+    direction: Literal["deposit", "withdrawal"] | None
+    amount_rial: int | None
+    balance_rial: int | None
+    occurred_at: dt.datetime | None
+    serial: str | None
+    sender: str | None
+    payment_id: uuid.UUID | None
+    matched_by: Literal["auto", "admin"] | None
+    note: str | None
+    balance_gap: bool
+    created_at: dt.datetime
+
+
+class BankSmsOverviewOut(BaseModel):
+    source: BankSmsSourceOut
+    messages: list[BankSmsMessageOut]
+
+
+class BankSmsSaveOut(BaseModel):
+    """``token`` is present only when the save created the source (shown once, never stored in clear)."""
+
+    source: BankSmsSourceOut
+    token: str | None
+
+
+class BankSmsTokenOut(BaseModel):
+    token: str
+
+
+class BankSmsReconcileOut(BaseModel):
+    checked: int
+    matched: int
 
 
 class GraceSettingsIn(BaseModel):

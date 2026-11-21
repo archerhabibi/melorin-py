@@ -15,16 +15,28 @@ export function ChipList({ items = [], max = 3, renderItem }: { items?: Json; ma
   );
 }
 
+/** Readable message of an already-parsed API error body (`{error:{message}}`, `{detail}` or FastAPI's 422 list). */
+export function errMsg(body: unknown, fallback: string): string {
+  const d = body as { detail?: unknown; error?: { message?: unknown } } | null | undefined;
+  const det = d?.detail;
+  const first = Array.isArray(det) ? (det[0] as { msg?: unknown } | undefined)?.msg : undefined;
+  const fromDetail =
+    typeof det === 'string'
+      ? det
+      : typeof (det as { message?: unknown } | undefined)?.message === 'string'
+        ? (det as { message: string }).message
+        : null;
+  return (
+    (typeof d?.error?.message === 'string' && d.error.message) ||
+    fromDetail ||
+    (typeof first === 'string' && first.replace(/^Value error, /, '')) ||
+    fallback
+  );
+}
+
 export async function errText(r: Json, fallback: Json) {
   try {
-    const d = await r.json();
-    const det = d?.detail;
-    return (
-      d?.error?.message ||
-      (typeof det === 'string' ? det : det?.message) ||
-      (Array.isArray(det) && det[0]?.msg?.replace(/^Value error, /, '')) ||
-      fallback
-    );
+    return errMsg(await r.json(), fallback);
   } catch {
     return fallback;
   }
