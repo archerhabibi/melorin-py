@@ -59,9 +59,7 @@ export default function ReceiptDuplicatePolicy({ toast, base }: { toast: Toast; 
     setBusy(true);
     try {
       const options = { params: { path: { store_id: storeId } }, body: { policy: next } };
-      const result = isReseller
-        ? await client.put(resellerPath, options)
-        : await client.put(adminPath, options);
+      const result = isReseller ? await client.put(resellerPath, options) : await client.put(adminPath, options);
       const { data, response, error } = result;
       if (!response.ok) {
         const e = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
