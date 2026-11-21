@@ -100,12 +100,6 @@ jobs:
         working-directory: apps/admin-web
       - run: npm run typecheck
         working-directory: apps/admin-web
-      - name: Diagnose Admin Web formatting
-        run: |
-          npx prettier --write src/features/payments/ReceiptDuplicatePolicy.tsx tests/receipt-review.test.jsx
-          git -C ../.. diff -- apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx apps/admin-web/tests/receipt-review.test.jsx
-          git -C ../.. checkout -- apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx apps/admin-web/tests/receipt-review.test.jsx
-        working-directory: apps/admin-web
       - run: npm run format:check
         working-directory: apps/admin-web
       - run: npm test
