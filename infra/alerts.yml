@@ -50,6 +50,21 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations: {summary: "A worker job keeps failing on individual items (see the job label and the worker log)", summary_fa: "یک کار پس‌زمینه روی چند مورد پشت‌سرهم خطا می‌دهد", hint_fa: "برچسب «کار» را ببینید و لاگ worker را بخوانید."}
+      - alert: MelorinWorkerJobLockUnavailable
+        expr: sum by (job) (increase(melorin_job_runs_total{outcome="lock_error"}[5m])) > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "A scheduled worker job could not acquire its distributed lock", summary_fa: "یک کار پس‌زمینه به‌دلیل در دسترس نبودن قفل Redis اجرا نشد", hint_fa: "اتصال Redis و لاگ کانتینر worker را فوراً بررسی کنید."}
+      - alert: MelorinWorkerMetricsUnavailable
+        expr: up{job="melorin-worker"} == 0 or absent(up{job="melorin-worker"})
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Worker metrics endpoint is not scrapeable", summary_fa: "endpoint متریک worker در دسترس Prometheus نیست", hint_fa: "کانتینر worker و پورت داخلی 8001 را بررسی کنید."}
+      - alert: MelorinBackupMetricsUnavailable
+        expr: up{job="melorin-backup"} == 0 or absent(up{job="melorin-backup"})
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Backup scheduler metrics endpoint is not scrapeable", summary_fa: "endpoint متریک زمان‌بند بکاپ در دسترس Prometheus نیست", hint_fa: "کانتینر backup و پورت داخلی 8001 را بررسی کنید؛ بکاپ زمان‌بندی‌شده ممکن است اجرا نشود."}
   # M7.6: traffic, business and housekeeping signals (HTTP, payments, provisioning, reseller bots, backups).
   - name: melorin-traffic
     rules:
