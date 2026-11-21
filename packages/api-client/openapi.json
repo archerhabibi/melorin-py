@@ -51,8 +51,8 @@
       "AdjustIn": {
         "properties": {
           "delta": {
-            "maximum": 1000000000.0,
-            "minimum": -1000000000.0,
+            "maximum": 1000000000,
+            "minimum": -1000000000,
             "title": "Delta",
             "type": "integer"
           },
@@ -218,7 +218,7 @@
           },
           "fixed": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Fixed",
             "type": "integer"
           },
@@ -231,7 +231,7 @@
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -243,7 +243,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -254,14 +254,14 @@
           },
           "min_amount": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Min Amount",
             "type": "integer"
           },
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -273,8 +273,8 @@
           },
           "percent_bp": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": 0.0,
+            "maximum": 10000,
+            "minimum": 0,
             "title": "Percent Bp",
             "type": "integer"
           },
@@ -801,8 +801,8 @@
           },
           "rate_limit_per_minute": {
             "default": 120,
-            "maximum": 6000.0,
-            "minimum": 1.0,
+            "maximum": 6000,
+            "minimum": 1,
             "title": "Rate Limit Per Minute",
             "type": "integer"
           },
@@ -1003,7 +1003,7 @@
           "customer_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1393,7 +1393,7 @@
       "BulkConfirmIn": {
         "properties": {
           "count": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Count",
             "type": "integer"
           }
@@ -1519,7 +1519,7 @@
           "main_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1531,7 +1531,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1684,7 +1684,7 @@
           "max_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1716,7 +1716,7 @@
             "type": "string"
           },
           "value": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Value",
             "type": "integer"
           }
@@ -1909,14 +1909,14 @@
           },
           "fixed": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Fixed",
             "type": "integer"
           },
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -1928,7 +1928,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -1939,14 +1939,14 @@
           },
           "min_amount": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Min Amount",
             "type": "integer"
           },
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -1958,8 +1958,8 @@
           },
           "percent_bp": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": 0.0,
+            "maximum": 10000,
+            "minimum": 0,
             "title": "Percent Bp",
             "type": "integer"
           },
@@ -2020,7 +2020,7 @@
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2032,7 +2032,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2044,7 +2044,7 @@
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2190,7 +2190,7 @@
           "sales_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2393,7 +2393,7 @@
             "title": "Description"
           },
           "duration_days": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Duration Days",
             "type": "integer"
           },
@@ -2403,14 +2403,14 @@
             "type": "boolean"
           },
           "main_price": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Main Price",
             "type": "integer"
           },
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2433,7 +2433,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -2443,7 +2443,7 @@
             "title": "Reseller Price"
           },
           "traffic_gb": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Traffic Gb",
             "type": "integer"
           }
@@ -2466,8 +2466,8 @@
             "type": "boolean"
           },
           "capacity": {
-            "exclusiveMinimum": 0.0,
-            "maximum": 100000.0,
+            "exclusiveMinimum": 0,
+            "maximum": 100000,
             "title": "Capacity",
             "type": "integer"
           },
@@ -2881,8 +2881,8 @@
           },
           "port": {
             "default": 587,
-            "maximum": 65535.0,
-            "minimum": 1.0,
+            "maximum": 65535,
+            "minimum": 1,
             "title": "Port",
             "type": "integer"
           },
@@ -3736,8 +3736,8 @@
           "retention_days": {
             "anyOf": [
               {
-                "maximum": 365.0,
-                "minimum": 1.0,
+                "maximum": 365,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -5603,8 +5603,8 @@
           "customer_price": {
             "anyOf": [
               {
-                "maximum": 1000000000000.0,
-                "minimum": 0.0,
+                "maximum": 1000000000000,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5631,7 +5631,7 @@
           "customer_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5704,7 +5704,7 @@
             "title": "Description"
           },
           "duration_days": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Duration Days",
             "type": "integer"
           },
@@ -5723,14 +5723,14 @@
             "type": "boolean"
           },
           "main_price": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Main Price",
             "type": "integer"
           },
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -5755,7 +5755,7 @@
             "type": "integer"
           },
           "traffic_gb": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Traffic Gb",
             "type": "integer"
           },
@@ -5850,7 +5850,7 @@
           "duration_days": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -5884,7 +5884,7 @@
           "main_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5896,7 +5896,7 @@
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -5932,7 +5932,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5944,7 +5944,7 @@
           "traffic_gb": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6012,8 +6012,8 @@
       "ProgramIn": {
         "properties": {
           "earn_unit": {
-            "maximum": 1000000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000000,
+            "minimum": 1,
             "title": "Earn Unit",
             "type": "integer"
           },
@@ -6023,16 +6023,16 @@
           },
           "first_order_bonus": {
             "default": 0,
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "First Order Bonus",
             "type": "integer"
           },
           "max_points_per_order": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 1.0,
+                "maximum": 1000000000,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -6042,15 +6042,15 @@
             "title": "Max Points Per Order"
           },
           "points_per_unit": {
-            "maximum": 1000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000,
+            "minimum": 1,
             "title": "Points Per Unit",
             "type": "integer"
           },
           "referral_bonus": {
             "default": 0,
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "Referral Bonus",
             "type": "integer"
           }
@@ -6343,8 +6343,8 @@
           },
           "timeout_seconds": {
             "default": 25,
-            "maximum": 90.0,
-            "minimum": 5.0,
+            "maximum": 90,
+            "minimum": 5,
             "title": "Timeout Seconds",
             "type": "integer"
           }
@@ -6583,7 +6583,7 @@
           },
           "debt_limit": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Debt Limit",
             "type": "integer"
           },
@@ -6646,7 +6646,7 @@
           "debt_limit": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6821,8 +6821,8 @@
       "RewardIn": {
         "properties": {
           "cost_points": {
-            "maximum": 1000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000,
+            "minimum": 1,
             "title": "Cost Points",
             "type": "integer"
           },
@@ -6858,8 +6858,8 @@
           "per_user_limit": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 1.0,
+                "maximum": 1000000000,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -6870,16 +6870,16 @@
           },
           "sort_order": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": -10000.0,
+            "maximum": 10000,
+            "minimum": -10000,
             "title": "Sort Order",
             "type": "integer"
           },
           "stock": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 0.0,
+                "maximum": 1000000000,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6889,8 +6889,8 @@
             "title": "Stock"
           },
           "value": {
-            "maximum": 1000000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000000,
+            "minimum": 1,
             "title": "Value",
             "type": "integer"
           }
@@ -6939,8 +6939,8 @@
           "expiring_within_days": {
             "anyOf": [
               {
-                "maximum": 3650.0,
-                "minimum": 0.0,
+                "maximum": 3650,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7188,8 +7188,8 @@
           },
           "capacity": {
             "default": 500,
-            "exclusiveMinimum": 0.0,
-            "maximum": 100000.0,
+            "exclusiveMinimum": 0,
+            "maximum": 100000,
             "title": "Capacity",
             "type": "integer"
           },
@@ -7460,7 +7460,7 @@
           "max_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7487,7 +7487,7 @@
             "title": "Product Id"
           },
           "value": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Value",
             "type": "integer"
           }
@@ -7700,8 +7700,8 @@
           },
           "ttl_seconds": {
             "default": 180,
-            "maximum": 600.0,
-            "minimum": 60.0,
+            "maximum": 600,
+            "minimum": 60,
             "title": "Ttl Seconds",
             "type": "integer"
           }
@@ -8587,7 +8587,7 @@
             "type": "string"
           },
           "remote_template_id": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Remote Template Id",
             "type": "integer"
           }
@@ -8736,15 +8736,15 @@
       "TierIn": {
         "properties": {
           "min_points": {
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "Min Points",
             "type": "integer"
           },
           "multiplier_bp": {
             "default": 10000,
-            "maximum": 100000.0,
-            "minimum": 1.0,
+            "maximum": 100000,
+            "minimum": 1,
             "title": "Multiplier Bp",
             "type": "integer"
           },
@@ -8919,7 +8919,7 @@
       "TopupRequest": {
         "properties": {
           "amount": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Amount",
             "type": "integer"
           },
@@ -9125,7 +9125,7 @@
           "sales_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -9167,8 +9167,8 @@
           "capacity": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
-                "maximum": 100000.0,
+                "exclusiveMinimum": 0,
+                "maximum": 100000,
                 "type": "integer"
               },
               {
@@ -10522,8 +10522,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 100.0,
-              "minimum": 1.0,
+              "maximum": 100,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -10534,7 +10534,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -10651,8 +10651,8 @@
             "required": false,
             "schema": {
               "default": 50,
-              "maximum": 200.0,
-              "minimum": 1.0,
+              "maximum": 200,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -10663,7 +10663,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -17321,8 +17321,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 90.0,
-              "minimum": 7.0,
+              "maximum": 90,
+              "minimum": 7,
               "title": "Days",
               "type": "integer"
             }
@@ -17434,8 +17434,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 90.0,
-              "minimum": 7.0,
+              "maximum": 90,
+              "minimum": 7,
               "title": "Days",
               "type": "integer"
             }
@@ -17606,8 +17606,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 90.0,
-              "minimum": 7.0,
+              "maximum": 90,
+              "minimum": 7,
               "title": "Days",
               "type": "integer"
             }
@@ -20763,8 +20763,8 @@
             "required": false,
             "schema": {
               "default": 100,
-              "maximum": 200.0,
-              "minimum": 1.0,
+              "maximum": 200,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -20775,7 +20775,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -21004,8 +21004,8 @@
             "required": false,
             "schema": {
               "default": 20,
-              "maximum": 100.0,
-              "minimum": 1.0,
+              "maximum": 100,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -21016,7 +21016,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -21427,8 +21427,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 90.0,
-              "minimum": 1.0,
+              "maximum": 90,
+              "minimum": 1,
               "title": "Days",
               "type": "integer"
             }
@@ -23864,8 +23864,8 @@
             "required": false,
             "schema": {
               "default": 100,
-              "maximum": 500.0,
-              "minimum": 1.0,
+              "maximum": 500,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -23876,7 +23876,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -25315,8 +25315,8 @@
             "required": false,
             "schema": {
               "default": 20,
-              "maximum": 100.0,
-              "minimum": 1.0,
+              "maximum": 100,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -25816,8 +25816,8 @@
             "required": false,
             "schema": {
               "default": 20,
-              "maximum": 100.0,
-              "minimum": 1.0,
+              "maximum": 100,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -26708,8 +26708,8 @@
             "required": false,
             "schema": {
               "default": 50,
-              "maximum": 200.0,
-              "minimum": 1.0,
+              "maximum": 200,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -26720,7 +26720,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -27632,8 +27632,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 90.0,
-              "minimum": 1.0,
+              "maximum": 90,
+              "minimum": 1,
               "title": "Days",
               "type": "integer"
             }
@@ -30833,8 +30833,8 @@
             "required": false,
             "schema": {
               "default": 100,
-              "maximum": 200.0,
-              "minimum": 1.0,
+              "maximum": 200,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -30845,7 +30845,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -31542,8 +31542,8 @@
             "required": false,
             "schema": {
               "default": 30,
-              "maximum": 90.0,
-              "minimum": 1.0,
+              "maximum": 90,
+              "minimum": 1,
               "title": "Days",
               "type": "integer"
             }
@@ -31719,8 +31719,8 @@
             "required": false,
             "schema": {
               "default": 50,
-              "maximum": 200.0,
-              "minimum": 1.0,
+              "maximum": 200,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -31731,7 +31731,7 @@
             "required": false,
             "schema": {
               "default": 0,
-              "minimum": 0.0,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
