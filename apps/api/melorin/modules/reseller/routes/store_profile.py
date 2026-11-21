@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from melorin.core.invariants import require
 from melorin.core import audit, settings_store
 from melorin.core.deps import OwnerCtx, Session, main_store
 from melorin.domain.order_kinds import not_manual
@@ -22,8 +23,8 @@ router = APIRouter(tags=["reseller"])
 async def profile(ctx: OwnerCtx, session: Session):
     p = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == ctx.store.id))
     main = await main_store(session)
-    assert ctx.store.owner_user_id is not None  # a reseller store always has an owner
-    w = await wallet.get_wallet(session, ctx.store.owner_user_id, main.id, currency=main.currency)
+    owner_id = require(ctx.store.owner_user_id, "reseller store owner")  # a reseller store always has an owner
+    w = await wallet.get_wallet(session, owner_id, main.id, currency=main.currency)
     await session.commit()
     near = float(await settings_store.get(session, "debt.near_ratio") or 0.8)
     from melorin.domain import debt

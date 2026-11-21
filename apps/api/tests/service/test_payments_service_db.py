@@ -196,6 +196,23 @@ async def test_duplicate_callback_is_acknowledged_and_never_double_credits(gatew
         assert (await s.scalar(select(func.count()).select_from(LedgerTransaction))) == 1
 
 
+async def test_flood_of_duplicate_callbacks_stores_a_bounded_number_of_small_rows(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        p, _ = await _intent(s, store, user)
+        params = {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref}
+        await payments.handle_callback(s, "fake_gw", params)
+        junk = {**params, **{f"x{i}": "A" * 10_000 for i in range(60)}}
+        for _ in range(30):
+            await payments.handle_callback(s, "fake_gw", junk)
+        rows = (
+            await s.scalars(select(PaymentAttempt).where(PaymentAttempt.payment_id == p.id, PaymentAttempt.result == "duplicate"))
+        ).all()
+        assert len(rows) == payments.MAX_DUPLICATE_ATTEMPTS
+        assert all(len(r.data) <= 20 and all(len(v) <= 200 for v in r.data.values()) for r in rows)
+        assert await _balance(s, user, store) == 5_000
+
+
 async def test_tampered_authority_fails_the_payment_and_credits_nothing(gateway):
     async with open_session() as s:
         store, user = await _setup(s)
