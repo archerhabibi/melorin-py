@@ -205,40 +205,49 @@ describe('receipt OCR settings', () => {
 
   it('uses the typed reseller route and extracts the store id before the reseller suffix', async () => {
     const requests = [];
-    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
-      requests.push([String(url), init]);
-      return json({ policy: init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn' });
-    }));
-    render(
-      <ReceiptDuplicatePolicy
-        toast={vi.fn()}
-        base="/api/v1/stores/s-reseller/reseller"
-      />,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, init = {}) => {
+        requests.push([String(url), init]);
+        return json({ policy: init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn' });
+      }),
     );
+    render(<ReceiptDuplicatePolicy toast={vi.fn()} base="/api/v1/stores/s-reseller/reseller" />);
     const block = await screen.findByRole('radio', { name: 'رد کردن' });
     await userEvent.click(block);
     await waitFor(() =>
-      expect(requests.some(([url, init]) =>
-        url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT',
-      )).toBe(true),
+      expect(
+        requests.some(
+          ([url, init]) =>
+            url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT',
+        ),
+      ).toBe(true),
     );
-    const put = requests.find(([url, init]) => url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT');
+    const put = requests.find(
+      ([url, init]) =>
+        url.includes('/api/v1/stores/s-reseller/reseller/receipt-duplicates/settings') && init.method === 'PUT',
+    );
     expect(JSON.parse(put[1].body)).toEqual({ policy: 'block' });
   });
 
   it('shows the duplicate-picture policy (warn by default) and saves a switch to block through the typed admin route', async () => {
     const requests = [];
-    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
-      requests.push([String(url), init]);
-      const policy = init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn';
-      return json({ policy });
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, init = {}) => {
+        requests.push([String(url), init]);
+        const policy = init.method === 'PUT' ? JSON.parse(init.body).policy : 'warn';
+        return json({ policy });
+      }),
+    );
     const { toast } = setup();
     const block = await screen.findByRole('radio', { name: 'رد کردن' });
     expect(screen.getByRole('radio', { name: 'فقط هشدار' })).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(block);
     await waitFor(() => expect(toast).toHaveBeenCalledWith('تنظیم رسید تکراری ذخیره شد'));
-    const put = requests.find(([url, init]) => url.includes('/api/v1/admin/stores/s-main/receipt-duplicates/settings') && init.method === 'PUT');
+    const put = requests.find(
+      ([url, init]) => url.includes('/api/v1/admin/stores/s-main/receipt-duplicates/settings') && init.method === 'PUT',
+    );
     expect(put).toBeTruthy();
     expect(JSON.parse(put[1].body)).toEqual({ policy: 'block' });
     expect(screen.getByRole('radio', { name: 'رد کردن' })).toHaveAttribute('aria-checked', 'true');
