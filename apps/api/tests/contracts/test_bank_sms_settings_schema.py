@@ -17,10 +17,7 @@ from melorin.modules.payments.schemas import BankSmsSettingsIn, BankSmsSourceIn
     ],
 )
 def test_bank_sms_settings_accept_supported_values(payload, expected):
-    assert (
-        BankSmsSettingsIn.model_validate(payload).model_dump(exclude_unset=True)
-        == expected
-    )
+    assert BankSmsSettingsIn.model_validate(payload).model_dump(exclude_unset=True) == expected
 
 
 @pytest.mark.parametrize(
@@ -51,19 +48,12 @@ def test_bank_sms_settings_reject_invalid_values(payload):
 )
 def test_bank_sms_schema_leaves_domain_ranges_to_business_validation(payload):
     # Request-schema bounds would mask the stable BANK_SMS_SETTING_INVALID domain error.
-    assert (
-        BankSmsSettingsIn.model_validate(payload).model_dump(exclude_unset=True)
-        == payload
-    )
+    assert BankSmsSettingsIn.model_validate(payload).model_dump(exclude_unset=True) == payload
 
 
 def test_bank_sms_source_settings_are_typed_and_nullable_for_reset():
-    source = BankSmsSourceIn.model_validate(
-        {"settings": {"window_minutes": None, "require_claimed_time": True}}
-    )
-    assert source.model_dump(exclude_unset=True) == {
-        "settings": {"window_minutes": None, "require_claimed_time": True}
-    }
+    source = BankSmsSourceIn.model_validate({"settings": {"window_minutes": None, "require_claimed_time": True}})
+    assert source.model_dump(exclude_unset=True) == {"settings": {"window_minutes": None, "require_claimed_time": True}}
     assert BankSmsSourceIn.model_validate({"settings": None}).settings is None
 
 
