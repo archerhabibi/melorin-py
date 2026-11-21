@@ -6,8 +6,12 @@ handling (0 = ok, 3 = off-site failed, other = failed) is exercised end to end.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
+import os
+import signal
 import stat
+import threading
 
 import pytest
 from sqlalchemy import select
@@ -23,6 +27,7 @@ from melorin.core import integrations
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from _jobs import patch_jobs
 from melorin.worker import jobs
+import melorin.worker.jobs_backup as backup_jobs
 
 
 @pytest.fixture
@@ -256,6 +261,79 @@ def backup_env(maker, monkeypatch, tmp_path):
 async def _runs(maker):
     async with maker() as s:
         return (await s.scalars(select(BackupRun))).all()
+
+
+async def test_backup_artifact_size_is_read_off_the_event_loop(monkeypatch, tmp_path):
+    artifact = tmp_path / "dump.enc"
+    artifact.write_bytes(b"backup")
+    threads = []
+    real_stat = backup_jobs.Path.stat
+
+    def spy(self, *a, **k):
+        threads.append(threading.get_ident())
+        return real_stat(self, *a, **k)
+
+    monkeypatch.setattr(backup_jobs.Path, "stat", spy)
+    assert await backup_jobs._artifact_size(str(artifact)) == 6
+    assert threads and threading.get_ident() not in threads
+
+
+@pytest.mark.parametrize("make", ["missing", "directory", "nul", "denied"])
+async def test_backup_artifact_size_is_none_for_anything_but_a_readable_file(monkeypatch, tmp_path, make):
+    location = {"missing": str(tmp_path / "gone.enc"), "directory": str(tmp_path), "nul": "a\0b", "denied": str(tmp_path / "x")}[make]
+    if make == "denied":
+
+        def deny(self, *a, **k):
+            raise PermissionError(13, "denied")
+
+        monkeypatch.setattr(backup_jobs.Path, "stat", deny)
+    assert await backup_jobs._artifact_size(location) is None
+
+
+async def test_backup_job_stays_succeeded_when_the_artifact_cannot_be_stat_ed(maker, backup_env, monkeypatch):
+    artifact = backup_env / "dump.enc"
+    artifact.write_bytes(b"1")
+    _script(backup_env, f"echo {artifact}\n")
+
+    def deny(self, *a, **k):
+        raise PermissionError(13, "denied")
+
+    monkeypatch.setattr(backup_jobs.Path, "stat", deny)
+    assert await jobs.backup_job() == "succeeded"
+    (run,) = await _runs(maker)
+    assert (run.status, run.location, run.size) == ("succeeded", str(artifact), None)
+
+
+async def test_backup_job_timeout_kills_the_script_and_its_children_and_records_a_reason(maker, backup_env, monkeypatch):
+    pidfile = backup_env / "child.pid"
+    _script(backup_env, f"sleep 60 &\necho $! > {pidfile}\nwait\n")
+    monkeypatch.setattr(backup_jobs, "_SCRIPT_TIMEOUT", 1)
+    assert await jobs.backup_job() == "failed"
+    (run,) = await _runs(maker)
+    assert run.status == "failed" and "timed out" in run.details
+    child = int(pidfile.read_text())
+    for _ in range(50):  # SIGKILL is async; the orphan is reaped by init, so poll for its disappearance
+        try:
+            os.kill(child, 0)
+        except ProcessLookupError:
+            break
+        await asyncio.sleep(0.1)
+    else:
+        os.kill(child, signal.SIGKILL)
+        pytest.fail("the backup script's child outlived the timeout")
+
+
+async def test_panel_backup_job_records_a_panel_run_and_main_run_uses_the_default_series(maker, backup_env, monkeypatch):
+    artifact = backup_env / "panel.enc"
+    artifact.write_bytes(b"abc")
+    monkeypatch.setenv("MELORIN_PANEL_BACKUP_PATHS", "/data")
+    (backup_env / "scripts").mkdir()
+    sh = backup_env / "scripts" / "backup_panel.sh"
+    sh.write_text(f"#!/bin/sh\necho {artifact}\n")
+    sh.chmod(sh.stat().st_mode | stat.S_IEXEC)
+    assert await jobs.panel_backup_job() == "succeeded"
+    (run,) = await _runs(maker)
+    assert (run.target, run.size) == ("panel", 3) and "panel backup encrypted" in run.details
 
 
 async def test_backup_job_success_records_artifact_size_and_local_only_note(maker, backup_env):
