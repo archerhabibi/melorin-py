@@ -52,7 +52,9 @@ function setup({ src = source(), messages = [deposit()], put } = {}) {
       if (target.includes('/bank-sms/source') && init.method === 'PUT')
         return put ? put() : json({ source: src, token: null });
       if (target.includes('/bank-sms/token') && init.method === 'POST') return json({ token: 'mlr_sms_SECRET' });
-      if (target.includes('/bank-sms/reconcile') && init.method === 'POST') return json({ ok: true, matched: 0 });
+      if (target.includes('/bank-sms/reconcile') && init.method === 'POST') return json({ checked: 0, matched: 0 });
+      if (/\/bank-sms\/[^/]+\/ignore$/.test(target) && init.method === 'POST')
+        return json(deposit({ status: 'ignored' }));
       if (target.includes('/bank-sms') && !target.includes('/receipt-review')) return json({ source: src, messages });
       return json({ error: 'n/a' }, 404);
     }),
@@ -108,5 +110,36 @@ describe('admin bank-SMS auto verification panel', () => {
     );
     const put = requests.find(([url, init]) => url.includes(`${BASE}/source`) && init.method === 'PUT');
     expect(JSON.parse(put[1].body).settings.window_minutes).toBe(360);
+  });
+
+  it('keeps unsaved edits when the status filter reloads the inbox', async () => {
+    const { requests } = setup();
+    const win = await screen.findByLabelText(/بازه‌ی پذیرش/);
+    await userEvent.clear(win);
+    await userEvent.type(win, '۳۶۰');
+    await userEvent.selectOptions(screen.getByLabelText('فیلتر وضعیت پیامک'), 'ignored');
+    await waitFor(() => expect(requests.some(([url]) => url.includes(`${BASE}?status=ignored`))).toBe(true));
+    expect(screen.getByLabelText(/بازه‌ی پذیرش/)).toHaveValue('۳۶۰');
+  });
+
+  it('shows the first message of a FastAPI 422 validation list', async () => {
+    const { toast } = setup({ put: () => json({ detail: [{ msg: 'Value error, مقدار نامعتبر' }] }, 422) });
+    await userEvent.click(await screen.findByRole('button', { name: 'ذخیره' }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('مقدار نامعتبر'));
+  });
+
+  it('posts the ignore decision to the SMS path with a typed body', async () => {
+    const { requests } = setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'نادیده' }));
+    await waitFor(() =>
+      expect(
+        requests.some(
+          ([url, init]) => url === `http://localhost:3000${BASE}/m1/ignore` || url.endsWith(`${BASE}/m1/ignore`),
+        ),
+      ).toBe(true),
+    );
+    const [, init] = requests.find(([url]) => url.endsWith(`${BASE}/m1/ignore`));
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ ignored: true });
   });
 });

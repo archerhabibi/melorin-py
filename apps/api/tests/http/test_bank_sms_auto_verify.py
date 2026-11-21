@@ -370,3 +370,22 @@ async def test_reconcile_job_pairs_open_deposits(monkeypatch):
             await payments.attach_receipt(s, p, fo.id, {"paid_at": when.isoformat()})
         assert await jobs.bank_sms_reconcile_job() == 1
         assert await _balance(maker, sid) == 150_000
+
+
+def test_bank_sms_responses_are_declared_in_openapi():
+    """The admin and reseller screens (not the phone webhook) get their TS types from the OpenAPI snapshot: every bank-SMS route declares its 200 body."""
+    from melorin.app import app
+
+    paths = app.openapi()["paths"]
+    routes = [
+        (p, m)
+        for p, item in paths.items()
+        if "bank-sms" in p and ("/admin/" in p or "/reseller/" in p)
+        for m in item
+        if m in {"get", "put", "post"}
+    ]
+    assert len(routes) >= 12  # 6 admin + 6 reseller
+    untyped = [
+        f"{m.upper()} {p}" for p, m in routes if "$ref" not in paths[p][m]["responses"]["200"]["content"]["application/json"]["schema"]
+    ]
+    assert untyped == []

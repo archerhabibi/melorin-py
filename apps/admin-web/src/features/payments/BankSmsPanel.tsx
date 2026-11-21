@@ -1,16 +1,17 @@
 // تأیید خودکار کارت‌به‌کارت با پیامک بانک (main store): settings, one-time webhook token, the forwarded SMS inbox and the
 // human fallback (pair / ignore). Core decides every match; this panel only edits settings and shows what Core stored.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+// Every call goes through the typed client: paths, bodies and responses come from the OpenAPI snapshot.
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
-import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
-import type { RequestBody } from '@melorin/api-client';
+import { formFromSource, sourceBody, type BankSmsForm } from '@melorin/web-kit/bankSms.js';
+import type { RequestBody, ResponseBody } from '@melorin/api-client';
 import { API_BASE, typedClient } from '../../api/api.ts';
-import { Empty, Field, Section, Switch, num } from '../../shared/kit.tsx';
+import { Empty, Field, Section, Switch, errMsg, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+import type { CallFn, Toast } from '../../shared/types.ts';
 
-const STATUS: Rec = {
+const STATUS: Record<string, [string, string]> = {
   matched: ['شارژ شد', 'b-ok'],
   unmatched: ['در انتظار رسید', 'b-mu'],
   ambiguous: ['نیاز به بررسی', 'b-wn'],
@@ -23,66 +24,77 @@ const TOKEN_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/token' as const;
 const RECONCILE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/reconcile' as const;
 const IGNORE_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore' as const;
 const LINK_PATH = '/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link' as const;
-type SourceBody = RequestBody<typeof SOURCE_PATH, 'put'>;
-const apiError = (error: unknown, fallback: string) => {
-  if (!error || typeof error !== 'object') return fallback;
-  const payload = error as { detail?: unknown; error?: { message?: unknown } };
-  const detail = payload.detail;
-  return (
-    (typeof payload.error?.message === 'string' ? payload.error.message : null) ||
-    (typeof detail === 'string'
-      ? detail
-      : detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string'
-        ? detail.message
-        : null) ||
-    fallback
-  );
-};
 
-export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; toast: Toast; payments?: Json }) {
-  const [store, setStore] = useState<Json>(null);
-  const [data, setData] = useState<Json>(null);
-  const [form, setForm] = useState<Json>(null);
-  const [token, setToken] = useState<Json>(null);
+type Overview = ResponseBody<typeof OVERVIEW_PATH, 'get'>;
+type SmsMessage = Overview['messages'][number];
+type SourceBody = RequestBody<typeof SOURCE_PATH, 'put'>;
+/** The slice of a payment row (GET /admin/payments) this panel needs to offer a pairing. */
+export interface WaitingPayment {
+  id: string;
+  provider: string;
+  status: string;
+  has_receipt: boolean;
+  currency: string;
+  amount: number;
+  created_at: string;
+}
+type TextField = Exclude<keyof BankSmsForm, 'auto_verify' | 'is_enabled' | 'require_claimed_time'>;
+
+const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
+
+export default function BankSmsPanel({
+  call,
+  toast,
+  payments,
+}: {
+  call: CallFn;
+  toast: Toast;
+  payments?: WaitingPayment[] | null;
+}) {
+  const client = useMemo(() => typedClient(API_BASE), []);
+  const [store, setStore] = useState<string | false | null>(null); // null = resolving, false = no main store
+  const [data, setData] = useState<Overview | null>(null);
+  const [form, setForm] = useState<BankSmsForm | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState('');
-  const client = useMemo(() => typedClient(API_BASE), []);
+  const [tick, setTick] = useState(0);
+  const reload = () => setTick((n) => n + 1);
 
-  const apply = (d: Json) => {
-    setData(d);
-    setForm(formFromSource(d.source));
-  };
+  // The form is seeded from the stored source once and re-seeded only after a save: a reload (filter change, pairing,
+  // reconcile) must never wipe what the admin is typing.
+  const seed = (source: Overview['source']) => setForm(formFromSource(source));
 
   useEffect(() => {
+    const ctl = new AbortController();
     client
-      .get('/api/v1/me/stores')
-      .then(({ data, response }) => {
-        if (!response.ok) return setStore(false);
-        const stores = (Array.isArray(data) ? data : []) as { id?: string; kind?: string }[];
+      .get('/api/v1/me/stores', { signal: ctl.signal })
+      .then(({ data: list, response }) => {
+        const stores = (response.ok && Array.isArray(list) ? list : []) as { id?: string; kind?: string }[];
         setStore(stores.find((x) => x.kind === 'main')?.id || false);
       })
-      .catch(() => setStore(false));
+      .catch((e) => !isAbort(e) && setStore(false));
+    return () => ctl.abort();
   }, [client]);
 
-  const base = store ? `/api/v1/admin/stores/${store}/bank-sms` : null;
-  const pathParams = { path: { store_id: String(store || '') } };
-  const load = useCallback(async () => {
-    if (!base) return;
-    try {
-      const { data, response, error } = await client.get(OVERVIEW_PATH, {
-        params: { ...pathParams, query: { status: filter || undefined } },
-      });
-      if (response.ok) apply(data as Json);
-      else toast(apiError(error, 'دریافت پیامک‌های بانک ناموفق بود'));
-    } catch {
-      toast('ارتباط با سرور برقرار نشد');
-    }
-  }, [base, client, filter, store, toast]);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!store) return;
+    const ctl = new AbortController();
+    client
+      .get(OVERVIEW_PATH, {
+        params: { path: { store_id: store }, query: { status: filter || undefined } },
+        signal: ctl.signal,
+      })
+      .then(({ data: d, response, error }) => {
+        if (!response.ok || !d) return toast(errMsg(error, 'دریافت پیامک‌های بانک ناموفق بود'));
+        setData(d);
+        setForm((cur) => cur ?? formFromSource(d.source));
+      })
+      .catch((e) => !isAbort(e) && toast('ارتباط با سرور برقرار نشد'));
+    return () => ctl.abort();
+  }, [client, store, filter, tick, toast]);
 
-  const run = async (key: Json, fn: Json) => {
+  const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
     try {
       await fn();
@@ -92,18 +104,23 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
       setBusy('');
     }
   };
+  const storePath = { store_id: String(store) };
   const save = () =>
     run('save', async () => {
-      const body = sourceBody(form);
-      const { data, response, error } = await client.put(SOURCE_PATH, {
-        params: pathParams,
-        body: body as SourceBody,
+      if (!form) return;
+      const {
+        data: d,
+        response,
+        error,
+      } = await client.put(SOURCE_PATH, {
+        params: { path: storePath },
+        body: sourceBody(form) satisfies SourceBody,
       });
-      if (!response.ok) return toast(apiError(error as Json, 'ذخیره ناموفق بود'));
-      const d = data as Json;
+      if (!response.ok || !d) return toast(errMsg(error, 'ذخیره ناموفق بود'));
       if (d.token) setToken(d.token);
+      seed(d.source);
       toast('تنظیمات ذخیره شد');
-      load();
+      reload();
     });
   const rotate = () =>
     run('rotate', async () => {
@@ -115,29 +132,28 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
         }))
       )
         return;
-      const { data, response, error } = await client.post(TOKEN_PATH, { params: pathParams });
-      if (!response.ok) return toast(apiError(error as Json, 'تعویض توکن ناموفق بود'));
-      setToken((data as Json).token);
-      load();
+      const { data: d, response, error } = await client.post(TOKEN_PATH, { params: { path: storePath } });
+      if (!response.ok || !d) return toast(errMsg(error, 'تعویض توکن ناموفق بود'));
+      setToken(d.token);
+      reload();
     });
   const reconcile = () =>
     run('reconcile', async () => {
-      const { data, response, error } = await client.post(RECONCILE_PATH, { params: pathParams });
-      if (!response.ok) return toast(apiError(error as Json, 'بررسی دوباره ناموفق بود'));
-      const d = data as Json;
+      const { data: d, response, error } = await client.post(RECONCILE_PATH, { params: { path: storePath } });
+      if (!response.ok || !d) return toast(errMsg(error, 'بررسی دوباره ناموفق بود'));
       toast(d.matched ? `${num(d.matched)} پرداخت تطبیق و شارژ شد` : 'مورد جدیدی برای تطبیق نبود');
-      load();
+      reload();
     });
-  const ignore = (m: Json, ignored: Json) =>
+  const ignore = (m: SmsMessage, ignored: boolean) =>
     run(m.id, async () => {
       const { response, error } = await client.post(IGNORE_PATH, {
-        params: { path: { store_id: String(store), sms_id: String(m.id) } },
+        params: { path: { ...storePath, sms_id: m.id } },
         body: { ignored },
       });
-      if (!response.ok) return toast(apiError(error as Json, 'ناموفق بود'));
-      load();
+      if (!response.ok) return toast(errMsg(error, 'ناموفق بود'));
+      reload();
     });
-  const link = (m: Json, paymentId: Json) =>
+  const link = (m: SmsMessage, paymentId: string) =>
     run(m.id, async () => {
       if (!paymentId) return;
       if (
@@ -151,21 +167,22 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
       )
         return;
       const { response, error } = await client.post(LINK_PATH, {
-        params: { path: { store_id: String(store), sms_id: String(m.id) } },
-        body: { payment_id: String(paymentId) },
+        params: { path: { ...storePath, sms_id: m.id } },
+        body: { payment_id: paymentId },
       });
-      toast(response.ok ? 'پرداخت تأیید و کیف پول شارژ شد' : apiError(error as Json, 'اتصال ناموفق بود'));
-      response.ok && load();
+      if (!response.ok) return toast(errMsg(error, 'اتصال ناموفق بود'));
+      toast('پرداخت تأیید و کیف پول شارژ شد');
+      reload();
     });
 
-  if (store === false || !form || !data) {
-    return store === false ? null : <div className="card skel h-24" />;
-  }
+  if (store === false) return null;
+  if (!store || !form || !data) return <div className="card skel h-24" />;
   const s = data.source;
   const live = s.configured && s.is_enabled && s.auto_verify;
-  const set = (k: Json) => (e: Json) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: TextField) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm({ ...form, [k]: e.target.value });
   const waiting = (payments || []).filter(
-    (p: Json) => p.provider === 'manual_card' && p.status === 'awaiting_review' && p.has_receipt,
+    (p) => p.provider === 'manual_card' && p.status === 'awaiting_review' && p.has_receipt,
   );
   const webhook = `${window.location.origin}/api/v1/payments/bank-sms/${s.store_id}`;
 
@@ -175,8 +192,8 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
         call={call}
         toast={toast}
         base={`/api/v1/admin/stores/${store}`}
-        receiptPath={(id: Json) => `/api/v1/admin/payments/${id}/receipt`}
-        onChanged={load}
+        receiptPath={(id: string) => `/api/v1/admin/payments/${id}/receipt`}
+        onChanged={reload}
       />
       <Section
         title="تأیید خودکار کارت‌به‌کارت با پیامک بانک"
@@ -205,7 +222,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
           <label className="flex items-center gap-2 text-xs font-bold">
             <Switch
               checked={form.auto_verify}
-              onChange={(v: Json) => setForm({ ...form, auto_verify: v })}
+              onChange={(v: boolean) => setForm({ ...form, auto_verify: v })}
               label="شارژ خودکار"
             />
             شارژ خودکار پس از تطبیق
@@ -213,7 +230,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
           <label className="flex items-center gap-2 text-xs font-bold">
             <Switch
               checked={form.is_enabled}
-              onChange={(v: Json) => setForm({ ...form, is_enabled: v })}
+              onChange={(v: boolean) => setForm({ ...form, is_enabled: v })}
               label="دریافت پیامک"
             />
             دریافت پیامک فعال
@@ -221,7 +238,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
           <label className="flex items-center gap-2 text-xs font-bold">
             <Switch
               checked={form.require_claimed_time}
-              onChange={(v: Json) => setForm({ ...form, require_claimed_time: v })}
+              onChange={(v: boolean) => setForm({ ...form, require_claimed_time: v })}
               label="زمان رسید الزامی"
             />
             زمان رسید الزامی (توصیه‌شده)
@@ -338,11 +355,10 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
                     </tr>
                   </thead>
                   <tbody>
-                    {data.messages.map((m: Json) => {
+                    {data.messages.map((m) => {
                       const [label, tone] = STATUS[m.status] || [m.status, 'b-mu'];
                       const same = waiting.filter(
-                        (p: Json) =>
-                          m.amount_rial && (p.currency === 'IRR' ? p.amount : p.amount * 10) === m.amount_rial,
+                        (p) => m.amount_rial && (p.currency === 'IRR' ? p.amount : p.amount * 10) === m.amount_rial,
                       );
                       return (
                         <tr key={m.id}>
@@ -372,7 +388,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
                                     onChange={(e) => link(m, e.target.value)}
                                   >
                                     <option value="">اتصال به پرداخت…</option>
-                                    {same.map((p: Json) => (
+                                    {same.map((p) => (
                                       <option key={p.id} value={p.id}>
                                         {num(p.amount)} · {dt(p.created_at)}
                                       </option>

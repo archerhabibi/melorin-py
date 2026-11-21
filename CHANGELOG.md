@@ -8,6 +8,12 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Bank SMS: end-to-end typed API (admin-web + API contract)
+- Core declares response models for every admin and reseller bank-SMS route (`BankSmsOverviewOut`, `BankSmsSaveOut`, `BankSmsMessageOut`, `BankSmsTokenOut`, `BankSmsReconcileOut`); the OpenAPI snapshot and generated TS types now carry real bodies instead of `{}`, and `status` / `direction` / `matched_by` are literal unions. The save body types the tuning knobs (`BankSmsSettingsIn`); ranges and unknown keys are still rejected by `clean_settings` with `BANK_SMS_SETTING_INVALID`.
+- admin-web `BankSmsPanel` reads every response from the generated types (no `Json`, no casts); `@melorin/web-kit/bankSms` has real `BankSmsForm` / `BankSmsSourceBody` types; shared `errMsg()` in `shared/kit.tsx` (also understands FastAPI 422 lists).
+- Fixed: changing the status filter, pairing, ignoring or reconciling no longer wipes the unsaved settings form; stale or aborted loads cannot overwrite newer data; a 422 validation message is shown instead of the generic failure text.
+- Tests: typed GET/PUT/POST requests, form preservation, 422 message, OpenAPI contract guard for all bank-SMS routes; typing ratchet lowered to 1993.
+
 ### Audit remediation (V-AUDIT / V01 reports)
 - Receipt OCR is a worker job (`payments.receipt_ocr`, `modules/payments/ocr_job.py`), no longer part of the upload request (V01 V-21): the upload answers at once (`receipt_read.ocr_state = pending`), the per-store daily vision budget is spent in the worker, and the grace credit waits (`ocr_pending`, at most 1 h) for a pending reading.
 - One outbound-address policy (`domain/netpolicy.py`): CGNAT, NAT64, 6to4, Teredo and mapped forms are refused; numeric hosts (`127.1`, `0x7f.1`, `2130706433`) are parsed; used by webhooks, domain verification and panel URLs (V-011).
