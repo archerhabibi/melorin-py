@@ -9,6 +9,7 @@ import json
 import uuid
 from collections.abc import Mapping
 
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, ValidationError, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,53 @@ MAIN_STORE_PROVIDERS = ("manual_card", "zarinpal")
 LEGACY_KEYS = ("card.info", "gateway.zarinpal")
 LEGACY_PREFIXES = ("card.", "gateway.", "destination.")
 _CARD_FIELDS = ("card_number", "holder", "bank")
+
+
+class ZarinpalSecretIn(BaseModel):
+    """Write-only Zarinpal credentials. ``access_token`` (needed only for refunds) follows three explicit rules:
+
+    omitted / blank -> keep the stored token; non-blank -> replace it; ``clear_access_token`` -> delete it.
+    A blank password field is never read as a deletion, and replace + delete in one request is ambiguous, so it is refused.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    merchant_id: StrictStr = Field(max_length=128)
+    access_token: StrictStr | None = Field(default=None, max_length=2048)
+    clear_access_token: StrictBool = False
+
+    @field_validator("merchant_id")
+    @classmethod
+    def _merchant_required(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("merchant_id is required")
+        return v
+
+    @field_validator("access_token")
+    @classmethod
+    def _token_trimmed(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None  # blank == not provided
+
+    def merged_with(self, stored: Mapping[str, object]) -> dict:
+        if self.clear_access_token and self.access_token:
+            raise ValueError("send either access_token or clear_access_token, not both")
+        out: dict = {"merchant_id": self.merchant_id}
+        token = None if self.clear_access_token else (self.access_token or stored.get("access_token"))
+        if token:
+            out["access_token"] = token
+        return out
+
+
+def _zarinpal_secret(secret: Mapping[str, object], stored: Mapping[str, object]) -> dict:
+    try:
+        return ZarinpalSecretIn.model_validate(dict(secret)).merged_with(stored)
+    except (ValidationError, ValueError) as exc:
+        raise AppError(
+            "PAYMENT_CONFIG_INVALID",
+            "اطلاعات محرمانهٔ زرین‌پال نامعتبر است (Merchant ID الزامی است و فقط یکی از «جایگزینی توکن» یا «حذف توکن» مجاز است).",
+            422,
+        ) from exc
 
 
 def is_legacy_key(key: str) -> bool:
@@ -53,6 +101,7 @@ def admin_view(row: StorePaymentConfiguration) -> dict:
     }
     if row.provider == "zarinpal":
         out["merchant_id"] = secret.get("merchant_id", "")
+        # Only the *presence* of the refund token is ever exposed, never its value.
         out["has_access_token"] = bool(secret.get("access_token"))
     return out
 
@@ -74,7 +123,8 @@ async def upsert(
 ) -> StorePaymentConfiguration:
     """Create or replace one destination and audit it. ``secret=None`` keeps the stored secret; the caller commits.
 
-    A Zarinpal update that sends only a merchant id keeps a stored access token, so editing the id never silently drops it.
+    Zarinpal secrets are validated by ``ZarinpalSecretIn``: editing the merchant id keeps a stored access token, and the token
+    is replaced or deleted only on an explicit request.
     """
     from melorin.modules.payments.adapters.registry import get_adapter
 
@@ -84,35 +134,23 @@ async def upsert(
             StorePaymentConfiguration.store_id == store_id, StorePaymentConfiguration.provider == provider
         )
     )
+    # Validate and build the new secret BEFORE touching the row, so a refused request leaves nothing half-applied.
+    secret_changed = secret is not None
+    new_secret = None
+    token_changed = False
+    if secret is not None:
+        if provider == "zarinpal":
+            stored = json.loads(decrypt(row.secret_enc) or "{}") if row is not None and row.secret_enc else {}
+            new_secret = _zarinpal_secret(secret, stored)
+            token_changed = new_secret.get("access_token") != stored.get("access_token")
+        else:
+            new_secret = secret
     if row is None:
         row = StorePaymentConfiguration(store_id=store_id, provider=provider)
         session.add(row)
     row.is_enabled, row.public_config, row.updated_by = is_enabled, public_config, actor_id
-    secret_changed = secret is not None
-    if provider == "zarinpal" and secret is not None:
-        allowed = {"merchant_id", "access_token", "clear_access_token"}
-        if set(secret) - allowed:
-            raise AppError("PAYMENT_CONFIG_INVALID", "فیلد محرمانهٔ نامعتبر برای زرین‌پال ارسال شده است.", 422)
-        merchant_id = secret.get("merchant_id")
-        if not isinstance(merchant_id, str) or not merchant_id.strip():
-            raise AppError("PAYMENT_CONFIG_INVALID", "Merchant ID زرین‌پال الزامی است.", 422)
-        access_token = secret.get("access_token")
-        if access_token is not None and not isinstance(access_token, str):
-            raise AppError("PAYMENT_CONFIG_INVALID", "Access Token باید متن باشد.", 422)
-        clear_token = secret.get("clear_access_token", False)
-        if not isinstance(clear_token, bool) or (clear_token and access_token and access_token.strip()):
-            raise AppError("PAYMENT_CONFIG_INVALID", "برای جایگزینی یا حذف توکن فقط یک عملیات را انتخاب کنید.", 422)
-        old = json.loads(decrypt(row.secret_enc) or "{}") if row.secret_enc else {}
-        merged = {"merchant_id": merchant_id.strip()}
-        if clear_token:
-            pass  # explicit deletion; never infer deletion from an empty password field
-        elif access_token and access_token.strip():
-            merged["access_token"] = access_token.strip()
-        elif old.get("access_token"):
-            merged["access_token"] = old["access_token"]
-        secret = merged
-    if secret is not None:
-        row.secret_enc = encrypt(json.dumps(secret))
+    if new_secret is not None:
+        row.secret_enc = encrypt(json.dumps(new_secret))
     audit.record(
         session,
         "store.payment_config_updated",
@@ -121,7 +159,7 @@ async def upsert(
         entity_type="store",
         entity_id=store_id,
         store_id=store_id,
-        data={"provider": provider, "enabled": is_enabled, "secret_changed": secret_changed},
+        data={"provider": provider, "enabled": is_enabled, "secret_changed": secret_changed, "access_token_changed": token_changed},
     )
     return row
 

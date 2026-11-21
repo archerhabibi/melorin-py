@@ -411,7 +411,9 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
                   onChange={(e) => setZ({ ...z, access_token: e.target.value, clear_access_token: false })}
                 />
                 <span className="mt-1 block text-xs text-[var(--mu)]">
-                  {z.has_access_token ? 'توکن فعلی ذخیره است و هرگز نمایش داده نمی‌شود.' : 'هنوز توکنی ذخیره نشده است.'}
+                  {z.has_access_token
+                    ? 'توکن فعلی ذخیره است و هرگز نمایش داده نمی‌شود؛ استرداد خودکار فعال است.'
+                    : 'هنوز توکنی ذخیره نشده است؛ بدون آن استرداد خودکار زرین‌پال انجام نمی‌شود.'}
                 </span>
               </Field>
               {z.has_access_token && (

@@ -9034,7 +9034,7 @@ export interface components {
             public_config?: Record<string, never>;
             /**
              * Secret
-             * @description gateway secrets, e.g. {merchant_id}; write-only
+             * @description write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds
              */
             secret?: Record<string, never> | null;
         };

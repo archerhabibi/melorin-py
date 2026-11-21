@@ -251,6 +251,8 @@ callbacks still require sandbox credentials and runtime evidence.
 2. **Gateway** (no transaction, no lock): call the adapter; on success commit `external_ref` on the operation *before* touching the ledger.
 3. **Finalize** (short transaction): reverse the wallet credit with the idempotent ledger key, set the payment `refunded`, close the operation (`succeeded`).
 
+Zarinpal refunds need the store's **Access Token** next to its Merchant ID. It is write-only: `PUT .../payment-destinations/zarinpal` (admin) and `PUT .../reseller/payment-config/zarinpal` accept `secret: {merchant_id, access_token?, clear_access_token?}` (omitted/blank = keep, value = replace, `clear_access_token` = delete; both at once = `422 PAYMENT_CONFIG_INVALID`); the GET views return only `has_access_token`. Without a token the adapter refuses the refund as a permanent failure and the operation goes to manual review.
+
 States: `pending -> processing -> succeeded | failed | manual_review`. `failed` may be retried (max `REFUND_MAX_ATTEMPTS`, then `manual_review`). Providers without refund support (manual card, destination) answer `409 REFUND_NOT_SUPPORTED` and park in `manual_review`.
 Recovery: `refund_recovery_job` (every 10 minutes) finishes operations that have `external_ref` but an expired lease (no second gateway call) and moves operations with an expired lease and no `external_ref` to `manual_review` (unknown outcome - never resent blindly; reconcile with the gateway by hand).
 API errors: `REFUND_IN_PROGRESS` (409, live lease), `REFUND_MANUAL_REVIEW` (409).
