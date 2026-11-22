@@ -7215,8 +7215,9 @@ export interface components {
             /**
              * Funded By
              * @default platform
+             * @enum {string}
              */
-            funded_by: string;
+            funded_by: "store" | "platform";
             /** Max Discount */
             max_discount?: number | null;
             /** Max Redemptions */
@@ -7241,15 +7242,17 @@ export interface components {
             /**
              * Scope
              * @default store
+             * @enum {string}
              */
-            scope: string;
+            scope: "store" | "domain";
             /** Starts At */
             starts_at?: string | null;
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "disabled" | "archived";
             /** Store Id */
             store_id?: string | null;
         };
@@ -7812,8 +7815,72 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "disabled" | "archived";
+        };
+        /**
+         * CouponOut
+         * @description What every coupon route (admin and store-scoped) returns; mirrors ``service.coupon_out``.
+         */
+        CouponOut: {
+            /** Allowed Store Ids */
+            allowed_store_ids: string[] | null;
+            /** Allowed Store Kinds */
+            allowed_store_kinds: string[] | null;
+            /** Code */
+            code: string;
+            /** Combinable */
+            combinable: boolean;
+            /**
+             * Creator Type
+             * @enum {string}
+             */
+            creator_type: "admin" | "reseller";
+            /** Currency */
+            currency: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /** Fixed */
+            fixed: number;
+            /**
+             * Funded By
+             * @enum {string}
+             */
+            funded_by: "store" | "platform";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Discount */
+            max_discount: number | null;
+            /** Max Redemptions */
+            max_redemptions: number | null;
+            /** Min Amount */
+            min_amount: number;
+            /** Per Customer Limit */
+            per_customer_limit: number | null;
+            /** Percent Bp */
+            percent_bp: number;
+            /** Product Ids */
+            product_ids: string[] | null;
+            /** Redemptions */
+            redemptions: number;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "store" | "domain";
+            /** Starts At */
+            starts_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "disabled" | "archived";
+            /** Store Id */
+            store_id: string | null;
         };
         /** CouponPatch */
         CouponPatch: {
@@ -7826,7 +7893,7 @@ export interface components {
             /** Per Customer Limit */
             per_customer_limit?: number | null;
             /** Status */
-            status?: string | null;
+            status?: ("active" | "disabled" | "archived") | null;
         };
         /** CouponValidateIn */
         CouponValidateIn: {
@@ -11458,7 +11525,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"][];
                 };
             };
             /** @description Validation Error */
@@ -11491,7 +11558,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -11526,7 +11593,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -20199,7 +20266,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"][];
                 };
             };
             /** @description Validation Error */
@@ -20234,7 +20301,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -20336,7 +20403,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */

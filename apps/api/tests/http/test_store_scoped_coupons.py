@@ -14,6 +14,7 @@ from melorin.core.errors import AppError
 from melorin.domain.coupon import CouponError, CouponRule, CouponUse, evaluate
 from melorin.kernel.models.catalog import Coupon, StoreProduct
 from melorin.kernel.models.stores import ResellerProfile
+from melorin.modules.catalog.schemas import CouponOut
 from melorin.modules.catalog import service as catalog
 
 AUTH = "/api/v1/auth"
@@ -183,3 +184,47 @@ async def test_admin_domain_coupon_validates_its_allowed_stores_and_kinds():
         assert ok.status_code == 201 and ok.json()["allowed_store_ids"] == [str(store_a.id)]
         async with maker() as s:
             assert await s.scalar(select(func.count()).select_from(Coupon)) == 1
+
+
+# ------------------------------------------------------------------ typed contract (what the generated clients see)
+_COUPON_ROUTES = (
+    ("/api/v1/admin/coupons", "get", "200", True),
+    ("/api/v1/admin/coupons", "post", "201", False),
+    ("/api/v1/admin/coupons/{coupon_id}", "patch", "200", False),
+    ("/api/v1/stores/{store_id}/coupons", "get", "200", True),
+    ("/api/v1/stores/{store_id}/coupons", "post", "201", False),
+    ("/api/v1/stores/{store_id}/coupons/{coupon_id}", "patch", "200", False),
+)
+
+
+def test_every_coupon_route_declares_the_typed_coupon_schema():
+    from melorin.app import app
+
+    spec = app.openapi()
+    for path, method, code, is_list in _COUPON_ROUTES:
+        schema = spec["paths"][path][method]["responses"][code]["content"]["application/json"]["schema"]
+        assert (schema["items"]["$ref"] if is_list else schema["$ref"]) == "#/components/schemas/CouponOut", (path, method)
+    vocab = {"active", "disabled", "archived"}
+    assert set(spec["components"]["schemas"]["CouponOut"]["properties"]["status"]["enum"]) == vocab
+    assert set(spec["components"]["schemas"]["AdminCouponIn"]["properties"]["status"]["enum"]) == vocab
+    assert set(spec["components"]["schemas"]["AdminCouponIn"]["properties"]["scope"]["enum"]) == {"store", "domain"}
+    assert set(spec["components"]["schemas"]["AdminCouponIn"]["properties"]["funded_by"]["enum"]) == {"store", "platform"}
+
+
+async def test_coupon_responses_match_the_declared_schema_field_for_field():
+    async with api_client() as (c, maker, main):
+        store_a, store_b, sold, unsold, h = await _world(c, maker)
+        fields = set(CouponOut.model_fields)
+        made = await c.post(
+            f"{V1}/admin/coupons", headers=h["root"], json={"code": "TYPED10", "percent_bp": 1000, "store_id": str(store_a.id)}
+        )
+        assert made.status_code == 201 and set(made.json()) == fields
+        assert (made.json()["redemptions"], made.json()["combinable"], made.json()["status"]) == (0, False, "active")
+        listed = await c.get(f"{V1}/admin/coupons", headers=h["root"], params={"store_id": str(store_a.id)})
+        assert [set(row) for row in listed.json()] == [fields]
+        patched = await c.patch(f"{V1}/admin/coupons/{made.json()['id']}", headers=h["root"], json={"status": "archived"})
+        assert patched.status_code == 200 and patched.json()["status"] == "archived" and set(patched.json()) == fields
+        unknown = await c.patch(f"{V1}/admin/coupons/{made.json()['id']}", headers=h["root"], json={"status": "deleted"})
+        assert unknown.status_code == 422  # the vocabulary is closed
+        mine = await c.get(f"{V1}/stores/{store_a.id}/coupons", headers=h["a"])
+        assert mine.status_code == 200 and [set(row) for row in mine.json()] == [fields]
