@@ -2,12 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { clearTokens, setTokens } from '../src/api/auth.ts';
 import { getJson } from '../src/api/api.ts';
 
-const reply = (status, body) => ({
-  status,
-  ok: status < 400,
-  text: async () => JSON.stringify(body),
-  json: async () => body,
-});
+const reply = (status, body) => new Response(JSON.stringify(body), { status });
 
 afterEach(() => clearTokens());
 

@@ -70,6 +70,22 @@ export const settled = (res: { response: Response; data?: unknown; error?: unkno
 });
 
 /**
+ * Human-readable message from an ALREADY-PARSED error body (what `typedClient` returns as `error`; `errText` in kit.tsx does the
+ * same for a raw Response). Understands the API envelope `{ error: { message } }` and FastAPI's `detail` (string or list).
+ */
+export function errorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const { error: envelope, detail } = error as { error?: { message?: unknown }; detail?: unknown };
+  if (typeof envelope?.message === 'string' && envelope.message) return envelope.message;
+  if (typeof detail === 'string' && detail) return detail;
+  const first: unknown = Array.isArray(detail) ? detail[0] : detail;
+  const msg =
+    (first as { msg?: unknown; message?: unknown } | undefined)?.msg ??
+    (first as { message?: unknown } | undefined)?.message;
+  return typeof msg === 'string' && msg ? msg.replace(/^Value error, /, '') : fallback;
+}
+
+/**
  * Stable `(path, init) => Response` bound to the API base, for screens that feed a generic path to shared helpers (useRows, web-kit hooks).
  * The ONE place views reach `authFetch`; endpoints with a literal path should use `typedClient` instead (see the ratchet test).
  */

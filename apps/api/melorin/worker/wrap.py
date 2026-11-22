@@ -4,9 +4,11 @@ All 23 jobs (22 periodic ``*_job`` + ``poll_tick``) go through :func:`tracked_jo
 job itself: the return value and any exception are passed through unchanged. What it adds, identically for each job:
 
 * **lock** - a Redis ``SET NX EX`` lock per job name so a slow run is never overlapped by the next tick (ARQ's
-  ``unique=True`` only de-duplicates one scheduled slot). Fail-open: no Redis, or a Redis error, means "run anyway".
+  ``unique=True`` only de-duplicates one scheduled slot). Fail-closed: when the lock state cannot be confirmed (Redis
+  absent, erroring or timing out, even after a short bounded retry) the job body does not run; ``JobLockUnavailableError``
+  is raised to the caller (ARQ records the failure) and counted as ``lock_error`` (alert ``MelorinJobLockUnavailable``).
 * **timeout** - optional ``asyncio.wait_for`` budget (off by default; ARQ's ``job_timeout`` stays the hard limit).
-* **metrics** - ``melorin_job_runs_total{job,outcome}`` (ok / error / timeout / skipped), the duration histogram
+* **metrics** - ``melorin_job_runs_total{job,outcome}`` (ok / error / timeout / skipped / lock_error), the duration histogram
   ``melorin_job_duration_seconds{job}`` and the gauge ``melorin_job_last_success_timestamp{job}`` for staleness alerts.
 * **error policy** - one place that logs the failure (with traceback) and re-raises.
 """
@@ -41,23 +43,56 @@ def item_failed(job: str) -> None:
 
 
 DEFAULT_LOCK_TTL = 130  # a little above ARQ's default job_timeout (120 s)
+LOCK_ACQUIRE_ATTEMPTS = 3  # a Redis blip must not cost a once-a-day job (the nightly backup) its whole day
+LOCK_RETRY_DELAY = 0.25  # seconds; grows linearly (0.25, 0.5) so the worst case stays far below ARQ's job_timeout
+
+
+class JobLockUnavailableError(RuntimeError):
+    """A job was refused because its distributed overlap guard is unavailable (state unknown, so never \"unlocked\").
+
+    A ``RuntimeError`` on purpose: the standalone backup scheduler already treats it as a failed run that must not stop
+    tomorrow's schedule.
+    """
+
 
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
 
 
-async def _acquire(name: str, ttl: int) -> tuple[bool, str | None]:
-    """``(may_run, token)``. Fail-open: any Redis problem lets the job run (the lock is a guard, not a gate)."""
+async def _acquire_once(name: str, ttl: int) -> tuple[bool, str | None]:
+    """One attempt: ``(True, token)`` got the lock, ``(False, None)`` another run holds it; raises if the state is unknown."""
     try:
         redis = get_redis()
         if redis is None:
-            return True, None
+            raise JobLockUnavailableError("Redis is not configured")
         token = uuid.uuid4().hex
         if await redis.set(LOCK_PREFIX + name, token, nx=True, ex=ttl):
             return True, token
         return False, None
-    except Exception:  # noqa: BLE001 - lock infrastructure must never stop a job
-        log.warning("job %s: lock backend unavailable, running without a lock", name)
-        return True, None
+    except JobLockUnavailableError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - an unknown lock state must never be treated as unlocked
+        raise JobLockUnavailableError(f"Redis could not confirm the lock ({type(exc).__name__})") from exc
+
+
+async def _acquire(name: str, ttl: int) -> tuple[bool, str | None]:
+    """Acquire the overlap guard, retrying a few times when Redis errors. A *held* lock is an answer, never retried.
+
+    A missing configuration is not transient, so it is refused at once.
+    """
+    for attempt in range(1, LOCK_ACQUIRE_ATTEMPTS + 1):
+        try:
+            return await _acquire_once(name, ttl)
+        except JobLockUnavailableError as exc:
+            if attempt == LOCK_ACQUIRE_ATTEMPTS or exc.__cause__ is None:
+                raise
+            await asyncio.sleep(LOCK_RETRY_DELAY * attempt)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def assert_lock_backend_configured() -> None:
+    """Worker start-up check: with no Redis URL every guarded job would be refused, so stop loudly instead of idling."""
+    if get_redis() is None:
+        raise JobLockUnavailableError("MELORIN_REDIS_URL is required: guarded worker jobs are refused without a lock backend")
 
 
 async def _release(name: str, token: str | None) -> None:
@@ -80,6 +115,10 @@ def tracked_job(
 ) -> Any:
     """Decorate an async worker job. Usable as ``@tracked_job`` or ``@tracked_job(lock_ttl=910)``."""
 
+    if lock and timeout and lock_ttl <= timeout:
+        # the guard would expire while the job is still allowed to run, so a second copy could start next to it
+        raise ValueError(f"lock_ttl ({lock_ttl}s) must exceed timeout ({timeout}s)")
+
     def decorate(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
         name = func.__name__
 
@@ -87,7 +126,12 @@ def tracked_job(
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             token: str | None = None
             if lock:
-                may_run, token = await _acquire(name, lock_ttl)
+                try:
+                    may_run, token = await _acquire(name, lock_ttl)
+                except JobLockUnavailableError as exc:
+                    metrics.inc("melorin_job_runs_total", job=name, outcome="lock_error")
+                    log.error("job %s refused, not run: %s", name, exc)  # no traceback: this repeats every tick during an outage
+                    raise
                 if not may_run:
                     metrics.inc("melorin_job_runs_total", job=name, outcome="skipped")
                     log.info("job %s skipped: previous run still holds the lock", name)

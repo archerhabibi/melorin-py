@@ -3,6 +3,8 @@ import { Check, Undo2 } from 'lucide-react';
 import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptDuplicatePolicy from './ReceiptDuplicatePolicy.tsx';
+import { openBlobInTab } from './receiptFile.ts';
+import type { ReceiptFetcher } from './receiptFile.ts';
 import type { CallFn, Json, Toast } from '../../shared/types.ts';
 import { JSON_H, CUR, toInt, clock } from './receiptHelpers';
 import { Row } from './ReceiptRow';
@@ -11,13 +13,13 @@ export default function ReceiptReviewPanel({
   call,
   toast,
   base,
-  receiptPath,
+  receipt,
   onChanged,
 }: {
   call: CallFn;
   toast: Toast;
   base?: string;
-  receiptPath?: Json;
+  receipt?: ReceiptFetcher;
   onChanged?: Json;
 }) {
   const [data, setData] = useState<Json>(null);
@@ -127,12 +129,11 @@ export default function ReceiptReviewPanel({
       onChanged?.();
     });
   const viewReceipt = async (item: Json) => {
+    if (!receipt) return;
     try {
-      const r = await call(receiptPath(item.payment_id));
+      const r = await receipt(String(item.payment_id));
       if (!r.ok) return toast(await errText(r, 'نمایش رسید ناموفق بود'));
-      const url = URL.createObjectURL(await r.blob());
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      openBlobInTab(await r.blob());
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     }
@@ -171,7 +172,7 @@ export default function ReceiptReviewPanel({
         ))}
       </ol>
 
-      <ReceiptDuplicatePolicy call={call} toast={toast} base={base} />
+      <ReceiptDuplicatePolicy key={base} toast={toast} base={base} />
 
       <details className="group rounded-xl border border-[var(--ln)]" open={!c.enabled}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-xs font-extrabold">
@@ -294,7 +295,7 @@ export default function ReceiptReviewPanel({
                   tone="wn"
                   now={now}
                   minutes={c.minutes}
-                  onReceipt={receiptPath && viewReceipt}
+                  onReceipt={receipt && viewReceipt}
                 >
                   <button
                     className="btn btn-p !py-1.5"
@@ -336,7 +337,7 @@ export default function ReceiptReviewPanel({
                   tone="ln"
                   now={now}
                   minutes={c.minutes}
-                  onReceipt={receiptPath && viewReceipt}
+                  onReceipt={receipt && viewReceipt}
                 >
                   <button
                     className="btn btn-p !py-1.5"

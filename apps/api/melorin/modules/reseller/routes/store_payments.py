@@ -8,15 +8,20 @@ from sqlalchemy import select
 from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.payments import Payment
-from melorin.kernel.models.stores import StorePaymentConfiguration
 from melorin.modules.payments import store_config, bank_sms, provisional, receipt_fingerprints, service as payments
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
     BankSmsLinkIn,
+    BankSmsMessageOut,
+    BankSmsOverviewOut,
+    BankSmsReconcileOut,
     BankSmsSourceIn,
+    BankSmsSourceSavedOut,
+    BankSmsTokenOut,
     GraceResolveIn,
     GraceSettingsIn,
     ReceiptDupSettingsIn,
+    ReceiptDupSettingsOut,
     payment_out,
 )
 from melorin.modules.reseller.schemas import (
@@ -29,11 +34,7 @@ router = APIRouter(tags=["reseller"])
 
 @router.get("/stores/{store_id}/reseller/payment-config")
 async def get_payment_config(ctx: OwnerCtx, session: Session):
-    rows = (await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == ctx.store.id))).all()
-    return [
-        {"provider": r.provider, "is_enabled": r.is_enabled, "public_config": r.public_config, "has_secret": bool(r.secret_enc)}
-        for r in rows
-    ]
+    return [store_config.admin_view(r) for r in await store_config.list_configs(session, ctx.store.id)]
 
 
 @router.put("/stores/{store_id}/reseller/payment-config/{provider}")
@@ -80,7 +81,7 @@ async def review_store_payment(payment_id: uuid.UUID, body: PaymentReview, ctx: 
 
 
 # ----- Card-to-card auto verification (bank SMS) for the reseller's own store -----
-@router.get("/stores/{store_id}/reseller/bank-sms")
+@router.get("/stores/{store_id}/reseller/bank-sms", response_model=BankSmsOverviewOut)
 async def reseller_bank_sms_overview(ctx: OwnerCtx, session: Session, status: str | None = Query(default=None)):
     src = await bank_sms.get_source(session, ctx.store.id)
     return {
@@ -89,7 +90,7 @@ async def reseller_bank_sms_overview(ctx: OwnerCtx, session: Session, status: st
     }
 
 
-@router.put("/stores/{store_id}/reseller/bank-sms/source")
+@router.put("/stores/{store_id}/reseller/bank-sms/source", response_model=BankSmsSourceSavedOut)
 async def reseller_bank_sms_save_source(body: BankSmsSourceIn, ctx: OwnerCtx, session: Session):
     src, token = await bank_sms.save_source(
         session, ctx.store, actor_id=ctx.user.id, actor_type="reseller", **body.model_dump(exclude_unset=True)
@@ -97,23 +98,23 @@ async def reseller_bank_sms_save_source(body: BankSmsSourceIn, ctx: OwnerCtx, se
     return {"source": bank_sms.source_out(src), "token": token}
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/token")
+@router.post("/stores/{store_id}/reseller/bank-sms/token", response_model=BankSmsTokenOut)
 async def reseller_bank_sms_rotate_token(ctx: OwnerCtx, session: Session):
     return {"token": await bank_sms.rotate_token(session, ctx.store, actor_id=ctx.user.id, actor_type="reseller")}
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/reconcile")
+@router.post("/stores/{store_id}/reseller/bank-sms/reconcile", response_model=BankSmsReconcileOut)
 async def reseller_bank_sms_reconcile(ctx: OwnerCtx, session: Session):
     return await bank_sms.reconcile_store(session, ctx.store)
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/link")
+@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/link", response_model=BankSmsMessageOut)
 async def reseller_bank_sms_link(sms_id: uuid.UUID, body: BankSmsLinkIn, ctx: OwnerCtx, session: Session):
     m = await bank_sms.manual_link(session, ctx.store, sms_id, body.payment_id, actor_id=ctx.user.id, actor_type="reseller")
     return bank_sms.message_out(m)
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore")
+@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore", response_model=BankSmsMessageOut)
 async def reseller_bank_sms_ignore(sms_id: uuid.UUID, body: BankSmsIgnoreIn, ctx: OwnerCtx, session: Session):
     m = await bank_sms.set_ignored(session, ctx.store, sms_id, ignored=body.ignored, actor_id=ctx.user.id, actor_type="reseller")
     return bank_sms.message_out(m)
@@ -141,12 +142,12 @@ async def reseller_receipt_review_resolve(payment_id: uuid.UUID, body: GraceReso
 
 
 # ----- Duplicate receipt pictures (the reseller's own store) -----
-@router.get("/stores/{store_id}/reseller/receipt-duplicates/settings")
+@router.get("/stores/{store_id}/reseller/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def reseller_receipt_dup_settings(ctx: OwnerCtx, session: Session):
     return {"policy": await receipt_fingerprints.get_policy(session, ctx.store.id)}
 
 
-@router.put("/stores/{store_id}/reseller/receipt-duplicates/settings")
+@router.put("/stores/{store_id}/reseller/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def reseller_receipt_dup_save_settings(body: ReceiptDupSettingsIn, ctx: OwnerCtx, session: Session):
     return await receipt_fingerprints.save_policy(session, ctx.store, body.policy, actor_id=ctx.user.id, actor_type="reseller")
 

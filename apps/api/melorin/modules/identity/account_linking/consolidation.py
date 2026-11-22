@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.invariants import require
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
@@ -160,7 +161,7 @@ async def execute(
 ) -> AccountConsolidationOperation:
     """Run (or safely re-run) a consolidation. Completed operations are returned untouched; a failure leaves everything as it was."""
     locked = await session.get(AccountConsolidationOperation, op.id, with_for_update=True, populate_existing=True)
-    assert locked is not None
+    locked = require(locked, "locked")
     op = locked
     if op.status == "completed":
         return op
@@ -202,7 +203,7 @@ async def execute(
             by_id = {str(w.id): w for w in wallets}
             for src_id, dst_id, amount, currency in plan.transfers:
                 src, dst = by_id[src_id], await session.get(Wallet, uuid.UUID(dst_id), with_for_update=True, populate_existing=True)
-                assert dst is not None
+                dst = require(dst, "dst")
                 central_before += dst.balance
                 tx, _ = await wallet_service.post(
                     session,

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from melorin.core.invariants import require
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 from melorin.core.http import outbound_client
 
@@ -128,7 +129,7 @@ class PasarGuardCore:
                 raise PanelError(ErrorKind.PERMANENT, f"pasarguard: login failed ({last.status_code})")
             if last.status_code != 422:  # 422 => retry without grant_type
                 break
-        assert last is not None  # the loop above runs at least once
+        last = require(last, "last")  # the loop above runs at least once
         raise PanelError(_classify(last.status_code), f"pasarguard: login http {last.status_code}: {_error_detail(last.text)}")
 
     def _uses_api_key(self) -> bool:

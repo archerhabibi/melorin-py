@@ -246,6 +246,19 @@ class MatchSettings:
     accept_12h_clock: bool = True  # some bank apps print 03:44 for 15:44 (12-hour clock, no AM/PM); see claimed_distance
 
 
+# The tuning knobs an owner may change: (key, kind, minimum, maximum). The single place that defines which knobs exist and
+# their allowed range (for ``account_number`` the range is the digit count). Defaults live on ``MatchSettings``; the
+# validator and the OpenAPI request/response schemas are all derived from this table, never retyped.
+SETTING_RULES: tuple[tuple[str, type, int | None, int | None], ...] = (
+    ("window_minutes", int, 5, 7 * 24 * 60),
+    ("time_tolerance_minutes", int, 0, 30),
+    ("require_claimed_time", bool, None, None),
+    ("max_auto_amount_rial", int, 1, 10**13),
+    ("account_number", str, 8, 26),
+)
+SETTING_RANGES: dict[str, tuple[int | None, int | None]] = {key: (lo, hi) for key, _kind, lo, hi in SETTING_RULES}
+
+
 @dataclass(frozen=True)
 class Candidate:
     """A manual-card payment that is waiting for review and carries a receipt."""
