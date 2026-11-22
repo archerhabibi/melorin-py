@@ -7,6 +7,7 @@ from melorin.core import events, settings_store
 from melorin.core.deps import main_store
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.core.invariants import require
 from melorin.domain import debt
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import ResellerProfile, Store
@@ -40,7 +41,7 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
     await wallet.lock_wallets(session, to_lock)
     reseller_cost = order.reseller_cost or 0
     if res_w is not None:
-        assert profile is not None  # set together with res_w above
+        profile = require(profile, "reseller profile")  # set together with res_w above
         if not debt.can_afford(res_w.balance, reseller_cost, profile.debt_limit):
             raise ResellerDebtLimitReached(store.id)
     if cust.balance < order.total:
@@ -65,7 +66,8 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
             memo=f"سفارش {order.number}",
         )
     if res_w is not None:
-        assert profile is not None and main is not None
+        profile = require(profile, "reseller profile")
+        main = require(main, "main store")
         await wallet.post(
             session,
             kind="reseller_cost",

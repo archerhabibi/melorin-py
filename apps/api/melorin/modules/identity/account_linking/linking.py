@@ -6,6 +6,7 @@ import uuid
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.invariants import require
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
@@ -122,7 +123,7 @@ async def attach_identity(
     if verdict is rules.Verdict.REFUSE_UNPROVEN:
         raise AppError("OWNERSHIP_NOT_PROVEN", "مالکیت این هویت هنوز تأیید نشده است.", 403)
     if verdict is rules.Verdict.CONFLICT:
-        assert ident is not None
+        ident = require(ident, "ident")
         op = await open_conflict(session, user, person, provider, subject, other_person, evidence, operation)
         await session.commit()  # the conflict record must survive the refusal below
         raise AppError(
@@ -299,7 +300,7 @@ async def link_persons(
         )
     if revoke_side is not None:
         loser = t_tg if revoke_side == "target" else s_tg
-        assert loser is not None
+        loser = require(loser, "loser")
         before = _snapshot(loser)
         loser.status, loser.revoked_at = "revoked", utcnow()
         audit.log(

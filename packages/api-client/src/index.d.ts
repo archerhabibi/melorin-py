@@ -28,6 +28,31 @@ export type RequestBody<P extends keyof paths, M extends Method> =
 type ParamsOf<P extends keyof paths, M extends Method> = Defined<Op<P, M>> extends { parameters: infer Q }
   ? { path?: Q extends { path?: infer X } ? Defined<X> : never; query?: Q extends { query?: infer Y } ? Defined<Y> : never }
   : never;
+type RequiredPathParams<P extends keyof paths> = Defined<Op<P, 'get'>> extends { parameters: infer Q }
+  ? Q extends { path: infer X }
+    ? Defined<X>
+    : never
+  : never;
+type QueryOf<P extends keyof paths> = Defined<Op<P, 'get'>> extends { parameters: infer Q }
+  ? Q extends { query?: infer Y }
+    ? Defined<Y>
+    : never
+  : never;
+
+/** Options for `rawGet`: path params are required exactly when the OpenAPI operation declares them. */
+export interface RawGetInit<P extends keyof paths> {
+  params?: { path?: never; query?: QueryOf<P> };
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+export interface RawGetInitWithPath<P extends keyof paths> {
+  params: { path: RequiredPathParams<P>; query?: QueryOf<P> };
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+type RawGetArgs<P extends keyof paths> = [RequiredPathParams<P>] extends [never]
+  ? [init?: RawGetInit<P>]
+  : [init: RawGetInitWithPath<P>];
 
 export interface RequestInitOf<P extends keyof paths, M extends Method> {
   params?: ParamsOf<P, M>;
@@ -49,8 +74,10 @@ export interface ApiClientOptions {
 }
 
 export interface ApiClient {
-  /** Same auth/refresh rules, unread Response, body sent verbatim; prefer the typed verbs for schema paths. */
+  /** Same auth/refresh rules, unread Response, body sent verbatim; for dynamic paths or streaming bodies. */
   raw(path: string, init?: RequestInit): Promise<Response>;
+  /** Typed GET for binary/streaming endpoints; validates the OpenAPI path and required path params. */
+  rawGet<P extends PathsWith<'get'>>(path: P, ...init: RawGetArgs<P>): Promise<Response>;
   request<P extends PathsWith<M>, M extends Method>(method: M, path: P, init?: RequestInitOf<P, M>): Promise<ApiResult<P, M>>;
   get<P extends PathsWith<'get'>>(path: P, init?: RequestInitOf<P, 'get'>): Promise<ApiResult<P, 'get'>>;
   post<P extends PathsWith<'post'>>(path: P, init?: RequestInitOf<P, 'post'>): Promise<ApiResult<P, 'post'>>;

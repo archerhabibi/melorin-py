@@ -68,7 +68,10 @@ class CustomerWalletAdjustment(BaseModel):
 class PaymentConfigIn(BaseModel):
     is_enabled: bool = True
     public_config: dict = Field(default_factory=dict, description="manual_card: card_number, holder, bank, min_amount, max_amount")
-    secret: dict | None = Field(default=None, description="gateway secrets, e.g. {merchant_id}; write-only")
+    secret: dict | None = Field(
+        default=None,
+        description="write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds",
+    )
 
 
 class PaymentReview(BaseModel):

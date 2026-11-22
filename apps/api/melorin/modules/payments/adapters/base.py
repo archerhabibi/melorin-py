@@ -26,6 +26,8 @@ class RefundResult:
 class PaymentAdapter(Protocol):
     name: str
     requires_review: bool
+    # False only for adapters whose create never leaves the process (manual card); default True = fail closed on unknown outcomes.
+    create_has_external_side_effect: bool
 
     async def create_payment_intent(self, payment, *, callback_url: str, settings: dict) -> IntentResult: ...
     async def verify_callback(self, params: dict, payment, *, settings: dict) -> CallbackResult: ...

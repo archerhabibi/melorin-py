@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.invariants import require
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.security import token_hash
@@ -39,7 +40,7 @@ async def start(session: AsyncSession, user: User, *, store_id: uuid.UUID | None
         with_token=True,
         store_id=store_id,
     )
-    assert raw is not None
+    raw = require(raw, "raw")
     linking.add_evidence(session, op, rules.Evidence.SESSION, subject=f"user:{user.id}")
     audit.log(
         session, "telegram_link_started", person_id=person.id, actor_id=user.id, operation_id=op.id, after={"type": op.operation_type}

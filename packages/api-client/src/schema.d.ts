@@ -2267,6 +2267,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/{payment_id}/reconcile-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile Payment Create
+         * @description Resolve a payment whose gateway create outcome is unknown (timeout/lost response).
+         */
+        post: operations["reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments/{payment_id}/refund": {
         parameters: {
             query?: never;
@@ -7195,8 +7215,9 @@ export interface components {
             /**
              * Funded By
              * @default platform
+             * @enum {string}
              */
-            funded_by: string;
+            funded_by: "store" | "platform";
             /** Max Discount */
             max_discount?: number | null;
             /** Max Redemptions */
@@ -7221,15 +7242,17 @@ export interface components {
             /**
              * Scope
              * @default store
+             * @enum {string}
              */
-            scope: string;
+            scope: "store" | "domain";
             /** Starts At */
             starts_at?: string | null;
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "disabled" | "archived";
             /** Store Id */
             store_id?: string | null;
         };
@@ -7510,6 +7533,115 @@ export interface components {
              */
             payment_id: string;
         };
+        /** BankSmsMessageOut */
+        BankSmsMessageOut: {
+            /** Amount Rial */
+            amount_rial: number | null;
+            /**
+             * Balance Gap
+             * @description The balance does not follow the previous SMS (a message may be missing).
+             */
+            balance_gap: boolean;
+            /** Balance Rial */
+            balance_rial: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Direction */
+            direction: ("deposit" | "withdrawal") | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Matched By */
+            matched_by: ("auto" | "admin") | null;
+            /** Note */
+            note: string | null;
+            /** Occurred At */
+            occurred_at: string | null;
+            /** Payment Id */
+            payment_id: string | null;
+            /** Sender */
+            sender: string | null;
+            /** Serial */
+            serial: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unmatched" | "matched" | "ambiguous" | "ignored" | "unparsed";
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+        };
+        /** BankSmsOverviewOut */
+        BankSmsOverviewOut: {
+            /** Messages */
+            messages: components["schemas"]["BankSmsMessageOut"][];
+            source: components["schemas"]["BankSmsSourceOut"];
+        };
+        /** BankSmsReconcileOut */
+        BankSmsReconcileOut: {
+            /** Checked */
+            checked: number;
+            /** Matched */
+            matched: number;
+        };
+        /**
+         * BankSmsSettingsIn
+         * @description Typed keys and value types of the bank-SMS matching settings.
+         *
+         *     Ranges are documented here but enforced by the domain layer (``clean_settings``), so an out-of-range value keeps its
+         *     stable ``BANK_SMS_SETTING_INVALID`` business error instead of a generic schema error. ``null`` resets a setting.
+         */
+        BankSmsSettingsIn: {
+            /**
+             * Account Number
+             * @description Store bank account number, digits only (Persian digits accepted): 8 to 26 digits.
+             */
+            account_number?: string | null;
+            /**
+             * Max Auto Amount Rial
+             * @description Larger deposits are always reviewed by a human: 1 to 10000000000000 rial; null means no limit.
+             */
+            max_auto_amount_rial?: number | null;
+            /**
+             * Require Claimed Time
+             * @description The customer must state the time printed on the receipt.
+             */
+            require_claimed_time?: boolean | null;
+            /**
+             * Time Tolerance Minutes
+             * @description Allowed gap between the receipt time and the SMS time: 0 to 30 minutes.
+             */
+            time_tolerance_minutes?: number | null;
+            /**
+             * Window Minutes
+             * @description How long a deposit SMS may lag behind or precede the payment request: 5 to 10080 minutes.
+             */
+            window_minutes?: number | null;
+        };
+        /**
+         * BankSmsSettingsOut
+         * @description Effective settings: stored values with the domain defaults filled in.
+         */
+        BankSmsSettingsOut: {
+            /** Account Number */
+            account_number: string | null;
+            /** Max Auto Amount Rial */
+            max_auto_amount_rial: number | null;
+            /** Require Claimed Time */
+            require_claimed_time: boolean;
+            /** Time Tolerance Minutes */
+            time_tolerance_minutes: number;
+            /** Window Minutes */
+            window_minutes: number;
+        };
         /**
          * BankSmsSourceIn
          * @description Everything is optional: only the sent fields change. The token is created with the source and shown once.
@@ -7523,8 +7655,52 @@ export interface components {
             is_enabled?: boolean | null;
             /** Senders */
             senders?: string[] | null;
-            /** Settings */
-            settings?: Record<string, never> | null;
+            settings?: components["schemas"]["BankSmsSettingsIn"] | null;
+        };
+        /**
+         * BankSmsSourceOut
+         * @description The store's SMS source. The webhook token itself is never part of it (only ``has_token`` and the last 4 characters).
+         */
+        BankSmsSourceOut: {
+            /** Auto Verify */
+            auto_verify: boolean;
+            /** Bank */
+            bank: string;
+            /** Configured */
+            configured: boolean;
+            /** Has Token */
+            has_token: boolean;
+            /** Is Enabled */
+            is_enabled: boolean;
+            /** Last Received At */
+            last_received_at: string | null;
+            /** Senders */
+            senders: string[];
+            settings: components["schemas"]["BankSmsSettingsOut"];
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Token Hint */
+            token_hint: string | null;
+        };
+        /** BankSmsSourceSavedOut */
+        BankSmsSourceSavedOut: {
+            source: components["schemas"]["BankSmsSourceOut"];
+            /**
+             * Token
+             * @description Plaintext webhook token, present only on the response that creates the source; copy it once.
+             */
+            token: string | null;
+        };
+        /** BankSmsTokenOut */
+        BankSmsTokenOut: {
+            /**
+             * Token
+             * @description The new plaintext webhook token; the previous one stops working immediately. Shown once.
+             */
+            token: string;
         };
         /** Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post */
         Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post: {
@@ -7792,8 +7968,72 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "disabled" | "archived";
+        };
+        /**
+         * CouponOut
+         * @description What every coupon route (admin and store-scoped) returns; mirrors ``service.coupon_out``.
+         */
+        CouponOut: {
+            /** Allowed Store Ids */
+            allowed_store_ids: string[] | null;
+            /** Allowed Store Kinds */
+            allowed_store_kinds: string[] | null;
+            /** Code */
+            code: string;
+            /** Combinable */
+            combinable: boolean;
+            /**
+             * Creator Type
+             * @enum {string}
+             */
+            creator_type: "admin" | "reseller";
+            /** Currency */
+            currency: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /** Fixed */
+            fixed: number;
+            /**
+             * Funded By
+             * @enum {string}
+             */
+            funded_by: "store" | "platform";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Discount */
+            max_discount: number | null;
+            /** Max Redemptions */
+            max_redemptions: number | null;
+            /** Min Amount */
+            min_amount: number;
+            /** Per Customer Limit */
+            per_customer_limit: number | null;
+            /** Percent Bp */
+            percent_bp: number;
+            /** Product Ids */
+            product_ids: string[] | null;
+            /** Redemptions */
+            redemptions: number;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "store" | "domain";
+            /** Starts At */
+            starts_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "disabled" | "archived";
+            /** Store Id */
+            store_id: string | null;
         };
         /** CouponPatch */
         CouponPatch: {
@@ -7806,7 +8046,7 @@ export interface components {
             /** Per Customer Limit */
             per_customer_limit?: number | null;
             /** Status */
-            status?: string | null;
+            status?: ("active" | "disabled" | "archived") | null;
         };
         /** CouponValidateIn */
         CouponValidateIn: {
@@ -9034,9 +9274,21 @@ export interface components {
             public_config?: Record<string, never>;
             /**
              * Secret
-             * @description gateway secrets, e.g. {merchant_id}; write-only
+             * @description write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds
              */
             secret?: Record<string, never> | null;
+        };
+        /** PaymentCreateReconcileIn */
+        PaymentCreateReconcileIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "bind" | "abandon";
+            /** External Ref */
+            external_ref?: string | null;
+            /** Reason */
+            reason?: string | null;
         };
         /** PaymentOut */
         PaymentOut: {
@@ -9352,8 +9604,22 @@ export interface components {
          * @description Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.
          */
         ReceiptDupSettingsIn: {
-            /** Policy */
-            policy: string;
+            /**
+             * Policy
+             * @enum {string}
+             */
+            policy: "warn" | "block";
+        };
+        /**
+         * ReceiptDupSettingsOut
+         * @description The policy currently in force for the store (``warn`` until a manager chooses otherwise).
+         */
+        ReceiptDupSettingsOut: {
+            /**
+             * Policy
+             * @enum {string}
+             */
+            policy: "warn" | "block";
         };
         /**
          * ReceiptOcrIn
@@ -11426,7 +11692,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"][];
                 };
             };
             /** @description Validation Error */
@@ -11459,7 +11725,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -11494,7 +11760,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -14817,6 +15083,41 @@ export interface operations {
             };
         };
     };
+    reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentCreateReconcileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     refund_payment_api_v1_admin_payments__payment_id__refund_post: {
         parameters: {
             query?: never;
@@ -16078,7 +16379,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -16109,7 +16410,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsReconcileOut"];
                 };
             };
             /** @description Validation Error */
@@ -16144,7 +16445,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsSourceSavedOut"];
                 };
             };
             /** @description Validation Error */
@@ -16175,7 +16476,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsTokenOut"];
                 };
             };
             /** @description Validation Error */
@@ -16211,7 +16512,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -16247,7 +16548,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -16278,7 +16579,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -16313,7 +16614,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -20132,7 +20433,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"][];
                 };
             };
             /** @description Validation Error */
@@ -20167,7 +20468,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -20269,7 +20570,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -21753,7 +22054,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -21784,7 +22085,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsReconcileOut"];
                 };
             };
             /** @description Validation Error */
@@ -21819,7 +22120,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsSourceSavedOut"];
                 };
             };
             /** @description Validation Error */
@@ -21850,7 +22151,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsTokenOut"];
                 };
             };
             /** @description Validation Error */
@@ -21886,7 +22187,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -21922,7 +22223,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -22845,7 +23146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -22880,7 +23181,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
