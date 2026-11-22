@@ -25,6 +25,7 @@ log = logging.getLogger("melorin.payments")
 
 
 _CURRENCY_CHECKED = frozenset({"zarinpal", "external_gateway", "crypto", "telegram_stars"})
+CREATE_INTENT_IN_FLIGHT_SECONDS = 120  # comfortably above the gateway adapters' 15-second HTTP timeout
 
 
 def _check_currency(provider: str, currency: str) -> None:
@@ -36,9 +37,9 @@ def _check_currency(provider: str, currency: str) -> None:
         raise AppError("PAYMENT_CURRENCY_UNSUPPORTED", "این درگاه با ارز فروشگاه سازگار نیست.", 400) from exc
 
 
-def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) -> dict:
-    """Settings from the store's own configuration row; raises when it is disabled or its destination is incomplete."""
-    if not cfg.is_enabled:
+def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str, *, require_enabled: bool = True) -> dict:
+    """Read a store's own destination; disabling new charges does not erase credentials for existing operations."""
+    if require_enabled and not cfg.is_enabled:
         raise AppError("PAYMENT_METHOD_DISABLED", "این روش شارژ در این فروشگاه فعال نیست.", 400)
     public = dict(cfg.public_config or {})
     secret = json.loads(decrypt(cfg.secret_enc) or "{}") if cfg.secret_enc else {}
@@ -56,8 +57,13 @@ def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) ->
     }
 
 
-async def store_payment_settings(session: AsyncSession, store: Store, provider: str) -> dict:
-    """Payment destination belongs to the Store (v1.1) -- the main store included; there is no global fallback."""
+async def store_payment_settings(session: AsyncSession, store: Store, provider: str, *, require_enabled: bool = True) -> dict:
+    """Read store-owned payment settings.
+
+    ``require_enabled`` gates creation of new payment intents. Existing callbacks and
+    refunds must keep access to the configured credentials after an admin disables
+    new charges for that provider.
+    """
     cfg = await session.scalar(
         select(StorePaymentConfiguration).where(
             StorePaymentConfiguration.store_id == store.id, StorePaymentConfiguration.provider == provider
@@ -65,8 +71,119 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
     )
     _check_currency(provider, store.currency)
     if cfg is not None:
-        return _store_configured_settings(cfg, provider)
+        return _store_configured_settings(cfg, provider, require_enabled=require_enabled)
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
+
+
+def _has_external_side_effect(adapter) -> bool:
+    """Only adapters that call a remote provider can double-charge on a blind retry; local ones (manual card) are replay-safe."""
+    return bool(getattr(adapter, "create_has_external_side_effect", True))
+
+
+def _is_definitive_rejection(exc: Exception) -> bool:
+    """The provider ANSWERED and refused (or the request never left): no intent can exist remotely, so a retry is safe.
+    Timeouts, transport errors and anything unrecognised stay unknown."""
+    if isinstance(exc, AppError):
+        return True
+    kind = getattr(exc, "kind", None)
+    return getattr(kind, "name", "") == "PERMANENT"
+
+
+def _mark_unknown(p: Payment, exc: Exception | None = None) -> None:
+    meta = {**(p.meta or {}), "external_operation": "create_unknown", "reconciliation_required": True}
+    if exc is not None:
+        meta["error_type"] = type(exc).__name__
+    p.meta = meta
+
+
+def _lease_expired(meta: dict) -> bool:
+    raw = meta.get("create_started_at")
+    try:
+        if not isinstance(raw, str):
+            return True
+        started = dt.datetime.fromisoformat(raw)
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=dt.timezone.utc)
+        return (utcnow() - started).total_seconds() > CREATE_INTENT_IN_FLIGHT_SECONDS
+    except ValueError:
+        return True
+
+
+def _unknown_error() -> AppError:
+    return AppError(
+        "PAYMENT_INTENT_OUTCOME_UNKNOWN",
+        "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست دوباره ارسال نمی‌شود. با پشتیبانی تماس بگیرید.",
+        409,
+    )
+
+
+def _callback_url(base: str, provider: str, payment_id: uuid.UUID) -> str:
+    return f"{base}/api/v1/payments/callbacks/{provider}?pid={payment_id}"
+
+
+async def _run_create(session: AsyncSession, p: Payment, adapter, *, callback_url: str, settings: dict) -> tuple[Payment, dict]:
+    """The one place that calls the adapter. ``p`` is already committed as ``creating``; no DB lock is held across the call."""
+    try:
+        res = await adapter.create_payment_intent(p, callback_url=callback_url, settings=settings)
+    except Exception as exc:
+        log.warning("payment create failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
+        base = {"create_started_at": (p.meta or {}).get("create_started_at")}
+        if _is_definitive_rejection(exc) or not _has_external_side_effect(adapter):
+            # Provider refused, or the call is local: nothing can exist remotely, so the same key may safely retry.
+            p.meta = {**base, "external_operation": "create_failed", "reconciliation_required": False, "error_type": type(exc).__name__}
+            session.add(PaymentAttempt(payment_id=p.id, action="create", result="failed", data={"error_type": type(exc).__name__}))
+            await session.commit()
+            raise
+        # Timeout/transport error: the provider may have accepted the request. Never blind-retry; require reconciliation.
+        p.meta = {**base, "external_operation": "create_unknown", "reconciliation_required": True, "error_type": type(exc).__name__}
+        session.add(PaymentAttempt(payment_id=p.id, action="create", result="unknown", data={"error_type": type(exc).__name__}))
+        await session.commit()
+        raise AppError(
+            "PAYMENT_INTENT_OUTCOME_UNKNOWN",
+            "نتیجه ایجاد پرداخت در درگاه مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست را دوباره ارسال نکنید و با پشتیبانی تماس بگیرید.",
+            503,
+        ) from exc
+    p.external_ref = res.external_ref
+    p.meta = {"external_operation": "created", "instructions": res.instructions, "reconciliation_required": False}
+    session.add(PaymentAttempt(payment_id=p.id, action="create", result="ok", data={"external_ref": res.external_ref}))
+    await session.commit()
+    return p, res.instructions
+
+
+async def _replay_existing(
+    session: AsyncSession, existing: Payment, adapter, *, callback_url: str, settings_loader
+) -> tuple[Payment, dict]:
+    """Same idempotency key seen again. Returns the stored intent, or fails closed when creating it again could charge twice."""
+    meta = existing.meta or {}
+    operation = meta.get("external_operation")
+    # Legacy rows (before ``external_operation`` existed) that already hold a provider reference or instructions are complete.
+    if operation == "created" or (operation is None and (existing.external_ref or meta.get("instructions"))):
+        return existing, meta.get("instructions", {})
+    if existing.status != P.PENDING:
+        raise AppError("PAYMENT_INTENT_UNAVAILABLE", "وضعیت درخواست پرداخت قابل استفاده نیست؛ یک درخواست جدید ثبت کنید.", 409)
+    if operation == "creating" and not _lease_expired(meta):
+        raise AppError(
+            "PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید هنوز در حال پردازش است؛ کمی بعد وضعیت آن را بررسی کنید.", 409
+        )
+    safe_to_retry = not _has_external_side_effect(adapter) or (
+        operation == "create_failed" and meta.get("reconciliation_required") is False
+    )
+    if safe_to_retry:
+        # Atomic claim: only one concurrent replay moves the row back to ``creating`` and may call the adapter.
+        claimed = await session.get(Payment, existing.id, with_for_update=True, populate_existing=True)
+        if claimed is None:
+            raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+        cm = claimed.meta or {}
+        if cm.get("external_operation") not in (operation,) or claimed.external_ref:
+            raise AppError("PAYMENT_INTENT_IN_PROGRESS", "درخواست پرداخت با همین کلید در حال پردازش است.", 409)
+        claimed.meta = {"external_operation": "creating", "create_started_at": utcnow().isoformat()}
+        await session.commit()
+        return await _run_create(session, claimed, adapter, callback_url=callback_url, settings=await settings_loader())
+    # creating (lease expired) / create_unknown / legacy: fail closed and flag for reconciliation.
+    if operation != "create_unknown" or not meta.get("reconciliation_required"):
+        _mark_unknown(existing)
+        await session.commit()
+    raise _unknown_error()
 
 
 async def create_intent(
@@ -80,14 +197,25 @@ async def create_intent(
     callback_base: str = "",
     purpose: str = "wallet_topup",
 ) -> tuple[Payment, dict]:
-    """Wallet top-up of THIS store only. Money goes to this store's own destination; never to another store."""
+    """Wallet top-up of THIS store only. Money goes to this store's own destination; never to another store.
+
+    Crash/timeout safety: the row is committed as ``creating`` BEFORE the provider call. A repeated key never issues a second
+    provider call unless the adapter is side-effect free or the provider definitively refused the first one.
+    """
     existing = await session.scalar(
         select(Payment).where(Payment.user_id == user.id, Payment.store_id == store.id, Payment.idempotency_key == idempotency_key)
     )
     if existing:
         if existing.amount != amount or existing.provider != provider or existing.purpose != purpose:
             raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با درخواست دیگری استفاده شده است.", 409)
-        return existing, (existing.meta or {}).get("instructions", {})
+        adapter = get_adapter(existing.provider)
+
+        async def _settings() -> dict:
+            return await store_payment_settings(session, store, provider)
+
+        return await _replay_existing(
+            session, existing, adapter, callback_url=_callback_url(callback_base, provider, existing.id), settings_loader=_settings
+        )
     if purpose != "wallet_topup":
         raise AppError("WALLET_ONLY", "پرداخت فقط برای شارژ کیف پول است؛ خرید از کیف پول انجام می‌شود.", 400)
     await flags.ensure_enabled(session, "payment", store_id=store.id)
@@ -109,7 +237,7 @@ async def create_intent(
         currency=store.currency,
         status=P.PENDING,
         idempotency_key=idempotency_key,
-        meta={},
+        meta={"external_operation": "creating", "create_started_at": utcnow().isoformat()},
     )
     session.add(p)
     try:
@@ -117,27 +245,22 @@ async def create_intent(
         await session.commit()  # persist before the external call
     except IntegrityError:
         await session.rollback()
-        existing = await session.scalar(
+        winner = await session.scalar(
             select(Payment).where(Payment.user_id == user.id, Payment.store_id == store.id, Payment.idempotency_key == idempotency_key)
         )
-        if existing:
-            return existing, (existing.meta or {}).get("instructions", {})
-        raise
-    try:
-        res = await adapter.create_payment_intent(
-            p, callback_url=f"{callback_base}/api/v1/payments/callbacks/{provider}?pid={p.id}", settings=cfg
+        if winner is None:
+            raise
+        if winner.amount != amount or winner.provider != provider or winner.purpose != purpose:
+            raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با درخواست دیگری استفاده شده است.", 409) from None
+
+        async def _settings_again() -> dict:
+            return cfg
+
+        # A concurrent request with the same key won the insert; it owns the provider call (fresh lease => IN_PROGRESS).
+        return await _replay_existing(
+            session, winner, adapter, callback_url=_callback_url(callback_base, provider, winner.id), settings_loader=_settings_again
         )
-    except Exception as exc:
-        log.warning("payment create failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
-        p.meta = {"external_operation": "create_failed", "error": str(exc)[:300]}
-        session.add(PaymentAttempt(payment_id=p.id, action="create", result="failed", data={"error": str(exc)[:500]}))
-        await session.commit()
-        raise
-    p.external_ref = res.external_ref
-    p.meta = {"external_operation": "created", "instructions": res.instructions}
-    session.add(PaymentAttempt(payment_id=p.id, action="create", result="ok", data={"external_ref": res.external_ref}))
-    await session.commit()
-    return p, res.instructions
+    return await _run_create(session, p, adapter, callback_url=_callback_url(callback_base, provider, p.id), settings=cfg)
 
 
 async def attach_receipt(
@@ -316,7 +439,7 @@ async def _claim_refund(session: AsyncSession, payment_id: uuid.UUID, *, actor_i
     store = await session.get(Store, p.store_id)
     if store is None:
         raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
-    cfg = await store_payment_settings(session, store, p.provider)
+    cfg = await store_payment_settings(session, store, p.provider, require_enabled=False)
     op = await _lock_refund_op(session, p.id)
     if op is None:
         op = RefundOperation(
@@ -500,6 +623,66 @@ async def recover_refunds(session: AsyncSession, *, limit: int = 50) -> dict:
     return out
 
 
+async def reconcile_unknown_create(
+    session: AsyncSession,
+    payment_id: uuid.UUID,
+    *,
+    action: str,
+    actor_id: uuid.UUID,
+    external_ref: str | None = None,
+    reason: str | None = None,
+) -> Payment:
+    """Admin resolution of a ``create_unknown`` payment (the only way out; automatic recovery is deliberately absent).
+
+    ``bind``: the admin looked the transaction up at the provider and confirmed it belongs to THIS payment; it is attached and the
+    payment becomes a normal pending one, so the customer's callback can verify it. ``abandon``: the provider has no such
+    transaction (or it is unwanted); the payment fails and the customer may start over with a new key.
+    """
+    p = await session.get(Payment, payment_id, with_for_update=True, populate_existing=True)
+    if p is None:
+        raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+    meta = p.meta or {}
+    if meta.get("external_operation") not in ("create_unknown", "creating") or p.status != P.PENDING:
+        raise AppError("PAYMENT_NOT_RECONCILABLE", "این پرداخت در وضعیت نتیجهٔ نامعلوم نیست.", 409)
+    if action == "bind":
+        ref = (external_ref or "").strip()
+        if not ref:
+            raise AppError("PAYMENT_REFERENCE_REQUIRED", "شناسهٔ تراکنش درگاه لازم است.", 400)
+        clash = await session.scalar(
+            select(Payment.id).where(Payment.provider == p.provider, Payment.external_ref == ref, Payment.id != p.id)
+        )
+        if clash is not None:
+            raise AppError("PAYMENT_REFERENCE_MISMATCH", "این شناسهٔ درگاه پیش‌تر به پرداخت دیگری متصل شده است.", 409)
+        p.external_ref = ref
+        p.meta = {
+            **meta,
+            "external_operation": "created",
+            "reconciliation_required": False,
+            "reconciled_by": str(actor_id),
+            "instructions": {},
+        }
+        session.add(PaymentAttempt(payment_id=p.id, action="reconcile", result="bound", data={"external_ref": ref, "reason": reason}))
+    elif action == "abandon":
+        p.meta = {**meta, "external_operation": "create_abandoned", "reconciliation_required": False, "reconciled_by": str(actor_id)}
+        session.add(PaymentAttempt(payment_id=p.id, action="reconcile", result="abandoned", data={"reason": reason}))
+    else:
+        raise AppError("PAYMENT_RECONCILE_ACTION", "عملیات نامعتبر است.", 400)
+    audit.record(
+        session,
+        "payment.create_reconciled",
+        actor_id=actor_id,
+        actor_type="admin",
+        entity_type="payment",
+        entity_id=p.id,
+        store_id=p.store_id,
+        data={"action": action, "external_ref": p.external_ref if action == "bind" else None, "reason": reason},
+    )
+    await session.commit()
+    if action == "abandon":
+        return await mark_failed(session, p.id, actor_id=actor_id, reason=reason or "ایجاد پرداخت در درگاه تأیید نشد.")
+    return p
+
+
 async def handle_callback(session: AsyncSession, provider: str, params: dict) -> Payment:
     adapter = get_adapter(provider)
     pid = params.get("pid")
@@ -521,12 +704,36 @@ async def handle_callback(session: AsyncSession, provider: str, params: dict) ->
     store = await session.get(Store, p.store_id)
     if store is None:
         raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
-    cfg = await store_payment_settings(session, store, provider)
+    cfg = await store_payment_settings(session, store, provider, require_enabled=False)
     session.expunge(p)  # keep a detached, fully-loaded copy for the adapter
     await (
         session.commit()
     )  # read-only: releases the pooled connection before the outbound HTTP call (expire_on_commit=False keeps objects usable)
     res = await adapter.verify_callback(params, p, settings=cfg)
+    operation = (p.meta or {}).get("external_operation")
+    if operation in ("creating", "create_unknown", "unknown") and not p.external_ref:
+        # A callback authority alone is not enough to bind a lost create response to this payment:
+        # another customer's same-amount authority could otherwise be replayed against this pid.
+        # Even a positive provider verification is not sufficient without a trusted binding to this
+        # payment ID. Keep it pending and retain the result for an authenticated reconciliation flow.
+        session.add(
+            PaymentAttempt(
+                payment_id=pid_,
+                action="callback",
+                result="unmatched_unknown",
+                data={"raw": res.raw, "provider_verification_succeeded": res.succeeded},
+            )
+        )
+        await session.commit()
+        return p
+    if res.succeeded and res.external_ref:
+        locked = await session.get(Payment, pid_, with_for_update=True, populate_existing=True)
+        if locked is None:
+            raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+        if locked.external_ref and locked.external_ref != res.external_ref:
+            raise AppError("PAYMENT_REFERENCE_MISMATCH", "شناسه پرداخت درگاه با رکورد پرداخت سازگار نیست.", 409)
+        if not locked.external_ref:
+            locked.external_ref = res.external_ref
     session.add(PaymentAttempt(payment_id=pid_, action="callback", result="ok" if res.succeeded else "failed", data=res.raw))
     await session.commit()
     return await (mark_succeeded(session, pid_) if res.succeeded else mark_failed(session, pid_, reason="پرداخت ناموفق بود."))
