@@ -8,6 +8,8 @@ import { typedClient, useCall } from '../../api/api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from '../../shared/kit.tsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
+import { openBlobInTab } from './receiptFile.ts';
+import type { ReceiptFetcher } from './receiptFile.ts';
 import ReceiptOcrSettings from './ReceiptOcrSettings.tsx';
 
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
@@ -53,12 +55,18 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
           zarinpal: (() => {
             const z = rows.find((x) => x.provider === 'zarinpal');
-            return z && { merchant_id: z.merchant_id || '', sandbox: !!z.public_config?.sandbox };
+            return (
+              z && {
+                merchant_id: z.merchant_id || '',
+                sandbox: !!z.public_config?.sandbox,
+                has_access_token: !!z.has_access_token,
+              }
+            );
           })(),
         }),
       )
       .catch(() => {});
-  }, [call]);
+  }, [client]);
   useEffect(() => setPage(0), [tab, provider, q]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
@@ -125,6 +133,13 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       params: { path: { payment_id: id } },
       body: { reason },
     });
+  const receipt = useCallback<ReceiptFetcher>(
+    (paymentId) =>
+      client.rawGet('/api/v1/admin/payments/{payment_id}/receipt', {
+        params: { path: { payment_id: paymentId } },
+      }),
+    [client],
+  );
   const on = {
     approve: async (p: Json) => {
       if (
@@ -149,11 +164,9 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
     },
     receipt: async (p: Json) => {
       try {
-        const r = await call(`/api/v1/admin/payments/${p.id}/receipt`);
+        const r = await receipt(String(p.id));
         if (!r.ok) return toast('نمایش رسید ناموفق بود');
-        const url = URL.createObjectURL(await r.blob());
-        window.open(url, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        openBlobInTab(await r.blob());
       } catch {
         toast('ارتباط با سرور برقرار نشد');
       }
@@ -165,7 +178,11 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
         ? {
             is_enabled: true,
             public_config: { sandbox: !!value.sandbox },
-            secret: { merchant_id: value.merchant_id.trim() },
+            secret: {
+              merchant_id: value.merchant_id.trim(),
+              ...(value.access_token?.trim() ? { access_token: value.access_token.trim() } : {}),
+              ...(value.clear_access_token ? { clear_access_token: true } : {}),
+            },
           }
         : { is_enabled: true, public_config: value };
     try {
@@ -176,7 +193,18 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       });
       if (r.ok) {
         toast('تنظیمات ذخیره شد');
-        setSettings((x) => ({ ...x, [provider]: value }));
+        const saved =
+          provider === 'zarinpal'
+            ? {
+                ...value,
+                has_access_token: value.clear_access_token
+                  ? false
+                  : !!value.access_token?.trim() || !!value.has_access_token,
+                access_token: '',
+                clear_access_token: false,
+              }
+            : value;
+        setSettings((x) => ({ ...x, [provider]: saved }));
       } else toast(await errText(r, 'ذخیره تنظیمات ناموفق بود'));
     } catch {
       toast('ارتباط با سرور برقرار نشد');
@@ -404,7 +432,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       )}
       <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} />
 
-      <BankSmsPanel call={call} toast={toast} payments={all} />
+      <BankSmsPanel call={call} toast={toast} payments={all} receipt={receipt} />
       <GatewaySettings obj={settings} save={saveSetting} />
       <ReceiptOcrSettings api={api} toast={toast} />
       {open && (
@@ -412,7 +440,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           p={open}
           busy={busy === open.id}
           on={on}
-          call={call}
+          receipt={receipt}
           toast={toast}
           onClose={() => setSel(null)}
         />

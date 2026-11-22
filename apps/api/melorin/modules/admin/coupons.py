@@ -7,7 +7,7 @@ from sqlalchemy import select
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.modules.catalog.schemas import AdminCouponIn, CouponPatch
+from melorin.modules.catalog.schemas import AdminCouponIn, CouponOut, CouponPatch
 from melorin.kernel.models.catalog import Coupon
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -15,7 +15,7 @@ log = logging.getLogger("melorin.admin")
 
 
 # ----- Coupon administration: Admin may create Store or explicit domain coupons -----
-@router.get("/coupons")
+@router.get("/coupons", response_model=list[CouponOut])
 async def list_coupons(_: AdminUser, session: Session, store_id: uuid.UUID | None = None):
     q = select(Coupon).order_by(Coupon.created_at.desc())
     if store_id:
@@ -25,7 +25,7 @@ async def list_coupons(_: AdminUser, session: Session, store_id: uuid.UUID | Non
     return [coupon_out(c) for c in (await session.scalars(q)).all()]
 
 
-@router.post("/coupons", status_code=201)
+@router.post("/coupons", response_model=CouponOut, status_code=201)
 async def create_admin_coupon(body: AdminCouponIn, admin: AdminUser, session: Session):
     from melorin.domain import coupon as cdom
     from melorin.modules.catalog.service import norm_code
@@ -118,7 +118,7 @@ async def create_admin_coupon(body: AdminCouponIn, admin: AdminUser, session: Se
     return coupon_out(c)
 
 
-@router.patch("/coupons/{coupon_id}")
+@router.patch("/coupons/{coupon_id}", response_model=CouponOut)
 async def patch_admin_coupon(coupon_id: uuid.UUID, body: CouponPatch, admin: AdminUser, session: Session):
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c:

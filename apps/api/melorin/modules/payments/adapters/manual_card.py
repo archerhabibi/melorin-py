@@ -5,6 +5,7 @@ class ManualCardAdapter:
     """کارت‌به‌کارت: customer transfers, uploads a receipt, an admin approves."""
 
     name = "manual_card"
+    create_has_external_side_effect = False  # local only: a repeated create can never charge anyone
     requires_review = True
 
     async def create_payment_intent(self, payment, *, callback_url: str, settings: dict) -> IntentResult:

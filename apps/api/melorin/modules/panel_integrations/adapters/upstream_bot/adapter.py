@@ -28,6 +28,7 @@ import re
 import time
 from typing import Any, NoReturn, cast
 
+from melorin.core.invariants import require
 from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
 from melorin.modules.panel_integrations.adapters.upstream_bot import parsing
 from melorin.modules.panel_integrations.adapters.upstream_bot.chat import Button, ChatClient, Msg
@@ -109,7 +110,7 @@ class UpstreamBotAdapter:
             raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: main menu button '{label}' did not appear after /start")
         mark = await self._top_id()
         button = self._find_button(m, label)
-        assert button is not None  # the wait above only returns a message that carries it
+        button = require(button, "button")  # the wait above only returns a message that carries it
         await c.click(m, button)
         return mark, m
 
@@ -122,7 +123,7 @@ class UpstreamBotAdapter:
             raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: purchases screen / search button did not appear")
         mark2 = await self._top_id()
         search = self._find_button(sm, self.cfg["search_button"])
-        assert search is not None  # the wait above only returns a message that carries it
+        search = require(search, "search")  # the wait above only returns a message that carries it
         await c.click(sm, search)
         ask = await self._wait(lambda x: "اسم اکانت" in x.text or "نام اکانت" in x.text, after_id=mark2)
         if not ask:
@@ -133,7 +134,7 @@ class UpstreamBotAdapter:
         if not det:
             raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: account {ref} was not found in the parent bot")
         detail = parsing.parse_account_detail(det.text)
-        assert detail is not None  # the wait above only returns a message that parses
+        detail = require(detail, "detail")  # the wait above only returns a message that parses
         return mark3, det, detail
 
     def _pick_plan(self, msg: Msg, spec: AccountSpec) -> tuple[Button, parsing.PlanButton]:
@@ -222,7 +223,7 @@ class UpstreamBotAdapter:
 
     async def _finish(self, spec: AccountSpec, msg: Msg, plan: parsing.PlanButton) -> PanelAccount:
         res = parsing.parse_purchase_result(msg.text)
-        assert res is not None
+        res = require(res, "res")
         data = {
             "status": "active",
             "ref": res.name,
@@ -247,7 +248,7 @@ class UpstreamBotAdapter:
                 and parsing.parse_purchase_result(m.text)
             ):
                 res = parsing.parse_purchase_result(m.text)
-                assert res is not None  # the condition above parsed it
+                res = require(res, "res")  # the condition above parsed it
                 if await self._name_taken(res.name):
                     continue
                 data = {**rec, "status": "active", "ref": res.name, "subscription_url": res.subscription_url, "bought_at": time.time()}
@@ -377,7 +378,7 @@ class UpstreamBotAdapter:
             if not opts:
                 await self._raise_unrecognised(mark, "renewal options did not appear")
             screen = parsing.parse_renew_screen(opts.text)
-            assert screen is not None  # the wait above only returns a message that parses
+            screen = require(screen, "screen")  # the wait above only returns a message that parses
             if screen.name != ref:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal screen is for {screen.name}, expected {ref}")
             want_gb = round(traffic_bytes / GB, 2) if traffic_bytes else 0

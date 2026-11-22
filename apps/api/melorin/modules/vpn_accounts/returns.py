@@ -26,6 +26,7 @@ import uuid
 
 from sqlalchemy import func, select
 
+from melorin.core.invariants import require
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.core.scope import StoreScope
@@ -175,7 +176,7 @@ async def prepare_return(session, scope: StoreScope, account_id: uuid.UUID) -> t
         now=now,
         used_bytes=used_now,
     ).raise_if_not_ok()
-    assert order is not None  # evaluate() refuses a missing order
+    order = require(order, "order")  # evaluate() refuses a missing order
     session.add(
         AccountReturn(
             user_id=scope.user_id,

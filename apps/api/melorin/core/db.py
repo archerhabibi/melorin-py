@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from melorin.core.invariants import require
 from melorin.core.config import get_settings
 from melorin.kernel.base import NAMING, Base, CreatedMixin, IdMixin, TimestampMixin, utcnow  # noqa: F401  (re-exported: historical import path)
 
@@ -32,8 +33,7 @@ def engine():
 def session_factory() -> async_sessionmaker[AsyncSession]:
     if _sessionmaker is None:
         configure()
-    assert _sessionmaker is not None
-    return _sessionmaker
+    return require(_sessionmaker, "session factory")
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

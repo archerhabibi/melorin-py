@@ -13,10 +13,17 @@ from melorin.modules.payments import store_config, bank_sms, provisional, receip
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
     BankSmsLinkIn,
+    BankSmsMessageOut,
+    BankSmsOverviewOut,
+    BankSmsReconcileOut,
     BankSmsSourceIn,
+    BankSmsSourceSavedOut,
+    BankSmsTokenOut,
     GraceResolveIn,
     GraceSettingsIn,
+    PaymentCreateReconcileIn,
     ReceiptDupSettingsIn,
+    ReceiptDupSettingsOut,
 )
 from melorin.kernel.models.payments import Payment
 from melorin.modules.reseller.schemas import PaymentConfigIn
@@ -71,6 +78,7 @@ async def payments(_: AdminUser, session: Session, status: str | None = Query(de
             "status": p.status,
             "has_receipt": bool(p.receipt_file_id),
             "receipt_duplicate": bool((p.meta or {}).get("receipt_duplicate")),
+            "reconciliation_required": bool((p.meta or {}).get("reconciliation_required")),
             "created_at": p.created_at,
         }
         for p in (await session.scalars(q)).all()
@@ -137,6 +145,15 @@ async def review_payment(payment_id: uuid.UUID, body: ReviewPayment, admin: Admi
     return {"ok": True, "status": p.status}
 
 
+@router.post("/payments/{payment_id}/reconcile-create")
+async def reconcile_payment_create(payment_id: uuid.UUID, body: PaymentCreateReconcileIn, admin: AdminUser, session: Session):
+    """Resolve a payment whose gateway create outcome is unknown (timeout/lost response)."""
+    p = await payment_service.reconcile_unknown_create(
+        session, payment_id, action=body.action, actor_id=admin.id, external_ref=body.external_ref, reason=body.reason
+    )
+    return {"ok": True, "status": p.status, "payment_id": p.id}
+
+
 @router.post("/payments/{payment_id}/refund")
 async def refund_payment(payment_id: uuid.UUID, body: OrderAction, admin: AdminUser, session: Session):
     p = await payment_service.refund_payment(session, payment_id, actor_id=admin.id, reason=body.reason)
@@ -151,7 +168,7 @@ async def _store(session, store_id: uuid.UUID) -> Store:
     return store
 
 
-@router.get("/stores/{store_id}/bank-sms")
+@router.get("/stores/{store_id}/bank-sms", response_model=BankSmsOverviewOut)
 async def bank_sms_overview(store_id: uuid.UUID, _: AdminUser, session: Session, status: str | None = Query(default=None)):
     store = await _store(session, store_id)
     src = await bank_sms.get_source(session, store.id)
@@ -161,32 +178,32 @@ async def bank_sms_overview(store_id: uuid.UUID, _: AdminUser, session: Session,
     }
 
 
-@router.put("/stores/{store_id}/bank-sms/source")
+@router.put("/stores/{store_id}/bank-sms/source", response_model=BankSmsSourceSavedOut)
 async def bank_sms_save_source(store_id: uuid.UUID, body: BankSmsSourceIn, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     src, token = await bank_sms.save_source(session, store, actor_id=admin.id, actor_type="admin", **body.model_dump(exclude_unset=True))
     return {"source": bank_sms.source_out(src), "token": token}
 
 
-@router.post("/stores/{store_id}/bank-sms/token")
+@router.post("/stores/{store_id}/bank-sms/token", response_model=BankSmsTokenOut)
 async def bank_sms_rotate_token(store_id: uuid.UUID, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     return {"token": await bank_sms.rotate_token(session, store, actor_id=admin.id, actor_type="admin")}
 
 
-@router.post("/stores/{store_id}/bank-sms/reconcile")
+@router.post("/stores/{store_id}/bank-sms/reconcile", response_model=BankSmsReconcileOut)
 async def bank_sms_reconcile(store_id: uuid.UUID, _: AdminUser, session: Session):
     return await bank_sms.reconcile_store(session, await _store(session, store_id))
 
 
-@router.post("/stores/{store_id}/bank-sms/{sms_id}/link")
+@router.post("/stores/{store_id}/bank-sms/{sms_id}/link", response_model=BankSmsMessageOut)
 async def bank_sms_link(store_id: uuid.UUID, sms_id: uuid.UUID, body: BankSmsLinkIn, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     m = await bank_sms.manual_link(session, store, sms_id, body.payment_id, actor_id=admin.id, actor_type="admin")
     return bank_sms.message_out(m)
 
 
-@router.post("/stores/{store_id}/bank-sms/{sms_id}/ignore")
+@router.post("/stores/{store_id}/bank-sms/{sms_id}/ignore", response_model=BankSmsMessageOut)
 async def bank_sms_ignore(store_id: uuid.UUID, sms_id: uuid.UUID, body: BankSmsIgnoreIn, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     m = await bank_sms.set_ignored(session, store, sms_id, ignored=body.ignored, actor_id=admin.id, actor_type="admin")
@@ -216,13 +233,13 @@ async def receipt_review_resolve(store_id: uuid.UUID, payment_id: uuid.UUID, bod
 
 
 # ----- Duplicate receipt pictures -----
-@router.get("/stores/{store_id}/receipt-duplicates/settings")
+@router.get("/stores/{store_id}/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def receipt_dup_settings(store_id: uuid.UUID, _: AdminUser, session: Session):
     store = await _store(session, store_id)
     return {"policy": await receipt_fingerprints.get_policy(session, store.id)}
 
 
-@router.put("/stores/{store_id}/receipt-duplicates/settings")
+@router.put("/stores/{store_id}/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def receipt_dup_save_settings(store_id: uuid.UUID, body: ReceiptDupSettingsIn, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     return await receipt_fingerprints.save_policy(session, store, body.policy, actor_id=admin.id, actor_type="admin")
