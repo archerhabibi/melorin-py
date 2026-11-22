@@ -11,7 +11,11 @@ from _db import make_store, make_user, open_session
 from melorin.core.errors import AppError
 from melorin.modules.payments import service as payments
 from melorin.modules.payments.adapters import registry
-from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
+from melorin.modules.payments.adapters.base import (
+    CallbackResult,
+    IntentResult,
+    RefundResult,
+)
 from melorin.kernel.models.payments import Payment, PaymentAttempt
 from melorin.kernel.models.stores import StorePaymentConfiguration
 from melorin.kernel.models.system import FeatureFlag, FileObject
@@ -31,7 +35,10 @@ class FakeGateway:
 
     async def create_payment_intent(self, payment, *, callback_url, settings):
         self.intents += 1
-        return IntentResult(instructions={"type": "redirect", "url": callback_url}, external_ref=f"AUTH-{payment.id.hex[:8]}")
+        return IntentResult(
+            instructions={"type": "redirect", "url": callback_url},
+            external_ref=f"AUTH-{payment.id.hex[:8]}",
+        )
 
     async def verify_callback(self, params, payment, *, settings):
         ok = params.get("Status") == "OK" and params.get("Authority") == payment.external_ref
@@ -62,14 +69,27 @@ def gateway(monkeypatch):
 async def _setup(s, *, enabled=True, public=None):
     store = await make_store(s)
     user = await make_user(s)
-    s.add(StorePaymentConfiguration(store_id=store.id, provider="fake_gw", is_enabled=enabled, public_config=public or {}))
+    s.add(
+        StorePaymentConfiguration(
+            store_id=store.id,
+            provider="fake_gw",
+            is_enabled=enabled,
+            public_config=public or {},
+        )
+    )
     await s.flush()
     return store, user
 
 
 async def _intent(s, store, user, *, amount=5_000, key="idem-1", provider="fake_gw"):
     return await payments.create_intent(
-        s, user=user, store=store, amount=amount, provider=provider, idempotency_key=key, callback_base="https://shop.test"
+        s,
+        user=user,
+        store=store,
+        amount=amount,
+        provider=provider,
+        idempotency_key=key,
+        callback_base="https://shop.test",
     )
 
 
@@ -77,7 +97,9 @@ async def _balance(s, user, store):
     return (await wallet.get_wallet(s, user.id, store.id)).balance
 
 
-async def test_create_intent_persists_pending_payment_with_external_ref_and_callback_url(gateway):
+async def test_create_intent_persists_pending_payment_with_external_ref_and_callback_url(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         p, instructions = await _intent(s, store, user)
@@ -88,7 +110,9 @@ async def test_create_intent_persists_pending_payment_with_external_ref_and_call
         assert [a.result for a in attempts] == ["ok"]
 
 
-async def test_same_idempotency_key_returns_same_payment_without_a_second_gateway_call(gateway):
+async def test_same_idempotency_key_returns_same_payment_without_a_second_gateway_call(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         first, _ = await _intent(s, store, user)
@@ -141,11 +165,59 @@ async def test_disabled_payment_method_and_kill_switch_block_new_intents(gateway
         assert exc.value.code == "FEATURE_DISABLED" and exc.value.status == 503
 
 
+async def test_disabling_gateway_blocks_new_intents_but_keeps_existing_refunds_available(
+    gateway,
+):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        p, _ = await _intent(s, store, user)
+        await payments.mark_succeeded(s, p.id)
+        cfg = await s.scalar(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store.id))
+        cfg.is_enabled = False
+        await s.commit()
+
+        with pytest.raises(AppError) as new_intent:
+            await _intent(s, store, user, key="new-after-disable")
+        assert new_intent.value.code == "PAYMENT_METHOD_DISABLED"
+
+        refunded = await payments.refund_payment(s, p.id, actor_id=user.id, reason="pre-release test")
+        assert refunded.status == "refunded"
+        assert gateway.refunds == 1
+        assert await _balance(s, user, store) == 0
+
+
+async def test_disabling_gateway_does_not_break_callback_for_an_existing_intent(
+    gateway,
+):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        p, _ = await _intent(s, store, user)
+        cfg = await s.scalar(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store.id))
+        cfg.is_enabled = False
+        await s.commit()
+
+        done = await payments.handle_callback(
+            s,
+            "fake_gw",
+            {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref},
+        )
+        assert done.status == "succeeded"
+        assert await _balance(s, user, store) == 5_000
+
+
 async def test_only_wallet_topups_are_accepted_and_unknown_gateway_is_rejected(gateway):
     async with open_session() as s:
         store, user = await _setup(s)
         with pytest.raises(AppError) as exc:
-            await payments.create_intent(s, user=user, store=store, amount=1, provider="fake_gw", idempotency_key="k", purpose="order")
+            await payments.create_intent(
+                s,
+                user=user,
+                store=store,
+                amount=1,
+                provider="fake_gw",
+                idempotency_key="k",
+                purpose="order",
+            )
         assert exc.value.code == "WALLET_ONLY"
         with pytest.raises(AppError) as exc:
             await _intent(s, store, user, provider="nope", key="k2")
@@ -400,7 +472,12 @@ async def test_duplicate_callback_is_acknowledged_and_never_double_credits(gatew
         assert again.status == "succeeded"
         assert await _balance(s, user, store) == 5_000
         results = (
-            await s.scalars(select(PaymentAttempt.result).where(PaymentAttempt.payment_id == p.id, PaymentAttempt.action == "callback"))
+            await s.scalars(
+                select(PaymentAttempt.result).where(
+                    PaymentAttempt.payment_id == p.id,
+                    PaymentAttempt.action == "callback",
+                )
+            )
         ).all()
         assert sorted(results) == ["duplicate", "ok"]
         assert (await s.scalar(select(func.count()).select_from(LedgerTransaction))) == 1
@@ -419,17 +496,31 @@ async def test_user_cancelled_callback_fails_without_credit(gateway):
     async with open_session() as s:
         store, user = await _setup(s)
         p, _ = await _intent(s, store, user)
-        res = await payments.handle_callback(s, "fake_gw", {"pid": str(p.id), "Status": "NOK", "Authority": p.external_ref})
+        res = await payments.handle_callback(
+            s,
+            "fake_gw",
+            {"pid": str(p.id), "Status": "NOK", "Authority": p.external_ref},
+        )
         assert res.status == "failed" and await _balance(s, user, store) == 0
 
 
-async def test_late_success_callback_after_failure_is_rejected_for_system_actor(gateway):
+async def test_late_success_callback_after_failure_is_rejected_for_system_actor(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         p, _ = await _intent(s, store, user)
-        await payments.handle_callback(s, "fake_gw", {"pid": str(p.id), "Status": "NOK", "Authority": p.external_ref})
+        await payments.handle_callback(
+            s,
+            "fake_gw",
+            {"pid": str(p.id), "Status": "NOK", "Authority": p.external_ref},
+        )
         with pytest.raises(AppError) as exc:
-            await payments.handle_callback(s, "fake_gw", {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref})
+            await payments.handle_callback(
+                s,
+                "fake_gw",
+                {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref},
+            )
         assert exc.value.code == "INVALID_PAYMENT_STATE" and exc.value.status == 409
         assert await _balance(s, user, store) == 0
 
@@ -448,7 +539,11 @@ async def test_callback_cannot_be_replayed_against_another_provider(gateway):
         store, user = await _setup(s)
         p, _ = await _intent(s, store, user)
         with pytest.raises(AppError) as exc:
-            await payments.handle_callback(s, "zarinpal", {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref})
+            await payments.handle_callback(
+                s,
+                "zarinpal",
+                {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref},
+            )
         assert exc.value.code == "PAYMENT_NOT_FOUND"
 
 
@@ -466,7 +561,9 @@ async def test_admin_approval_credits_once_and_records_reviewer(gateway):
         assert p.reviewed_by == admin.id and p.reviewed_at is not None
 
 
-async def test_admin_may_approve_a_previously_failed_payment_but_system_may_not(gateway):
+async def test_admin_may_approve_a_previously_failed_payment_but_system_may_not(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         admin = await make_user(s, super_admin=True)
@@ -511,7 +608,9 @@ async def test_refund_of_a_non_succeeded_payment_is_a_409(gateway):
         assert exc.value.code == "INVALID_PAYMENT_STATE"
 
 
-async def test_gateway_refund_failure_keeps_money_in_the_wallet_and_marks_the_operation_failed(gateway):
+async def test_gateway_refund_failure_keeps_money_in_the_wallet_and_marks_the_operation_failed(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         admin = await make_user(s, super_admin=True)
@@ -525,7 +624,9 @@ async def test_gateway_refund_failure_keeps_money_in_the_wallet_and_marks_the_op
         assert await _balance(s, user, store) == 5_000
 
 
-async def test_provider_without_automatic_refund_is_a_clean_409_and_money_stays(gateway):
+async def test_provider_without_automatic_refund_is_a_clean_409_and_money_stays(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         admin = await make_user(s, super_admin=True)
@@ -548,7 +649,9 @@ async def test_refund_of_unknown_payment_is_404(gateway):
         assert exc.value.status == 404
 
 
-async def test_receipt_upload_moves_manual_payment_to_review_and_rejects_other_providers(gateway):
+async def test_receipt_upload_moves_manual_payment_to_review_and_rejects_other_providers(
+    gateway,
+):
     async with open_session() as s:
         store, user = await _setup(s)
         p, _ = await _intent(s, store, user)
@@ -571,7 +674,9 @@ async def test_receipt_upload_moves_manual_payment_to_review_and_rejects_other_p
         assert p.status == "awaiting_review"
 
 
-async def test_can_review_allows_super_admin_and_the_owner_of_a_reseller_store_only(gateway):
+async def test_can_review_allows_super_admin_and_the_owner_of_a_reseller_store_only(
+    gateway,
+):
     async with open_session() as s:
         owner, stranger = await make_user(s), await make_user(s)
         admin = await make_user(s, super_admin=True)
@@ -623,7 +728,12 @@ async def test_refund_records_a_succeeded_operation_with_the_gateway_reference(g
         _, _, admin, p = await _succeeded_payment(s, gateway)
         await payments.refund_payment(s, p.id, actor_id=admin.id, reason="r")
         op = await _op(s, p.id)
-        assert (op.status, op.external_ref, op.attempts, op.requested_by) == ("succeeded", "RF-1", 1, admin.id)
+        assert (op.status, op.external_ref, op.attempts, op.requested_by) == (
+            "succeeded",
+            "RF-1",
+            1,
+            admin.id,
+        )
         assert op.idempotency_key == f"payment:{p.id}:refund" and op.lease_owner is None
 
 
@@ -641,7 +751,9 @@ async def test_failed_gateway_refund_can_be_retried_and_never_refunds_twice(gate
         assert op.status == "succeeded" and op.attempts == 2 and gateway.refunds == 1
 
 
-async def test_unsupported_refund_goes_to_manual_review_and_blocks_further_attempts(gateway):
+async def test_unsupported_refund_goes_to_manual_review_and_blocks_further_attempts(
+    gateway,
+):
     async with open_session() as s:
         _, _, admin, p = await _succeeded_payment(s, gateway)
         gateway.refund_unsupported = True
@@ -663,7 +775,9 @@ async def test_refund_in_progress_with_live_lease_is_a_409(gateway):
         assert exc.value.code == "REFUND_IN_PROGRESS" and gateway.refunds == 0
 
 
-async def test_crash_after_gateway_success_is_finished_by_recovery_without_a_second_gateway_call(gateway):
+async def test_crash_after_gateway_success_is_finished_by_recovery_without_a_second_gateway_call(
+    gateway,
+):
     import datetime as dt
 
     async with open_session() as s:

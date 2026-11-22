@@ -82,6 +82,8 @@ Stop writes at Caddy or disable the `purchase` and `payment` feature flags. Rest
 ##### Redis failure
 The database remains the financial source of truth (orders, ledger, outbox). Redis only holds queues, rate-limit counters and the worker heartbeat.
 
+**Scheduled jobs fail closed.** Every worker job (except the 2-second `poll_tick`) takes a per-job Redis lock so a slow run is never overlapped. If Redis cannot confirm that lock (absent, erroring or timing out, after 3 short attempts) the job body does **not** run: it is counted as `melorin_job_runs_total{outcome="lock_error"}`, logged as one line without a traceback, and the next tick tries again. Nothing is repaired by hand; the PostgreSQL outbox and the periodic reconciliation catch up once Redis is back. The standalone `backup` container behaves the same, so a nightly backup that hit a long outage is skipped and `MelorinBackupStale` follows within 36 hours. Alert `MelorinJobLockUnavailable` fires after 5 minutes of sustained refusals. The worker also refuses to start when `MELORIN_REDIS_URL` is empty.
+
 **Customer impact while Redis is down in staging/production: nobody can sign in.** Rate limiting fails closed, so every rate-limited endpoint (e-mail code, password, refresh, Telegram/Google sign-in, order and top-up creation, ...) answers `429 RATE_LIMITED`. This is intentional: a per-process fallback would multiply each limit by the number of API workers, so an attacker could brute-force logins exactly when the platform is degraded. Sessions that already exist keep working for reads; `/health/ready` reports 503 (worker heartbeat lives in Redis) and alert `MelorinRedisUnavailable` fires.
 
 Operating rules:

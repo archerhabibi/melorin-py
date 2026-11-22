@@ -37,9 +37,9 @@ def _check_currency(provider: str, currency: str) -> None:
         raise AppError("PAYMENT_CURRENCY_UNSUPPORTED", "این درگاه با ارز فروشگاه سازگار نیست.", 400) from exc
 
 
-def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) -> dict:
-    """Settings from the store's own configuration row; raises when it is disabled or its destination is incomplete."""
-    if not cfg.is_enabled:
+def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str, *, require_enabled: bool = True) -> dict:
+    """Read a store's own destination; disabling new charges does not erase credentials for existing operations."""
+    if require_enabled and not cfg.is_enabled:
         raise AppError("PAYMENT_METHOD_DISABLED", "این روش شارژ در این فروشگاه فعال نیست.", 400)
     public = dict(cfg.public_config or {})
     secret = json.loads(decrypt(cfg.secret_enc) or "{}") if cfg.secret_enc else {}
@@ -57,8 +57,13 @@ def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) ->
     }
 
 
-async def store_payment_settings(session: AsyncSession, store: Store, provider: str) -> dict:
-    """Payment destination belongs to the Store (v1.1) -- the main store included; there is no global fallback."""
+async def store_payment_settings(session: AsyncSession, store: Store, provider: str, *, require_enabled: bool = True) -> dict:
+    """Read store-owned payment settings.
+
+    ``require_enabled`` gates creation of new payment intents. Existing callbacks and
+    refunds must keep access to the configured credentials after an admin disables
+    new charges for that provider.
+    """
     cfg = await session.scalar(
         select(StorePaymentConfiguration).where(
             StorePaymentConfiguration.store_id == store.id, StorePaymentConfiguration.provider == provider
@@ -66,7 +71,7 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
     )
     _check_currency(provider, store.currency)
     if cfg is not None:
-        return _store_configured_settings(cfg, provider)
+        return _store_configured_settings(cfg, provider, require_enabled=require_enabled)
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
 
 
@@ -434,7 +439,7 @@ async def _claim_refund(session: AsyncSession, payment_id: uuid.UUID, *, actor_i
     store = await session.get(Store, p.store_id)
     if store is None:
         raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
-    cfg = await store_payment_settings(session, store, p.provider)
+    cfg = await store_payment_settings(session, store, p.provider, require_enabled=False)
     op = await _lock_refund_op(session, p.id)
     if op is None:
         op = RefundOperation(
@@ -699,7 +704,7 @@ async def handle_callback(session: AsyncSession, provider: str, params: dict) ->
     store = await session.get(Store, p.store_id)
     if store is None:
         raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
-    cfg = await store_payment_settings(session, store, provider)
+    cfg = await store_payment_settings(session, store, provider, require_enabled=False)
     session.expunge(p)  # keep a detached, fully-loaded copy for the adapter
     await (
         session.commit()
