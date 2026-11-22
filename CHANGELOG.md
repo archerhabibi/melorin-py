@@ -9,6 +9,7 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 ## [Unreleased] - 2026-11-19
 
 ### Audit remediation (V-AUDIT / V01 reports)
+- Worker job lock fails closed: when Redis cannot confirm the per-job overlap lock (not configured, error, timeout after 3 short attempts) the job does not run, `JobLockUnavailableError` reaches ARQ and `melorin_job_runs_total{outcome="lock_error"}` counts it; new alert `MelorinJobLockUnavailable`; `lock_ttl` must exceed `timeout`; the worker refuses to start without `MELORIN_REDIS_URL`; lock failures log one line instead of a traceback per tick.
 - Receipt OCR is a worker job (`payments.receipt_ocr`, `modules/payments/ocr_job.py`), no longer part of the upload request (V01 V-21): the upload answers at once (`receipt_read.ocr_state = pending`), the per-store daily vision budget is spent in the worker, and the grace credit waits (`ocr_pending`, at most 1 h) for a pending reading.
 - One outbound-address policy (`domain/netpolicy.py`): CGNAT, NAT64, 6to4, Teredo and mapped forms are refused; numeric hosts (`127.1`, `0x7f.1`, `2130706433`) are parsed; used by webhooks, domain verification and panel URLs (V-011).
 - Webhook delivery resolves once (non-blocking), validates every address and connects to that address with the real SNI/Host; a refusal is a counted failure that auto-disables the endpoint instead of an endless re-claim (V-012, V-013, V-014).
