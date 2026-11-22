@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (188)
+### `admin` (189)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -157,6 +157,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/payments` | Payments |
 | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
 | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
+| POST | `/api/v1/admin/payments/{payment_id}/reconcile-create` | Reconcile Payment Create |
 | POST | `/api/v1/admin/payments/{payment_id}/refund` | Refund Payment |
 | POST | `/api/v1/admin/payments/{payment_id}/review` | Review Payment |
 | GET | `/api/v1/admin/products` | List Products |
