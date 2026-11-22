@@ -5528,11 +5528,52 @@
                 "type": "null"
               }
             ],
-            "description": "gateway secrets, e.g. {merchant_id}; write-only",
+            "description": "write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds",
             "title": "Secret"
           }
         },
         "title": "PaymentConfigIn",
+        "type": "object"
+      },
+      "PaymentCreateReconcileIn": {
+        "properties": {
+          "action": {
+            "enum": [
+              "bind",
+              "abandon"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "external_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ref"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "PaymentCreateReconcileIn",
         "type": "object"
       },
       "PaymentOut": {
@@ -16799,6 +16840,63 @@
           }
         ],
         "summary": "Payment Receipt Duplicates",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/payments/{payment_id}/reconcile-create": {
+      "post": {
+        "description": "Resolve a payment whose gateway create outcome is unknown (timeout/lost response).",
+        "operationId": "reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreateReconcileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconcile Payment Create",
         "tags": [
           "admin"
         ]

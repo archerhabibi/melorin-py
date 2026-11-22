@@ -25,7 +25,7 @@ _ck="${BACKUP_CHECKSUM_FILE:-$BACKUP_ARCHIVE.sha256}"
 ( cd "$(dirname "$BACKUP_ARCHIVE")" && sha256sum --check "$(realpath --relative-to="$(dirname "$BACKUP_ARCHIVE")" "$_ck" 2>/dev/null || echo "$_ck")" )
 age --decrypt --identity "$BACKUP_IDENTITY_FILE" --output "$raw" "$BACKUP_ARCHIVE"
 
-mapfile -t DB_PARTS < <(python - "$MELORIN_DATABASE_URL" <<'PY'
+mapfile -t DB_PARTS < <(python3 - "$MELORIN_DATABASE_URL" <<'PY'
 import sys
 from urllib.parse import urlparse
 u = urlparse(sys.argv[1])
@@ -45,7 +45,7 @@ rev="$(psql --dbname="$db_name" -Atc "select version_num from alembic_version li
 [[ -n "$rev" ]] || { echo "restore drill: alembic_version is empty or missing" >&2; exit 1; }
 users="$(psql --dbname="$db_name" -Atc "select count(*) from users" 2>/dev/null || echo 0)"
 [[ "$users" -gt 0 ]] || { echo "restore drill: restored users table is empty" >&2; exit 1; }
-live_db="$(python - "$MELORIN_DATABASE_URL" <<'PY2'
+live_db="$(python3 - "$MELORIN_DATABASE_URL" <<'PY2'
 import sys
 from urllib.parse import urlparse
 print(urlparse(sys.argv[1]).path.lstrip("/"))

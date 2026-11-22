@@ -60,6 +60,18 @@ async def run_forever(stop: asyncio.Event, clock: Callable[[], dt.datetime] | No
             log.exception("%s crashed", name)
 
 
+async def run_with_metrics(stop: asyncio.Event, clock: Callable[[], dt.datetime] | None = None) -> None:
+    """Expose this dedicated process's job counters while its scheduler is alive."""
+    from melorin.worker.metrics_server import start_metrics_server, stop_metrics_server
+
+    ctx: dict[str, object] = {}
+    await start_metrics_server(ctx)
+    try:
+        await run_forever(stop, clock)
+    finally:
+        await stop_metrics_server(ctx)
+
+
 async def main() -> None:
     get_settings()  # fail fast on bad configuration, like the API and Worker
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -67,7 +79,7 @@ async def main() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
-    await run_forever(stop)
+    await run_with_metrics(stop)
 
 
 if __name__ == "__main__":

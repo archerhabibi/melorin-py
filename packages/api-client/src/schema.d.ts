@@ -2267,6 +2267,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/{payment_id}/reconcile-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile Payment Create
+         * @description Resolve a payment whose gateway create outcome is unknown (timeout/lost response).
+         */
+        post: operations["reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments/{payment_id}/refund": {
         parameters: {
             query?: never;
@@ -9101,9 +9121,21 @@ export interface components {
             public_config?: Record<string, never>;
             /**
              * Secret
-             * @description gateway secrets, e.g. {merchant_id}; write-only
+             * @description write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds
              */
             secret?: Record<string, never> | null;
+        };
+        /** PaymentCreateReconcileIn */
+        PaymentCreateReconcileIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "bind" | "abandon";
+            /** External Ref */
+            external_ref?: string | null;
+            /** Reason */
+            reason?: string | null;
         };
         /** PaymentOut */
         PaymentOut: {
@@ -14863,6 +14895,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentCreateReconcileIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
