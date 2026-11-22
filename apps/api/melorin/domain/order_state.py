@@ -1,5 +1,5 @@
 import dataclasses
-from melorin.core.invariants import InvariantViolation
+from melorin.domain.invariants import InvariantViolation
 from enum import StrEnum
 
 

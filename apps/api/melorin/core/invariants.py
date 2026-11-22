@@ -2,11 +2,11 @@
 
 from typing import TypeVar
 
+from melorin.domain.invariants import InvariantViolation
+
+__all__ = ["InvariantViolation", "require"]
+
 T = TypeVar("T")
-
-
-class InvariantViolation(RuntimeError):
-    """A condition the code guarantees was false: a bug, never a user error (maps to a 500 and is logged)."""
 
 
 def require(value: T | None, what: str = "value") -> T:
