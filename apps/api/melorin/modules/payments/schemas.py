@@ -107,3 +107,9 @@ class ReceiptDupSettingsOut(BaseModel):
     """The policy currently in force for the store (``warn`` until a manager chooses otherwise)."""
 
     policy: ReceiptDupPolicy
+
+
+class PaymentCreateReconcileIn(BaseModel):
+    action: Literal["bind", "abandon"]
+    external_ref: str | None = Field(default=None, max_length=200)
+    reason: str | None = Field(default=None, max_length=500)

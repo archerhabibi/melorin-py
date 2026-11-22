@@ -359,7 +359,9 @@ async def test_payment_config_never_returns_the_secret_and_is_scoped_to_the_stor
         )
         assert ok.json() == {"ok": True}
         rows = (await c.get(_panel(w.a, "/payment-config"), headers=w.h["a"])).json()
-        assert rows == [{"provider": "manual_card", "is_enabled": True, "public_config": {"card_number": "6037-0000"}, "has_secret": True}]
+        assert rows == [
+            {"provider": "manual_card", "is_enabled": True, "public_config": {"card_number": "6037-0000"}, "has_secret": True}
+        ]  # non-zarinpal rows carry no extra fields
         assert "1234" not in (await c.get(_panel(w.a, "/payment-config"), headers=w.h["a"])).text
         assert (await c.get(_panel(w.b, "/payment-config"), headers=w.h["b"])).json() == []
         # updating without a secret keeps the stored one
@@ -375,6 +377,29 @@ async def test_payment_config_never_returns_the_secret_and_is_scoped_to_the_stor
             )
         unknown = await c.put(_panel(w.a, "/payment-config/not_a_gateway"), headers=w.h["a"], json={})
         assert (unknown.status_code, _err(unknown)) == (400, "GATEWAY_UNKNOWN")
+
+
+async def test_zarinpal_refund_token_is_write_only_for_the_reseller_and_cleared_only_on_request():
+    async with api_client() as (c, maker, main):
+        w = await _world(c, maker, main)
+        url, h = _panel(w.a, "/payment-config/zarinpal"), w.h["a"]
+        body = {"is_enabled": True, "public_config": {}}
+        ok = await c.put(url, headers=h, json={**body, "secret": {"merchant_id": "mid-1", "access_token": "TOPSECRET-TOKEN"}})
+        assert ok.json() == {"ok": True}
+        listing = await c.get(_panel(w.a, "/payment-config"), headers=h)
+        row = listing.json()[0]
+        assert row["merchant_id"] == "mid-1" and row["has_access_token"] is True
+        assert "TOPSECRET-TOKEN" not in listing.text
+        # editing only the merchant id keeps the token
+        await c.put(url, headers=h, json={**body, "secret": {"merchant_id": "mid-2"}})
+        assert (await c.get(_panel(w.a, "/payment-config"), headers=h)).json()[0]["has_access_token"] is True
+        # replace + delete in one request is refused
+        bad = await c.put(
+            url, headers=h, json={**body, "secret": {"merchant_id": "mid-2", "access_token": "x", "clear_access_token": True}}
+        )
+        assert (bad.status_code, _err(bad)) == (422, "PAYMENT_CONFIG_INVALID")
+        await c.put(url, headers=h, json={**body, "secret": {"merchant_id": "mid-2", "clear_access_token": True}})
+        assert (await c.get(_panel(w.a, "/payment-config"), headers=h)).json()[0]["has_access_token"] is False
 
 
 async def _payment(maker, store, user, *, provider="manual_card", status="awaiting_review", amount=4000):

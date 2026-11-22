@@ -50,7 +50,10 @@ function stubPolicyApi(
   return requests;
 }
 
-function setup(q = queue()) {
+function setup(
+  q = queue(),
+  { receipt = vi.fn(async () => new Response('x', { headers: { 'Content-Type': 'image/png' } })) } = {},
+) {
   stubPolicyApi();
   const calls = [];
   const call = vi.fn(async (path, o = {}) => {
@@ -62,17 +65,27 @@ function setup(q = queue()) {
   const toast = vi.fn();
   render(
     <>
-      <ReceiptReviewPanel call={call} toast={toast} base={BASE} receiptPath={(id) => `/r/${id}`} />
+      <ReceiptReviewPanel call={call} toast={toast} base={BASE} receipt={receipt} />
       <DialogHost />
     </>,
   );
-  return { calls, toast };
+  return { calls, toast, receipt };
 }
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+// jsdom has no object URLs; swap them in for one test and put the originals back
+function stubObjectUrls() {
+  const { createObjectURL, revokeObjectURL } = URL;
+  URL.createObjectURL = vi.fn(() => 'blob:r1');
+  URL.revokeObjectURL = vi.fn();
+  return {
+    restore: () => Object.assign(URL, { createObjectURL, revokeObjectURL }),
+  };
+}
 
 describe('receipt review panel (time-boxed manual review)', () => {
   it('formats the countdown as mm:ss and never goes negative', () => {
@@ -91,6 +104,27 @@ describe('receipt review panel (time-boxed manual review)', () => {
     setup(queue({ waiting: [item({ block: 'duplicate_image', block_text: 'همین تصویر رسید قبلاً ثبت شده' })] }));
     expect((await screen.findAllByText(/همین تصویر رسید قبلاً ثبت شده/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/تا تأیید موقت/)).not.toBeInTheDocument();
+  });
+
+  it('opens the receipt image of the waiting payment through the typed receipt fetcher', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const urls = stubObjectUrls();
+    const { receipt } = setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'مشاهده تصویر رسید' }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith('blob:r1', '_blank', 'noopener'));
+    expect(receipt).toHaveBeenCalledWith('p1');
+    urls.restore();
+    open.mockRestore();
+  });
+
+  it('toasts instead of opening a tab when the receipt download fails', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const receipt = vi.fn(async () => json({ error: { message: 'x' } }, 404));
+    const { toast } = setup(queue(), { receipt });
+    await userEvent.click(await screen.findByRole('button', { name: 'مشاهده تصویر رسید' }));
+    await waitFor(() => expect(toast).toHaveBeenCalled());
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
   });
 
   it('confirms a provisional credit after an explicit dialog and posts the decision', async () => {

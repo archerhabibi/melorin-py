@@ -8,7 +8,6 @@ from sqlalchemy import select
 from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.payments import Payment
-from melorin.kernel.models.stores import StorePaymentConfiguration
 from melorin.modules.payments import store_config, bank_sms, provisional, receipt_fingerprints, service as payments
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
@@ -30,11 +29,7 @@ router = APIRouter(tags=["reseller"])
 
 @router.get("/stores/{store_id}/reseller/payment-config")
 async def get_payment_config(ctx: OwnerCtx, session: Session):
-    rows = (await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == ctx.store.id))).all()
-    return [
-        {"provider": r.provider, "is_enabled": r.is_enabled, "public_config": r.public_config, "has_secret": bool(r.secret_enc)}
-        for r in rows
-    ]
+    return [store_config.admin_view(r) for r in await store_config.list_configs(session, ctx.store.id)]
 
 
 @router.put("/stores/{store_id}/reseller/payment-config/{provider}")

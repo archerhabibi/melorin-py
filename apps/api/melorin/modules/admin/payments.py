@@ -16,6 +16,7 @@ from melorin.modules.payments.schemas import (
     BankSmsSourceIn,
     GraceResolveIn,
     GraceSettingsIn,
+    PaymentCreateReconcileIn,
     ReceiptDupSettingsIn,
     ReceiptDupSettingsOut,
 )
@@ -72,6 +73,7 @@ async def payments(_: AdminUser, session: Session, status: str | None = Query(de
             "status": p.status,
             "has_receipt": bool(p.receipt_file_id),
             "receipt_duplicate": bool((p.meta or {}).get("receipt_duplicate")),
+            "reconciliation_required": bool((p.meta or {}).get("reconciliation_required")),
             "created_at": p.created_at,
         }
         for p in (await session.scalars(q)).all()
@@ -136,6 +138,15 @@ async def review_payment(payment_id: uuid.UUID, body: ReviewPayment, admin: Admi
     )
     await session.commit()
     return {"ok": True, "status": p.status}
+
+
+@router.post("/payments/{payment_id}/reconcile-create")
+async def reconcile_payment_create(payment_id: uuid.UUID, body: PaymentCreateReconcileIn, admin: AdminUser, session: Session):
+    """Resolve a payment whose gateway create outcome is unknown (timeout/lost response)."""
+    p = await payment_service.reconcile_unknown_create(
+        session, payment_id, action=body.action, actor_id=admin.id, external_ref=body.external_ref, reason=body.reason
+    )
+    return {"ok": True, "status": p.status, "payment_id": p.id}
 
 
 @router.post("/payments/{payment_id}/refund")

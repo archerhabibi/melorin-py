@@ -1,7 +1,7 @@
 # پرداخت، کیف پول و مالی / Payments, Wallet & Finance
 
 > **وضعیت / Status:** مرجع جاری / Current canonical
-> **آخرین بازبینی / Last review:** 2026-11-16
+> **آخرین بازبینی / Last review:** 2026-11-19
 > **فهرست / Index:** [00](00-DOCUMENTATION-INDEX.md)
 
 ## بخش فارسی
@@ -11,6 +11,10 @@
 **مسئولیت‌ها (تفکیک شده):** Payments دریافت و تأیید پول را انجام می‌دهد؛ Wallet اعتبار قابل استفاده مشتری را نگه می‌دارد؛ Consolidation اعتبار حساب‌های یک شخص را تجمیع می‌کند. تجربهٔ مشتری یک کیف پول است؛ بک‌اند سه مسئولیت جدا.
 
 **قواعد:** همهٔ خریدها از Wallet همان Store؛ پرداخت خارجی فقط شارژ است؛ هر تغییر موجودی یک تراکنش متوازن دفترکل با کلید idempotency است. کیف پول هر (Store، Currency) مستقل است و جمع نمی‌شود.
+
+**چرخهٔ ایجاد پرداخت و نتیجهٔ نامعلوم:** رکورد پرداخت قبل از تماس با درگاه با وضعیت `creating` و همان کلید idempotency پایدار می‌شود. درخواست تکراری در زمان اجرای تماس، `409 PAYMENT_INTENT_IN_PROGRESS` می‌گیرد و هرگز تماس دوم با درگاه ایجاد نمی‌کند. خطاها دو دسته‌اند: **رد قطعی** (درگاه پاسخ داده و رد کرده) → `create_failed` و همان کلید می‌تواند دوباره تلاش کند؛ **نامعلوم** (timeout/خطای شبکه) → `create_unknown` و نیازمند تطبیق ادمین؛ همان کلید دیگر ایجاد را تکرار نمی‌کند. lease رهاشده پس از ۱۲۰ ثانیه نیز به `create_unknown` ارتقا می‌یابد. آداپتورهای بدون اثر بیرونی (`create_has_external_side_effect = False`، مثل کارت‌به‌کارت) همیشه امن تکرار می‌شوند. ردیف‌های قدیمی که `external_ref` یا `instructions` دارند کامل تلقی می‌شوند. callback با شناسهٔ تطبیق‌نیافته به‌تنهایی مجوز اتصال تراکنش یا شارژ نیست و در صف تطبیق می‌ماند.
+
+**تطبیق ادمین:** `POST /admin/payments/{id}/reconcile-create` با `action=bind` (شناسهٔ تراکنش درگاه که ادمین در پنل درگاه تأیید کرده) یا `action=abandon` (پرداخت ناموفق می‌شود و مشتری با کلید جدید شروع می‌کند). هر دو در audit ثبت می‌شوند؛ لیست `/admin/payments` پرچم `reconciliation_required` را نشان می‌دهد.
 
 **یکپارچه‌سازی:** کیف پول مبدأ حذف نمی‌شود (وضعیت `consolidated` + `consolidated_into_id`)؛ درخواست‌های جدید به کیف پول مرکزی می‌روند. مانع‌ها: پرداخت/سفارش در جریان، حساب نماینده، بدهی. جزئیات در سند 08.
 
@@ -23,6 +27,12 @@
 **Responsibilities (kept separate):** Payments receives and confirms money; Wallet holds the customer's usable credit; Consolidation merges the credit of one person's accounts. The customer sees one wallet; the backend keeps three responsibilities.
 
 **Rules:** every purchase is paid from the Wallet of the same Store; external payment only tops up; every balance change is a balanced ledger transaction with an idempotency key. Each (Store, Currency) wallet is independent and never summed with another.
+
+**Payment-intent creation and unknown outcomes:** persist the payment as `creating` before calling the gateway. A duplicate request while the call is in flight receives `409 PAYMENT_INTENT_IN_PROGRESS` and never starts a second gateway request. Failures are split in two: a **definitive rejection** (the provider answered and refused) is stored as `create_failed` and the same key may retry; an **unknown outcome** (timeout/transport error) is stored as `create_unknown` and requires admin reconciliation, and the same key never reissues create. An abandoned `creating` lease is promoted to `create_unknown` after 120 seconds. Adapters with no external side effect (`create_has_external_side_effect = False`, e.g. manual card) are always safe to replay. Legacy rows that already hold an `external_ref` or `instructions` count as complete. An unmatched callback authority alone must not be attached to a payment or credit a wallet; it stays for reconciliation.
+
+**Admin reconciliation:** `POST /admin/payments/{id}/reconcile-create` with `action=bind` (the provider transaction id the admin confirmed in the gateway panel) or `action=abandon` (the payment fails and the customer starts over with a new key). Both are audited; `/admin/payments` exposes the `reconciliation_required` flag.
+
+**Future adapter contract:** automated recovery may be enabled only after an adapter provides provider-enforced idempotent creation and an authoritative lookup that binds the provider transaction to this Melorin payment ID. Until then an unknown create outcome stays fail-closed.
 
 **Consolidation:** source wallets are not deleted (status `consolidated` + `consolidated_into_id`); new requests go to the central wallet. Blockers: in-flight payment/order, reseller account, debt. Details in doc 08.
 
@@ -250,6 +260,8 @@ callbacks still require sandbox credentials and runtime evidence.
 1. **Claim** (short transaction): lock the payment, create or reclaim the `refund_operations` row (one per payment, unique `idempotency_key = payment:<id>:refund`), take a lease (`REFUND_LEASE_SECONDS`), commit.
 2. **Gateway** (no transaction, no lock): call the adapter; on success commit `external_ref` on the operation *before* touching the ledger.
 3. **Finalize** (short transaction): reverse the wallet credit with the idempotent ledger key, set the payment `refunded`, close the operation (`succeeded`).
+
+Zarinpal refunds need the store's **Access Token** next to its Merchant ID. It is write-only: `PUT .../payment-destinations/zarinpal` (admin) and `PUT .../reseller/payment-config/zarinpal` accept `secret: {merchant_id, access_token?, clear_access_token?}` (omitted/blank = keep, value = replace, `clear_access_token` = delete; both at once = `422 PAYMENT_CONFIG_INVALID`); the GET views return only `has_access_token`. Without a token the adapter refuses the refund as a permanent failure and the operation goes to manual review.
 
 States: `pending -> processing -> succeeded | failed | manual_review`. `failed` may be retried (max `REFUND_MAX_ATTEMPTS`, then `manual_review`). Providers without refund support (manual card, destination) answer `409 REFUND_NOT_SUPPORTED` and park in `manual_review`.
 Recovery: `refund_recovery_job` (every 10 minutes) finishes operations that have `external_ref` but an expired lease (no second gateway call) and moves operations with an expired lease and no `external_ref` to `manual_review` (unknown outcome - never resent blindly; reconcile with the gateway by hand).
