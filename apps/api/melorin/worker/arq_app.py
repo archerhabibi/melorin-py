@@ -38,7 +38,7 @@ from melorin.worker.jobs import (
     reseller_identity_recheck_job,
 )
 from melorin.core.metrics import set_gauge
-from melorin.worker.wrap import tracked_job
+from melorin.worker.wrap import assert_lock_backend_configured, tracked_job
 
 TICK_CONCURRENCY = 8
 
@@ -67,6 +67,7 @@ async def startup(ctx):
     # from inside the running job: a fixed job id can stall the chain.
     from melorin.core.logging import quiet_worker_heartbeat
 
+    assert_lock_backend_configured()  # fail-closed locks: without a Redis URL every guarded job would be refused
     quiet_worker_heartbeat()  # arq (re)configures its loggers before startup(), so the filter is attached here (audit V-026)
     from melorin.worker.metrics_server import start_metrics_server
 
