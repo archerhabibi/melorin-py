@@ -8,6 +8,11 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Zarinpal refund credential (fix/zarinpal-refund-credentials)
+- The Zarinpal `access_token` (needed only for refunds) can now be added, replaced and deleted from the admin payments screen and the reseller store settings; it stays write-only: the API only reports `has_access_token`.
+- `store_config.upsert` validates Zarinpal secrets with a typed model (`ZarinpalSecretIn`, unknown fields refused): omitted/blank keeps the token, a value replaces it, `clear_access_token: true` deletes it, and replace + delete in one request is a 422 `PAYMENT_CONFIG_INVALID`. A refused request changes nothing (validation runs before the row is touched); the audit record carries `access_token_changed`.
+- `GET /stores/{id}/reseller/payment-config` now uses the same view as the admin API (`merchant_id`, `has_access_token` for Zarinpal), and the reseller form no longer wipes `public_config` on save.
+
 ### Audit remediation (V-AUDIT / V01 reports)
 - Worker job lock fails closed: when Redis cannot confirm the per-job overlap lock (not configured, error, timeout after 3 short attempts) the job does not run, `JobLockUnavailableError` reaches ARQ and `melorin_job_runs_total{outcome="lock_error"}` counts it; new alert `MelorinJobLockUnavailable`; `lock_ttl` must exceed `timeout`; the worker refuses to start without `MELORIN_REDIS_URL`; lock failures log one line instead of a traceback per tick.
 - Receipt OCR is a worker job (`payments.receipt_ocr`, `modules/payments/ocr_job.py`), no longer part of the upload request (V01 V-21): the upload answers at once (`receipt_read.ocr_state = pending`), the per-store daily vision budget is spent in the worker, and the grace credit waits (`ocr_pending`, at most 1 h) for a pending reading.
