@@ -51,8 +51,8 @@
       "AdjustIn": {
         "properties": {
           "delta": {
-            "maximum": 1000000000.0,
-            "minimum": -1000000000.0,
+            "maximum": 1000000000,
+            "minimum": -1000000000,
             "title": "Delta",
             "type": "integer"
           },
@@ -218,7 +218,7 @@
           },
           "fixed": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Fixed",
             "type": "integer"
           },
@@ -234,7 +234,7 @@
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -246,7 +246,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -257,14 +257,14 @@
           },
           "min_amount": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Min Amount",
             "type": "integer"
           },
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -276,8 +276,8 @@
           },
           "percent_bp": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": 0.0,
+            "maximum": 10000,
+            "minimum": 0,
             "title": "Percent Bp",
             "type": "integer"
           },
@@ -811,8 +811,8 @@
           },
           "rate_limit_per_minute": {
             "default": 120,
-            "maximum": 6000.0,
-            "minimum": 1.0,
+            "maximum": 6000,
+            "minimum": 1,
             "title": "Rate Limit Per Minute",
             "type": "integer"
           },
@@ -1013,7 +1013,7 @@
           "customer_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1124,6 +1124,292 @@
         "title": "BankSmsLinkIn",
         "type": "object"
       },
+      "BankSmsMessageOut": {
+        "properties": {
+          "amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Rial"
+          },
+          "balance_gap": {
+            "description": "The balance does not follow the previous SMS (a message may be missing).",
+            "title": "Balance Gap",
+            "type": "boolean"
+          },
+          "balance_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Rial"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "deposit | withdrawal",
+            "title": "Direction"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "matched_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "auto | admin",
+            "title": "Matched By"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Id"
+          },
+          "sender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "status": {
+            "description": "unmatched | matched | ambiguous | ignored | unparsed",
+            "title": "Status",
+            "type": "string"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "store_id",
+          "status",
+          "direction",
+          "amount_rial",
+          "balance_rial",
+          "occurred_at",
+          "serial",
+          "sender",
+          "payment_id",
+          "matched_by",
+          "note",
+          "balance_gap",
+          "created_at"
+        ],
+        "title": "BankSmsMessageOut",
+        "type": "object"
+      },
+      "BankSmsOverviewOut": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/BankSmsMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/BankSmsSourceOut"
+          }
+        },
+        "required": [
+          "source",
+          "messages"
+        ],
+        "title": "BankSmsOverviewOut",
+        "type": "object"
+      },
+      "BankSmsSettingsIn": {
+        "additionalProperties": false,
+        "description": "Typed keys and value types of the bank-SMS matching settings.\n\nRanges are documented here but enforced by the domain layer (``clean_settings``), so an out-of-range value keeps its\nstable ``BANK_SMS_SETTING_INVALID`` business error instead of a generic schema error. ``null`` resets a setting.",
+        "properties": {
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Store bank account number, digits only (Persian digits accepted): 8 to 26 digits.",
+            "title": "Account Number"
+          },
+          "max_auto_amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Larger deposits are always reviewed by a human: 1 to 10000000000000 rial; null means no limit.",
+            "title": "Max Auto Amount Rial"
+          },
+          "require_claimed_time": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The customer must state the time printed on the receipt.",
+            "title": "Require Claimed Time"
+          },
+          "time_tolerance_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allowed gap between the receipt time and the SMS time: 0 to 30 minutes.",
+            "title": "Time Tolerance Minutes"
+          },
+          "window_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How long a deposit SMS may lag behind or precede the payment request: 5 to 10080 minutes.",
+            "title": "Window Minutes"
+          }
+        },
+        "title": "BankSmsSettingsIn",
+        "type": "object"
+      },
+      "BankSmsSettingsOut": {
+        "description": "Effective settings: stored values with the domain defaults filled in.",
+        "properties": {
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "max_auto_amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Amount Rial"
+          },
+          "require_claimed_time": {
+            "title": "Require Claimed Time",
+            "type": "boolean"
+          },
+          "time_tolerance_minutes": {
+            "title": "Time Tolerance Minutes",
+            "type": "integer"
+          },
+          "window_minutes": {
+            "title": "Window Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_minutes",
+          "time_tolerance_minutes",
+          "require_claimed_time",
+          "max_auto_amount_rial",
+          "account_number"
+        ],
+        "title": "BankSmsSettingsOut",
+        "type": "object"
+      },
       "BankSmsSourceIn": {
         "additionalProperties": false,
         "description": "Everything is optional: only the sent fields change. The token is created with the source and shown once.",
@@ -1178,16 +1464,131 @@
           "settings": {
             "anyOf": [
               {
-                "type": "object"
+                "$ref": "#/components/schemas/BankSmsSettingsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "BankSmsSourceIn",
+        "type": "object"
+      },
+      "BankSmsSourceOut": {
+        "description": "The store's SMS source. The webhook token itself is never part of it (only ``has_token`` and the last 4 characters).",
+        "properties": {
+          "auto_verify": {
+            "title": "Auto Verify",
+            "type": "boolean"
+          },
+          "bank": {
+            "title": "Bank",
+            "type": "string"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "has_token": {
+            "title": "Has Token",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "last_received_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Settings"
+            "title": "Last Received At"
+          },
+          "senders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Senders",
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/BankSmsSettingsOut"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "token_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Hint"
           }
         },
-        "title": "BankSmsSourceIn",
+        "required": [
+          "store_id",
+          "configured",
+          "bank",
+          "is_enabled",
+          "auto_verify",
+          "has_token",
+          "token_hint",
+          "senders",
+          "settings",
+          "last_received_at"
+        ],
+        "title": "BankSmsSourceOut",
+        "type": "object"
+      },
+      "BankSmsSourceSavedOut": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/BankSmsSourceOut"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Plaintext webhook token, present only on the response that creates the source; copy it once.",
+            "title": "Token"
+          }
+        },
+        "required": [
+          "source",
+          "token"
+        ],
+        "title": "BankSmsSourceSavedOut",
+        "type": "object"
+      },
+      "BankSmsTokenOut": {
+        "properties": {
+          "token": {
+            "description": "The new plaintext webhook token; the previous one stops working immediately. Shown once.",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "BankSmsTokenOut",
         "type": "object"
       },
       "Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post": {
@@ -1341,7 +1742,7 @@
       "BulkConfirmIn": {
         "properties": {
           "count": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Count",
             "type": "integer"
           }
@@ -1467,7 +1868,7 @@
           "main_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1479,7 +1880,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1632,7 +2033,7 @@
           "max_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1664,7 +2065,7 @@
             "type": "string"
           },
           "value": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Value",
             "type": "integer"
           }
@@ -1857,14 +2258,14 @@
           },
           "fixed": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Fixed",
             "type": "integer"
           },
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -1876,7 +2277,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -1887,14 +2288,14 @@
           },
           "min_amount": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Min Amount",
             "type": "integer"
           },
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -1906,8 +2307,8 @@
           },
           "percent_bp": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": 0.0,
+            "maximum": 10000,
+            "minimum": 0,
             "title": "Percent Bp",
             "type": "integer"
           },
@@ -2188,7 +2589,7 @@
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2200,7 +2601,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2212,7 +2613,7 @@
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2362,7 +2763,7 @@
           "sales_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2565,7 +2966,7 @@
             "title": "Description"
           },
           "duration_days": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Duration Days",
             "type": "integer"
           },
@@ -2575,14 +2976,14 @@
             "type": "boolean"
           },
           "main_price": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Main Price",
             "type": "integer"
           },
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2605,7 +3006,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -2615,7 +3016,7 @@
             "title": "Reseller Price"
           },
           "traffic_gb": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Traffic Gb",
             "type": "integer"
           }
@@ -2638,8 +3039,8 @@
             "type": "boolean"
           },
           "capacity": {
-            "exclusiveMinimum": 0.0,
-            "maximum": 100000.0,
+            "exclusiveMinimum": 0,
+            "maximum": 100000,
             "title": "Capacity",
             "type": "integer"
           },
@@ -3053,8 +3454,8 @@
           },
           "port": {
             "default": 587,
-            "maximum": 65535.0,
-            "minimum": 1.0,
+            "maximum": 65535,
+            "minimum": 1,
             "title": "Port",
             "type": "integer"
           },
@@ -3908,8 +4309,8 @@
           "retention_days": {
             "anyOf": [
               {
-                "maximum": 365.0,
-                "minimum": 1.0,
+                "maximum": 365,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -5816,8 +6217,8 @@
           "customer_price": {
             "anyOf": [
               {
-                "maximum": 1000000000000.0,
-                "minimum": 0.0,
+                "maximum": 1000000000000,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5844,7 +6245,7 @@
           "customer_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5917,7 +6318,7 @@
             "title": "Description"
           },
           "duration_days": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Duration Days",
             "type": "integer"
           },
@@ -5936,14 +6337,14 @@
             "type": "boolean"
           },
           "main_price": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Main Price",
             "type": "integer"
           },
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -5968,7 +6369,7 @@
             "type": "integer"
           },
           "traffic_gb": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Traffic Gb",
             "type": "integer"
           },
@@ -6063,7 +6464,7 @@
           "duration_days": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -6097,7 +6498,7 @@
           "main_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6109,7 +6510,7 @@
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -6145,7 +6546,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6157,7 +6558,7 @@
           "traffic_gb": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6225,8 +6626,8 @@
       "ProgramIn": {
         "properties": {
           "earn_unit": {
-            "maximum": 1000000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000000,
+            "minimum": 1,
             "title": "Earn Unit",
             "type": "integer"
           },
@@ -6236,16 +6637,16 @@
           },
           "first_order_bonus": {
             "default": 0,
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "First Order Bonus",
             "type": "integer"
           },
           "max_points_per_order": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 1.0,
+                "maximum": 1000000000,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -6255,15 +6656,15 @@
             "title": "Max Points Per Order"
           },
           "points_per_unit": {
-            "maximum": 1000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000,
+            "minimum": 1,
             "title": "Points Per Unit",
             "type": "integer"
           },
           "referral_bonus": {
             "default": 0,
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "Referral Bonus",
             "type": "integer"
           }
@@ -6578,8 +6979,8 @@
           },
           "timeout_seconds": {
             "default": 25,
-            "maximum": 90.0,
-            "minimum": 5.0,
+            "maximum": 90,
+            "minimum": 5,
             "title": "Timeout Seconds",
             "type": "integer"
           }
@@ -6818,7 +7219,7 @@
           },
           "debt_limit": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Debt Limit",
             "type": "integer"
           },
@@ -6881,7 +7282,7 @@
           "debt_limit": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7056,8 +7457,8 @@
       "RewardIn": {
         "properties": {
           "cost_points": {
-            "maximum": 1000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000,
+            "minimum": 1,
             "title": "Cost Points",
             "type": "integer"
           },
@@ -7093,8 +7494,8 @@
           "per_user_limit": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 1.0,
+                "maximum": 1000000000,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -7105,16 +7506,16 @@
           },
           "sort_order": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": -10000.0,
+            "maximum": 10000,
+            "minimum": -10000,
             "title": "Sort Order",
             "type": "integer"
           },
           "stock": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 0.0,
+                "maximum": 1000000000,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7124,8 +7525,8 @@
             "title": "Stock"
           },
           "value": {
-            "maximum": 1000000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000000,
+            "minimum": 1,
             "title": "Value",
             "type": "integer"
           }
@@ -7174,8 +7575,8 @@
           "expiring_within_days": {
             "anyOf": [
               {
-                "maximum": 3650.0,
-                "minimum": 0.0,
+                "maximum": 3650,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7423,8 +7824,8 @@
           },
           "capacity": {
             "default": 500,
-            "exclusiveMinimum": 0.0,
-            "maximum": 100000.0,
+            "exclusiveMinimum": 0,
+            "maximum": 100000,
             "title": "Capacity",
             "type": "integer"
           },
@@ -7695,7 +8096,7 @@
           "max_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7722,7 +8123,7 @@
             "title": "Product Id"
           },
           "value": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Value",
             "type": "integer"
           }
@@ -7935,8 +8336,8 @@
           },
           "ttl_seconds": {
             "default": 180,
-            "maximum": 600.0,
-            "minimum": 60.0,
+            "maximum": 600,
+            "minimum": 60,
             "title": "Ttl Seconds",
             "type": "integer"
           }
@@ -8822,7 +9223,7 @@
             "type": "string"
           },
           "remote_template_id": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Remote Template Id",
             "type": "integer"
           }
@@ -8971,15 +9372,15 @@
       "TierIn": {
         "properties": {
           "min_points": {
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "Min Points",
             "type": "integer"
           },
           "multiplier_bp": {
             "default": 10000,
-            "maximum": 100000.0,
-            "minimum": 1.0,
+            "maximum": 100000,
+            "minimum": 1,
             "title": "Multiplier Bp",
             "type": "integer"
           },
@@ -9154,7 +9555,7 @@
       "TopupRequest": {
         "properties": {
           "amount": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Amount",
             "type": "integer"
           },
@@ -9360,7 +9761,7 @@
           "sales_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -9402,8 +9803,8 @@
           "capacity": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
-                "maximum": 100000.0,
+                "exclusiveMinimum": 0,
+                "maximum": 100000,
                 "type": "integer"
               },
               {
@@ -19045,7 +19446,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsOverviewOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19147,7 +19550,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsSourceSavedOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19193,7 +19598,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsTokenOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19259,7 +19666,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19325,7 +19734,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28188,7 +28599,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsOverviewOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28290,7 +28703,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsSourceSavedOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28336,7 +28751,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsTokenOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28402,7 +28819,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28468,7 +28887,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsMessageOut"
+                }
               }
             },
             "description": "Successful Response"

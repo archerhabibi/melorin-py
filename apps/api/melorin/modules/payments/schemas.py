@@ -2,6 +2,7 @@ import datetime as dt
 import uuid
 from typing import Literal
 
+from melorin.domain import bank_sms as _dom
 from melorin.modules.payments.redaction import strip_secrets
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
@@ -55,6 +56,37 @@ def payment_out(p) -> PaymentOut:
     )
 
 
+def _range(key: str, unit: str) -> str:
+    """Human-readable allowed range of a bank-SMS setting, read from the domain rule table (never retyped here)."""
+    lo, hi = _dom.SETTING_RANGES[key]
+    return f"{lo} to {hi} {unit}"
+
+
+class BankSmsSettingsIn(BaseModel):
+    """Typed keys and value types of the bank-SMS matching settings.
+
+    Ranges are documented here but enforced by the domain layer (``clean_settings``), so an out-of-range value keeps its
+    stable ``BANK_SMS_SETTING_INVALID`` business error instead of a generic schema error. ``null`` resets a setting.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    window_minutes: StrictInt | None = Field(
+        default=None,
+        description=f"How long a deposit SMS may lag behind or precede the payment request: {_range('window_minutes', 'minutes')}.",
+    )
+    time_tolerance_minutes: StrictInt | None = Field(
+        default=None, description=f"Allowed gap between the receipt time and the SMS time: {_range('time_tolerance_minutes', 'minutes')}."
+    )
+    require_claimed_time: StrictBool | None = Field(default=None, description="The customer must state the time printed on the receipt.")
+    max_auto_amount_rial: StrictInt | None = Field(
+        default=None,
+        description=f"Larger deposits are always reviewed by a human: {_range('max_auto_amount_rial', 'rial')}; null means no limit.",
+    )
+    account_number: str | None = Field(
+        default=None, description=f"Store bank account number, digits only (Persian digits accepted): {_range('account_number', 'digits')}."
+    )
+
+
 class BankSmsSourceIn(BaseModel):
     """Everything is optional: only the sent fields change. The token is created with the source and shown once."""
 
@@ -63,7 +95,63 @@ class BankSmsSourceIn(BaseModel):
     is_enabled: bool | None = None
     auto_verify: bool | None = None
     senders: list[str] | None = None
-    settings: dict | None = None
+    settings: BankSmsSettingsIn | None = None
+
+
+class BankSmsSettingsOut(BaseModel):
+    """Effective settings: stored values with the domain defaults filled in."""
+
+    window_minutes: int
+    time_tolerance_minutes: int
+    require_claimed_time: bool
+    max_auto_amount_rial: int | None
+    account_number: str | None
+
+
+class BankSmsSourceOut(BaseModel):
+    """The store's SMS source. The webhook token itself is never part of it (only ``has_token`` and the last 4 characters)."""
+
+    store_id: uuid.UUID
+    configured: bool
+    bank: str
+    is_enabled: bool
+    auto_verify: bool
+    has_token: bool
+    token_hint: str | None
+    senders: list[str]
+    settings: BankSmsSettingsOut
+    last_received_at: dt.datetime | None
+
+
+class BankSmsMessageOut(BaseModel):
+    id: uuid.UUID
+    store_id: uuid.UUID
+    status: str = Field(description="unmatched | matched | ambiguous | ignored | unparsed")
+    direction: str | None = Field(description="deposit | withdrawal")
+    amount_rial: int | None
+    balance_rial: int | None
+    occurred_at: dt.datetime | None
+    serial: str | None
+    sender: str | None
+    payment_id: uuid.UUID | None
+    matched_by: str | None = Field(description="auto | admin")
+    note: str | None
+    balance_gap: bool = Field(description="The balance does not follow the previous SMS (a message may be missing).")
+    created_at: dt.datetime
+
+
+class BankSmsOverviewOut(BaseModel):
+    source: BankSmsSourceOut
+    messages: list[BankSmsMessageOut]
+
+
+class BankSmsSourceSavedOut(BaseModel):
+    source: BankSmsSourceOut
+    token: str | None = Field(description="Plaintext webhook token, present only on the response that creates the source; copy it once.")
+
+
+class BankSmsTokenOut(BaseModel):
+    token: str = Field(description="The new plaintext webhook token; the previous one stops working immediately. Shown once.")
 
 
 class BankSmsLinkIn(BaseModel):

@@ -7533,6 +7533,114 @@ export interface components {
              */
             payment_id: string;
         };
+        /** BankSmsMessageOut */
+        BankSmsMessageOut: {
+            /** Amount Rial */
+            amount_rial: number | null;
+            /**
+             * Balance Gap
+             * @description The balance does not follow the previous SMS (a message may be missing).
+             */
+            balance_gap: boolean;
+            /** Balance Rial */
+            balance_rial: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Direction
+             * @description deposit | withdrawal
+             */
+            direction: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Matched By
+             * @description auto | admin
+             */
+            matched_by: string | null;
+            /** Note */
+            note: string | null;
+            /** Occurred At */
+            occurred_at: string | null;
+            /** Payment Id */
+            payment_id: string | null;
+            /** Sender */
+            sender: string | null;
+            /** Serial */
+            serial: string | null;
+            /**
+             * Status
+             * @description unmatched | matched | ambiguous | ignored | unparsed
+             */
+            status: string;
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+        };
+        /** BankSmsOverviewOut */
+        BankSmsOverviewOut: {
+            /** Messages */
+            messages: components["schemas"]["BankSmsMessageOut"][];
+            source: components["schemas"]["BankSmsSourceOut"];
+        };
+        /**
+         * BankSmsSettingsIn
+         * @description Typed keys and value types of the bank-SMS matching settings.
+         *
+         *     Ranges are documented here but enforced by the domain layer (``clean_settings``), so an out-of-range value keeps its
+         *     stable ``BANK_SMS_SETTING_INVALID`` business error instead of a generic schema error. ``null`` resets a setting.
+         */
+        BankSmsSettingsIn: {
+            /**
+             * Account Number
+             * @description Store bank account number, digits only (Persian digits accepted): 8 to 26 digits.
+             */
+            account_number?: string | null;
+            /**
+             * Max Auto Amount Rial
+             * @description Larger deposits are always reviewed by a human: 1 to 10000000000000 rial; null means no limit.
+             */
+            max_auto_amount_rial?: number | null;
+            /**
+             * Require Claimed Time
+             * @description The customer must state the time printed on the receipt.
+             */
+            require_claimed_time?: boolean | null;
+            /**
+             * Time Tolerance Minutes
+             * @description Allowed gap between the receipt time and the SMS time: 0 to 30 minutes.
+             */
+            time_tolerance_minutes?: number | null;
+            /**
+             * Window Minutes
+             * @description How long a deposit SMS may lag behind or precede the payment request: 5 to 10080 minutes.
+             */
+            window_minutes?: number | null;
+        };
+        /**
+         * BankSmsSettingsOut
+         * @description Effective settings: stored values with the domain defaults filled in.
+         */
+        BankSmsSettingsOut: {
+            /** Account Number */
+            account_number: string | null;
+            /** Max Auto Amount Rial */
+            max_auto_amount_rial: number | null;
+            /** Require Claimed Time */
+            require_claimed_time: boolean;
+            /** Time Tolerance Minutes */
+            time_tolerance_minutes: number;
+            /** Window Minutes */
+            window_minutes: number;
+        };
         /**
          * BankSmsSourceIn
          * @description Everything is optional: only the sent fields change. The token is created with the source and shown once.
@@ -7546,8 +7654,52 @@ export interface components {
             is_enabled?: boolean | null;
             /** Senders */
             senders?: string[] | null;
-            /** Settings */
-            settings?: Record<string, never> | null;
+            settings?: components["schemas"]["BankSmsSettingsIn"] | null;
+        };
+        /**
+         * BankSmsSourceOut
+         * @description The store's SMS source. The webhook token itself is never part of it (only ``has_token`` and the last 4 characters).
+         */
+        BankSmsSourceOut: {
+            /** Auto Verify */
+            auto_verify: boolean;
+            /** Bank */
+            bank: string;
+            /** Configured */
+            configured: boolean;
+            /** Has Token */
+            has_token: boolean;
+            /** Is Enabled */
+            is_enabled: boolean;
+            /** Last Received At */
+            last_received_at: string | null;
+            /** Senders */
+            senders: string[];
+            settings: components["schemas"]["BankSmsSettingsOut"];
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Token Hint */
+            token_hint: string | null;
+        };
+        /** BankSmsSourceSavedOut */
+        BankSmsSourceSavedOut: {
+            source: components["schemas"]["BankSmsSourceOut"];
+            /**
+             * Token
+             * @description Plaintext webhook token, present only on the response that creates the source; copy it once.
+             */
+            token: string | null;
+        };
+        /** BankSmsTokenOut */
+        BankSmsTokenOut: {
+            /**
+             * Token
+             * @description The new plaintext webhook token; the previous one stops working immediately. Shown once.
+             */
+            token: string;
         };
         /** Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post */
         Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post: {
@@ -16226,7 +16378,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -16292,7 +16444,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsSourceSavedOut"];
                 };
             };
             /** @description Validation Error */
@@ -16323,7 +16475,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsTokenOut"];
                 };
             };
             /** @description Validation Error */
@@ -16359,7 +16511,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -16395,7 +16547,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -21901,7 +22053,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -21967,7 +22119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsSourceSavedOut"];
                 };
             };
             /** @description Validation Error */
@@ -21998,7 +22150,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsTokenOut"];
                 };
             };
             /** @description Validation Error */
@@ -22034,7 +22186,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */
@@ -22070,7 +22222,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsMessageOut"];
                 };
             };
             /** @description Validation Error */

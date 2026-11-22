@@ -12,7 +12,11 @@ from melorin.modules.payments import store_config, bank_sms, provisional, receip
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
     BankSmsLinkIn,
+    BankSmsMessageOut,
+    BankSmsOverviewOut,
     BankSmsSourceIn,
+    BankSmsSourceSavedOut,
+    BankSmsTokenOut,
     GraceResolveIn,
     GraceSettingsIn,
     ReceiptDupSettingsIn,
@@ -76,7 +80,7 @@ async def review_store_payment(payment_id: uuid.UUID, body: PaymentReview, ctx: 
 
 
 # ----- Card-to-card auto verification (bank SMS) for the reseller's own store -----
-@router.get("/stores/{store_id}/reseller/bank-sms")
+@router.get("/stores/{store_id}/reseller/bank-sms", response_model=BankSmsOverviewOut)
 async def reseller_bank_sms_overview(ctx: OwnerCtx, session: Session, status: str | None = Query(default=None)):
     src = await bank_sms.get_source(session, ctx.store.id)
     return {
@@ -85,7 +89,7 @@ async def reseller_bank_sms_overview(ctx: OwnerCtx, session: Session, status: st
     }
 
 
-@router.put("/stores/{store_id}/reseller/bank-sms/source")
+@router.put("/stores/{store_id}/reseller/bank-sms/source", response_model=BankSmsSourceSavedOut)
 async def reseller_bank_sms_save_source(body: BankSmsSourceIn, ctx: OwnerCtx, session: Session):
     src, token = await bank_sms.save_source(
         session, ctx.store, actor_id=ctx.user.id, actor_type="reseller", **body.model_dump(exclude_unset=True)
@@ -93,7 +97,7 @@ async def reseller_bank_sms_save_source(body: BankSmsSourceIn, ctx: OwnerCtx, se
     return {"source": bank_sms.source_out(src), "token": token}
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/token")
+@router.post("/stores/{store_id}/reseller/bank-sms/token", response_model=BankSmsTokenOut)
 async def reseller_bank_sms_rotate_token(ctx: OwnerCtx, session: Session):
     return {"token": await bank_sms.rotate_token(session, ctx.store, actor_id=ctx.user.id, actor_type="reseller")}
 
@@ -103,13 +107,13 @@ async def reseller_bank_sms_reconcile(ctx: OwnerCtx, session: Session):
     return await bank_sms.reconcile_store(session, ctx.store)
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/link")
+@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/link", response_model=BankSmsMessageOut)
 async def reseller_bank_sms_link(sms_id: uuid.UUID, body: BankSmsLinkIn, ctx: OwnerCtx, session: Session):
     m = await bank_sms.manual_link(session, ctx.store, sms_id, body.payment_id, actor_id=ctx.user.id, actor_type="reseller")
     return bank_sms.message_out(m)
 
 
-@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore")
+@router.post("/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore", response_model=BankSmsMessageOut)
 async def reseller_bank_sms_ignore(sms_id: uuid.UUID, body: BankSmsIgnoreIn, ctx: OwnerCtx, session: Session):
     m = await bank_sms.set_ignored(session, ctx.store, sms_id, ignored=body.ignored, actor_id=ctx.user.id, actor_type="reseller")
     return bank_sms.message_out(m)
