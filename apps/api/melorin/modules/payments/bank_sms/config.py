@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.errors import AppError
+from melorin.core.invariants import require
 from melorin.domain import bank_sms as dom
 from melorin.kernel.models.payments import BankSmsSource
 
@@ -40,9 +41,11 @@ def clean_settings(raw: dict | None) -> dict:
                 raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید درست/نادرست باشد.", 422)
         elif kind is str:
             value = dom.digits_only(value) if isinstance(value, str) else ""
+            lo, hi = require(lo, f"{key} lower bound"), require(hi, f"{key} upper bound")  # only bool knobs have no range
             if not (lo <= len(value) <= hi):
                 raise AppError("BANK_SMS_SETTING_INVALID", "شماره حساب باید فقط عدد و بین ۸ تا ۲۶ رقم باشد.", 422)
         else:
+            lo, hi = require(lo, f"{key} lower bound"), require(hi, f"{key} upper bound")  # only bool knobs have no range
             if isinstance(value, bool) or not isinstance(value, int) or not (lo <= value <= hi):
                 raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید عددی بین {lo} و {hi} باشد.", 422)
         out[key] = value
