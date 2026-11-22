@@ -1,5 +1,6 @@
 import datetime as dt
 import uuid
+from typing import Literal
 
 from melorin.domain import bank_sms as _dom
 from melorin.modules.payments.redaction import strip_secrets
@@ -179,8 +180,24 @@ class GraceResolveIn(BaseModel):
     note: str | None = Field(default=None, max_length=300)
 
 
+ReceiptDupPolicy = Literal["warn", "block"]
+"""What happens to an upload whose picture another payment already used (the single source of truth for the allowed values)."""
+
+
 class ReceiptDupSettingsIn(BaseModel):
     """Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``."""
 
     model_config = ConfigDict(extra="forbid")
-    policy: str
+    policy: ReceiptDupPolicy
+
+
+class ReceiptDupSettingsOut(BaseModel):
+    """The policy currently in force for the store (``warn`` until a manager chooses otherwise)."""
+
+    policy: ReceiptDupPolicy
+
+
+class PaymentCreateReconcileIn(BaseModel):
+    action: Literal["bind", "abandon"]
+    external_ref: str | None = Field(default=None, max_length=200)
+    reason: str | None = Field(default=None, max_length=500)

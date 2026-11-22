@@ -20,7 +20,9 @@ from melorin.modules.payments.schemas import (
     BankSmsTokenOut,
     GraceResolveIn,
     GraceSettingsIn,
+    PaymentCreateReconcileIn,
     ReceiptDupSettingsIn,
+    ReceiptDupSettingsOut,
 )
 from melorin.kernel.models.payments import Payment
 from melorin.modules.reseller.schemas import PaymentConfigIn
@@ -75,6 +77,7 @@ async def payments(_: AdminUser, session: Session, status: str | None = Query(de
             "status": p.status,
             "has_receipt": bool(p.receipt_file_id),
             "receipt_duplicate": bool((p.meta or {}).get("receipt_duplicate")),
+            "reconciliation_required": bool((p.meta or {}).get("reconciliation_required")),
             "created_at": p.created_at,
         }
         for p in (await session.scalars(q)).all()
@@ -139,6 +142,15 @@ async def review_payment(payment_id: uuid.UUID, body: ReviewPayment, admin: Admi
     )
     await session.commit()
     return {"ok": True, "status": p.status}
+
+
+@router.post("/payments/{payment_id}/reconcile-create")
+async def reconcile_payment_create(payment_id: uuid.UUID, body: PaymentCreateReconcileIn, admin: AdminUser, session: Session):
+    """Resolve a payment whose gateway create outcome is unknown (timeout/lost response)."""
+    p = await payment_service.reconcile_unknown_create(
+        session, payment_id, action=body.action, actor_id=admin.id, external_ref=body.external_ref, reason=body.reason
+    )
+    return {"ok": True, "status": p.status, "payment_id": p.id}
 
 
 @router.post("/payments/{payment_id}/refund")
@@ -220,13 +232,13 @@ async def receipt_review_resolve(store_id: uuid.UUID, payment_id: uuid.UUID, bod
 
 
 # ----- Duplicate receipt pictures -----
-@router.get("/stores/{store_id}/receipt-duplicates/settings")
+@router.get("/stores/{store_id}/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def receipt_dup_settings(store_id: uuid.UUID, _: AdminUser, session: Session):
     store = await _store(session, store_id)
     return {"policy": await receipt_fingerprints.get_policy(session, store.id)}
 
 
-@router.put("/stores/{store_id}/receipt-duplicates/settings")
+@router.put("/stores/{store_id}/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def receipt_dup_save_settings(store_id: uuid.UUID, body: ReceiptDupSettingsIn, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     return await receipt_fingerprints.save_policy(session, store, body.policy, actor_id=admin.id, actor_type="admin")

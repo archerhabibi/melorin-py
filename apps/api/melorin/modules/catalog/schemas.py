@@ -1,5 +1,6 @@
 import datetime as dt
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -115,6 +116,14 @@ class QuoteWalletOut(QuoteOut):
     payment: str = "wallet"  # v1.1: every purchase is wallet-funded
 
 
+# Closed vocabularies of a coupon. Literals (not regex patterns) so the OpenAPI document - and therefore the generated
+# admin/store clients - carry real unions instead of bare strings.
+CouponStatus = Literal["active", "disabled", "archived"]
+CouponScope = Literal["store", "domain"]
+CouponFunding = Literal["store", "platform"]
+CouponCreator = Literal["admin", "reseller"]
+
+
 class CouponIn(BaseModel):
     code: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_\-]+$")
     percent_bp: int = Field(default=0, ge=0, le=10_000)
@@ -126,20 +135,46 @@ class CouponIn(BaseModel):
     ends_at: dt.datetime | None = None
     max_redemptions: int | None = Field(default=None, gt=0)
     per_customer_limit: int | None = Field(default=1, gt=0)
-    status: str = Field(default="active", pattern="^(active|disabled|archived)$")
+    status: CouponStatus = "active"
 
 
 class AdminCouponIn(CouponIn):
-    scope: str = Field(default="store", pattern="^(store|domain)$")
+    scope: CouponScope = "store"
     store_id: uuid.UUID | None = None
     allowed_store_ids: list[uuid.UUID] | None = None
     allowed_store_kinds: list[str] | None = None
-    funded_by: str = Field(default="platform", pattern="^(store|platform)$")
+    funded_by: CouponFunding = "platform"
     currency: str | None = None
 
 
+class CouponOut(BaseModel):
+    """What every coupon route (admin and store-scoped) returns; mirrors ``service.coupon_out``."""
+
+    id: uuid.UUID
+    code: str
+    scope: CouponScope
+    store_id: uuid.UUID | None
+    allowed_store_ids: list[uuid.UUID] | None
+    allowed_store_kinds: list[str] | None
+    product_ids: list[uuid.UUID] | None
+    creator_type: CouponCreator
+    funded_by: CouponFunding
+    percent_bp: int
+    fixed: int
+    max_discount: int | None
+    min_amount: int
+    currency: str | None
+    starts_at: dt.datetime | None
+    ends_at: dt.datetime | None
+    max_redemptions: int | None
+    per_customer_limit: int | None
+    redemptions: int
+    combinable: bool
+    status: CouponStatus
+
+
 class CouponPatch(BaseModel):
-    status: str | None = Field(default=None, pattern="^(active|disabled|archived)$")
+    status: CouponStatus | None = None
     ends_at: dt.datetime | None = None
     max_redemptions: int | None = Field(default=None, gt=0)
     per_customer_limit: int | None = Field(default=None, gt=0)

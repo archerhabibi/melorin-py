@@ -70,7 +70,9 @@ export function createApiClient({
     };
     let response = await send();
     if (response.status === 401 && refresh && (await refresh())) response = await send();
-    const text = response.status === 204 ? '' : await response.text();
+    // Parse a CLONE: the caller keeps an unread `response`, so `errText(response)` / `response.json()` still work after a
+    // failed call (an already-consumed body would silently turn every server message into the generic fallback).
+    const text = response.status === 204 ? '' : await response.clone().text();
     let payload;
     try {
       payload = text ? JSON.parse(text) : undefined;
@@ -112,6 +114,14 @@ export function createApiClient({
   return {
     request,
     raw,
+    /** @param {string} path @param {{ params?: { path?: Record<string, any>, query?: Record<string, any> }, headers?: Record<string, string>, signal?: AbortSignal }} [init] */
+    // async on purpose: a missing path parameter must surface as a rejected promise, like every other failure
+    rawGet: async (path, init = {}) =>
+      raw(`${buildPath(path, init.params?.path)}${buildQuery(init.params?.query)}`, {
+        method: 'GET',
+        headers: { Accept: '*/*', ...(init.headers || {}) },
+        signal: init.signal,
+      }),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
     get: (path, init) => request('get', path, init),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
