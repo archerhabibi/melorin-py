@@ -15,7 +15,7 @@ jobs:
       matrix:
         image: [postgres, redis, nginx, caddy]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Resolve the pinned reference
         id: ref
         run: |
@@ -24,7 +24,7 @@ jobs:
             *) ref="$(grep -ho '${{ matrix.image }}:[^ ]*@sha256:[0-9a-f]*' docker-compose.yml | head -1)" ;;
           esac
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0 (GHSA-69fq-xp46-6x23: < 0.35.0 was compromised)
         with:
           image-ref: ${{ steps.ref.outputs.ref }}
           severity: HIGH,CRITICAL

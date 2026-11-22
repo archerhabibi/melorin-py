@@ -155,7 +155,8 @@ class ResellerTelegramRunner(_module.TelegramRunner):
     # ---------- store ----------
     async def store_info(self) -> dict:
         if self.store is None or time.monotonic() - self._store_at > STORE_CACHE_SECONDS:
-            r = await self.client.get(f"{self.core}/api/v1/stores/by-slug/{self.slug}")
+            # The runner secret lets Core answer even while the reseller's website switch is off (the switch hides only the website).
+            r = await self.client.get(f"{self.core}/api/v1/stores/by-slug/{self.slug}", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"})
             r.raise_for_status()
             self.store, self._store_at = r.json(), time.monotonic()
         return self.store
