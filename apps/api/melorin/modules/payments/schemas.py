@@ -2,6 +2,7 @@ import datetime as dt
 import uuid
 from typing import Literal
 
+from melorin.domain import bank_sms as _dom
 from melorin.modules.payments.redaction import strip_secrets
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
@@ -55,17 +56,35 @@ def payment_out(p) -> PaymentOut:
     )
 
 
-class BankSmsSettingsIn(BaseModel):
-    """The tuning knobs. Types are declared here for the OpenAPI contract; ranges and unknown keys are still decided by
-    ``bank_sms.clean_settings`` (stable ``BANK_SMS_SETTING_INVALID`` errors), so extras are accepted and rejected there.
-    ``null`` resets a knob to its default."""
+def _range(key: str, unit: str) -> str:
+    """Human-readable allowed range of a bank-SMS setting, read from the domain rule table (never retyped here)."""
+    lo, hi = _dom.SETTING_RANGES[key]
+    return f"{lo} to {hi} {unit}"
 
-    model_config = ConfigDict(extra="allow")
-    window_minutes: StrictInt | None = None
-    time_tolerance_minutes: StrictInt | None = None
-    require_claimed_time: StrictBool | None = None
-    max_auto_amount_rial: StrictInt | None = None
-    account_number: str | None = None
+
+class BankSmsSettingsIn(BaseModel):
+    """Typed keys and value types of the bank-SMS matching settings.
+
+    Ranges are documented here but enforced by the domain layer (``clean_settings``), so an out-of-range value keeps its
+    stable ``BANK_SMS_SETTING_INVALID`` business error instead of a generic schema error. ``null`` resets a setting.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    window_minutes: StrictInt | None = Field(
+        default=None,
+        description=f"How long a deposit SMS may lag behind or precede the payment request: {_range('window_minutes', 'minutes')}.",
+    )
+    time_tolerance_minutes: StrictInt | None = Field(
+        default=None, description=f"Allowed gap between the receipt time and the SMS time: {_range('time_tolerance_minutes', 'minutes')}."
+    )
+    require_claimed_time: StrictBool | None = Field(default=None, description="The customer must state the time printed on the receipt.")
+    max_auto_amount_rial: StrictInt | None = Field(
+        default=None,
+        description=f"Larger deposits are always reviewed by a human: {_range('max_auto_amount_rial', 'rial')}; null means no limit.",
+    )
+    account_number: str | None = Field(
+        default=None, description=f"Store bank account number, digits only (Persian digits accepted): {_range('account_number', 'digits')}."
+    )
 
 
 class BankSmsSourceIn(BaseModel):
@@ -79,19 +98,13 @@ class BankSmsSourceIn(BaseModel):
     settings: BankSmsSettingsIn | None = None
 
 
-class BankSmsLinkIn(BaseModel):
-    payment_id: uuid.UUID
-
-
-class BankSmsIgnoreIn(BaseModel):
-    ignored: bool = True
-
-
 # ----- Bank SMS: response models (the admin and reseller screens read the same shapes; they feed the generated TS types) -----
 BankSmsStatus = Literal["unmatched", "matched", "ambiguous", "ignored", "unparsed"]
 
 
 class BankSmsSettingsOut(BaseModel):
+    """Effective settings: stored values with the domain defaults filled in."""
+
     window_minutes: int
     time_tolerance_minutes: int
     require_claimed_time: bool
@@ -100,6 +113,8 @@ class BankSmsSettingsOut(BaseModel):
 
 
 class BankSmsSourceOut(BaseModel):
+    """The store's SMS source. The webhook token itself is never part of it (only ``has_token`` and the last 4 characters)."""
+
     store_id: uuid.UUID
     configured: bool
     bank: str
@@ -125,7 +140,7 @@ class BankSmsMessageOut(BaseModel):
     payment_id: uuid.UUID | None
     matched_by: Literal["auto", "admin"] | None
     note: str | None
-    balance_gap: bool
+    balance_gap: bool = Field(description="The balance does not follow the previous SMS (a message may be missing).")
     created_at: dt.datetime
 
 
@@ -134,15 +149,21 @@ class BankSmsOverviewOut(BaseModel):
     messages: list[BankSmsMessageOut]
 
 
-class BankSmsSaveOut(BaseModel):
-    """``token`` is present only when the save created the source (shown once, never stored in clear)."""
-
+class BankSmsSourceSavedOut(BaseModel):
     source: BankSmsSourceOut
-    token: str | None
+    token: str | None = Field(description="Plaintext webhook token, present only on the response that creates the source; copy it once.")
 
 
 class BankSmsTokenOut(BaseModel):
-    token: str
+    token: str = Field(description="The new plaintext webhook token; the previous one stops working immediately. Shown once.")
+
+
+class BankSmsLinkIn(BaseModel):
+    payment_id: uuid.UUID
+
+
+class BankSmsIgnoreIn(BaseModel):
+    ignored: bool = True
 
 
 class BankSmsReconcileOut(BaseModel):
@@ -168,8 +189,24 @@ class GraceResolveIn(BaseModel):
     note: str | None = Field(default=None, max_length=300)
 
 
+ReceiptDupPolicy = Literal["warn", "block"]
+"""What happens to an upload whose picture another payment already used (the single source of truth for the allowed values)."""
+
+
 class ReceiptDupSettingsIn(BaseModel):
     """Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``."""
 
     model_config = ConfigDict(extra="forbid")
-    policy: str
+    policy: ReceiptDupPolicy
+
+
+class ReceiptDupSettingsOut(BaseModel):
+    """The policy currently in force for the store (``warn`` until a manager chooses otherwise)."""
+
+    policy: ReceiptDupPolicy
+
+
+class PaymentCreateReconcileIn(BaseModel):
+    action: Literal["bind", "abandon"]
+    external_ref: str | None = Field(default=None, max_length=200)
+    reason: str | None = Field(default=None, max_length=500)

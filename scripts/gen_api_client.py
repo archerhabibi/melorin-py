@@ -11,6 +11,7 @@ No database or Redis is touched: importing the app and calling ``app.openapi()``
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import sys
@@ -18,6 +19,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGET = ROOT / "packages" / "api-client" / "openapi.json"
+
+
+def _normalize_integer_constraints(value: object) -> None:
+    """Canonicalize integral bounds: JSON integer and float spellings are equivalent."""
+    if isinstance(value, dict):
+        if value.get("type") == "integer":
+            for key in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"):
+                bound = value.get(key)
+                if isinstance(bound, (int, float)) and not isinstance(bound, bool):
+                    if float(bound).is_integer():
+                        value[key] = int(bound)
+        for child in value.values():
+            _normalize_integer_constraints(child)
+    elif isinstance(value, list):
+        for child in value:
+            _normalize_integer_constraints(child)
 
 
 def render() -> str:
@@ -29,9 +46,9 @@ def render() -> str:
     sys.path.insert(0, str(ROOT / "apps" / "api"))
     from melorin.app import app  # noqa: PLC0415 - env must be set before the import
 
-    return (
-        json.dumps(app.openapi(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    )
+    schema = app.openapi()
+    _normalize_integer_constraints(schema)
+    return json.dumps(schema, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def main() -> int:
@@ -51,6 +68,16 @@ def main() -> int:
         )
         return 0
     if not TARGET.exists() or TARGET.read_text(encoding="utf-8") != fresh:
+        existing = TARGET.read_text(encoding="utf-8").splitlines(keepends=True) if TARGET.exists() else []
+        expected = fresh.splitlines(keepends=True)
+        sys.stderr.writelines(
+            difflib.unified_diff(
+                existing,
+                expected,
+                fromfile="packages/api-client/openapi.json (committed)",
+                tofile="packages/api-client/openapi.json (generated)",
+            )
+        )
         print(
             "packages/api-client/openapi.json is stale. Run:\n"
             "  python scripts/gen_api_client.py --write && (cd packages/api-client && npm run generate)",

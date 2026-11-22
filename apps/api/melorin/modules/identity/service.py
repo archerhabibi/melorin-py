@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.invariants import require
 from melorin.core import audit
 from melorin.core.channel import Channel
 from melorin.core.config import get_settings
@@ -396,7 +397,7 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
             if res is not None and res.keeper == str(user.id):
                 ident = await find_identity(session, "telegram", subject)
             elif res is not None:  # the link-code account was the shell: the Telegram account keeps living
-                assert other is not None  # res is only set when the other account exists
+                other = require(other, "other")  # res is only set when the other account exists
                 if vc is not None:
                     vc.used_at = utcnow()
                 if op is not None:

@@ -15,6 +15,7 @@ import re
 
 import jwt
 
+from melorin.core.invariants import require
 from melorin.core.config import get_settings
 
 # --------------------------------------------------------------------------- #
@@ -100,7 +101,7 @@ def _verify_password_sync(password: str, stored: str | None) -> bool:
     if parsed is None:
         # Burn the same CPU as a real check, then fail.
         parsed_dummy = _parse(_dummy_hash())
-        assert parsed_dummy is not None
+        parsed_dummy = require(parsed_dummy, "parsed_dummy")
         log2n, r, p, salt, dk = parsed_dummy
         _scrypt(password, salt, log2n, r, p)
         return False

@@ -15,7 +15,7 @@ out="$raw.age"
 pgurl="$MELORIN_DATABASE_URL"
 pgpass="$(mktemp)"
 trap 'rm -f "$pgpass" "$raw"' EXIT
-mapfile -t DB_PARTS < <(python - "$pgurl" "$pgpass" <<'PY'
+mapfile -t DB_PARTS < <(python3 - "$pgurl" "$pgpass" <<'PY'
 import sys
 from urllib.parse import urlparse
 u=urlparse(sys.argv[1])

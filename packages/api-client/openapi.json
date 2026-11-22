@@ -51,8 +51,8 @@
       "AdjustIn": {
         "properties": {
           "delta": {
-            "maximum": 1000000000.0,
-            "minimum": -1000000000.0,
+            "maximum": 1000000000,
+            "minimum": -1000000000,
             "title": "Delta",
             "type": "integer"
           },
@@ -218,20 +218,23 @@
           },
           "fixed": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Fixed",
             "type": "integer"
           },
           "funded_by": {
             "default": "platform",
-            "pattern": "^(store|platform)$",
+            "enum": [
+              "store",
+              "platform"
+            ],
             "title": "Funded By",
             "type": "string"
           },
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -243,7 +246,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -254,14 +257,14 @@
           },
           "min_amount": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Min Amount",
             "type": "integer"
           },
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -273,8 +276,8 @@
           },
           "percent_bp": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": 0.0,
+            "maximum": 10000,
+            "minimum": 0,
             "title": "Percent Bp",
             "type": "integer"
           },
@@ -295,7 +298,10 @@
           },
           "scope": {
             "default": "store",
-            "pattern": "^(store|domain)$",
+            "enum": [
+              "store",
+              "domain"
+            ],
             "title": "Scope",
             "type": "string"
           },
@@ -313,7 +319,11 @@
           },
           "status": {
             "default": "active",
-            "pattern": "^(active|disabled|archived)$",
+            "enum": [
+              "active",
+              "disabled",
+              "archived"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -801,8 +811,8 @@
           },
           "rate_limit_per_minute": {
             "default": 120,
-            "maximum": 6000.0,
-            "minimum": 1.0,
+            "maximum": 6000,
+            "minimum": 1,
             "title": "Rate Limit Per Minute",
             "type": "integer"
           },
@@ -1003,7 +1013,7 @@
           "customer_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1128,6 +1138,7 @@
             "title": "Amount Rial"
           },
           "balance_gap": {
+            "description": "The balance does not follow the previous SMS (a message may be missing).",
             "title": "Balance Gap",
             "type": "boolean"
           },
@@ -1313,34 +1324,9 @@
         "title": "BankSmsReconcileOut",
         "type": "object"
       },
-      "BankSmsSaveOut": {
-        "description": "``token`` is present only when the save created the source (shown once, never stored in clear).",
-        "properties": {
-          "source": {
-            "$ref": "#/components/schemas/BankSmsSourceOut"
-          },
-          "token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token"
-          }
-        },
-        "required": [
-          "source",
-          "token"
-        ],
-        "title": "BankSmsSaveOut",
-        "type": "object"
-      },
       "BankSmsSettingsIn": {
-        "additionalProperties": true,
-        "description": "The tuning knobs. Types are declared here for the OpenAPI contract; ranges and unknown keys are still decided by\n``bank_sms.clean_settings`` (stable ``BANK_SMS_SETTING_INVALID`` errors), so extras are accepted and rejected there.\n``null`` resets a knob to its default.",
+        "additionalProperties": false,
+        "description": "Typed keys and value types of the bank-SMS matching settings.\n\nRanges are documented here but enforced by the domain layer (``clean_settings``), so an out-of-range value keeps its\nstable ``BANK_SMS_SETTING_INVALID`` business error instead of a generic schema error. ``null`` resets a setting.",
         "properties": {
           "account_number": {
             "anyOf": [
@@ -1351,6 +1337,7 @@
                 "type": "null"
               }
             ],
+            "description": "Store bank account number, digits only (Persian digits accepted): 8 to 26 digits.",
             "title": "Account Number"
           },
           "max_auto_amount_rial": {
@@ -1362,6 +1349,7 @@
                 "type": "null"
               }
             ],
+            "description": "Larger deposits are always reviewed by a human: 1 to 10000000000000 rial; null means no limit.",
             "title": "Max Auto Amount Rial"
           },
           "require_claimed_time": {
@@ -1373,6 +1361,7 @@
                 "type": "null"
               }
             ],
+            "description": "The customer must state the time printed on the receipt.",
             "title": "Require Claimed Time"
           },
           "time_tolerance_minutes": {
@@ -1384,6 +1373,7 @@
                 "type": "null"
               }
             ],
+            "description": "Allowed gap between the receipt time and the SMS time: 0 to 30 minutes.",
             "title": "Time Tolerance Minutes"
           },
           "window_minutes": {
@@ -1395,6 +1385,7 @@
                 "type": "null"
               }
             ],
+            "description": "How long a deposit SMS may lag behind or precede the payment request: 5 to 10080 minutes.",
             "title": "Window Minutes"
           }
         },
@@ -1402,6 +1393,7 @@
         "type": "object"
       },
       "BankSmsSettingsOut": {
+        "description": "Effective settings: stored values with the domain defaults filled in.",
         "properties": {
           "account_number": {
             "anyOf": [
@@ -1514,6 +1506,7 @@
         "type": "object"
       },
       "BankSmsSourceOut": {
+        "description": "The store's SMS source. The webhook token itself is never part of it (only ``has_token`` and the last 4 characters).",
         "properties": {
           "auto_verify": {
             "title": "Auto Verify",
@@ -1589,9 +1582,35 @@
         "title": "BankSmsSourceOut",
         "type": "object"
       },
+      "BankSmsSourceSavedOut": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/BankSmsSourceOut"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Plaintext webhook token, present only on the response that creates the source; copy it once.",
+            "title": "Token"
+          }
+        },
+        "required": [
+          "source",
+          "token"
+        ],
+        "title": "BankSmsSourceSavedOut",
+        "type": "object"
+      },
       "BankSmsTokenOut": {
         "properties": {
           "token": {
+            "description": "The new plaintext webhook token; the previous one stops working immediately. Shown once.",
             "title": "Token",
             "type": "string"
           }
@@ -1753,7 +1772,7 @@
       "BulkConfirmIn": {
         "properties": {
           "count": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Count",
             "type": "integer"
           }
@@ -1879,7 +1898,7 @@
           "main_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -1891,7 +1910,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -2044,7 +2063,7 @@
           "max_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -2076,7 +2095,7 @@
             "type": "string"
           },
           "value": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Value",
             "type": "integer"
           }
@@ -2269,14 +2288,14 @@
           },
           "fixed": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Fixed",
             "type": "integer"
           },
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2288,7 +2307,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2299,14 +2318,14 @@
           },
           "min_amount": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Min Amount",
             "type": "integer"
           },
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2318,8 +2337,8 @@
           },
           "percent_bp": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": 0.0,
+            "maximum": 10000,
+            "minimum": 0,
             "title": "Percent Bp",
             "type": "integer"
           },
@@ -2352,7 +2371,11 @@
           },
           "status": {
             "default": "active",
-            "pattern": "^(active|disabled|archived)$",
+            "enum": [
+              "active",
+              "disabled",
+              "archived"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -2361,6 +2384,222 @@
           "code"
         ],
         "title": "CouponIn",
+        "type": "object"
+      },
+      "CouponOut": {
+        "description": "What every coupon route (admin and store-scoped) returns; mirrors ``service.coupon_out``.",
+        "properties": {
+          "allowed_store_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Store Ids"
+          },
+          "allowed_store_kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Store Kinds"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "combinable": {
+            "title": "Combinable",
+            "type": "boolean"
+          },
+          "creator_type": {
+            "enum": [
+              "admin",
+              "reseller"
+            ],
+            "title": "Creator Type",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "fixed": {
+            "title": "Fixed",
+            "type": "integer"
+          },
+          "funded_by": {
+            "enum": [
+              "store",
+              "platform"
+            ],
+            "title": "Funded By",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "max_discount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Discount"
+          },
+          "max_redemptions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Redemptions"
+          },
+          "min_amount": {
+            "title": "Min Amount",
+            "type": "integer"
+          },
+          "per_customer_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Customer Limit"
+          },
+          "percent_bp": {
+            "title": "Percent Bp",
+            "type": "integer"
+          },
+          "product_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Ids"
+          },
+          "redemptions": {
+            "title": "Redemptions",
+            "type": "integer"
+          },
+          "scope": {
+            "enum": [
+              "store",
+              "domain"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "disabled",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "store_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Id"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "scope",
+          "store_id",
+          "allowed_store_ids",
+          "allowed_store_kinds",
+          "product_ids",
+          "creator_type",
+          "funded_by",
+          "percent_bp",
+          "fixed",
+          "max_discount",
+          "min_amount",
+          "currency",
+          "starts_at",
+          "ends_at",
+          "max_redemptions",
+          "per_customer_limit",
+          "redemptions",
+          "combinable",
+          "status"
+        ],
+        "title": "CouponOut",
         "type": "object"
       },
       "CouponPatch": {
@@ -2380,7 +2619,7 @@
           "max_discount": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2392,7 +2631,7 @@
           "max_redemptions": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2404,7 +2643,7 @@
           "per_customer_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2416,7 +2655,11 @@
           "status": {
             "anyOf": [
               {
-                "pattern": "^(active|disabled|archived)$",
+                "enum": [
+                  "active",
+                  "disabled",
+                  "archived"
+                ],
                 "type": "string"
               },
               {
@@ -2550,7 +2793,7 @@
           "sales_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2753,7 +2996,7 @@
             "title": "Description"
           },
           "duration_days": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Duration Days",
             "type": "integer"
           },
@@ -2763,14 +3006,14 @@
             "type": "boolean"
           },
           "main_price": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Main Price",
             "type": "integer"
           },
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -2793,7 +3036,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -2803,7 +3046,7 @@
             "title": "Reseller Price"
           },
           "traffic_gb": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Traffic Gb",
             "type": "integer"
           }
@@ -2826,8 +3069,8 @@
             "type": "boolean"
           },
           "capacity": {
-            "exclusiveMinimum": 0.0,
-            "maximum": 100000.0,
+            "exclusiveMinimum": 0,
+            "maximum": 100000,
             "title": "Capacity",
             "type": "integer"
           },
@@ -3241,8 +3484,8 @@
           },
           "port": {
             "default": 587,
-            "maximum": 65535.0,
-            "minimum": 1.0,
+            "maximum": 65535,
+            "minimum": 1,
             "title": "Port",
             "type": "integer"
           },
@@ -4096,8 +4339,8 @@
           "retention_days": {
             "anyOf": [
               {
-                "maximum": 365.0,
-                "minimum": 1.0,
+                "maximum": 365,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -5716,11 +5959,52 @@
                 "type": "null"
               }
             ],
-            "description": "gateway secrets, e.g. {merchant_id}; write-only",
+            "description": "write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds",
             "title": "Secret"
           }
         },
         "title": "PaymentConfigIn",
+        "type": "object"
+      },
+      "PaymentCreateReconcileIn": {
+        "properties": {
+          "action": {
+            "enum": [
+              "bind",
+              "abandon"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "external_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ref"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "PaymentCreateReconcileIn",
         "type": "object"
       },
       "PaymentOut": {
@@ -5963,8 +6247,8 @@
           "customer_price": {
             "anyOf": [
               {
-                "maximum": 1000000000000.0,
-                "minimum": 0.0,
+                "maximum": 1000000000000,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -5991,7 +6275,7 @@
           "customer_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6064,7 +6348,7 @@
             "title": "Description"
           },
           "duration_days": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Duration Days",
             "type": "integer"
           },
@@ -6083,14 +6367,14 @@
             "type": "boolean"
           },
           "main_price": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Main Price",
             "type": "integer"
           },
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -6115,7 +6399,7 @@
             "type": "integer"
           },
           "traffic_gb": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Traffic Gb",
             "type": "integer"
           },
@@ -6210,7 +6494,7 @@
           "duration_days": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -6244,7 +6528,7 @@
           "main_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6256,7 +6540,7 @@
           "max_devices": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -6292,7 +6576,7 @@
           "reseller_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6304,7 +6588,7 @@
           "traffic_gb": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -6372,8 +6656,8 @@
       "ProgramIn": {
         "properties": {
           "earn_unit": {
-            "maximum": 1000000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000000,
+            "minimum": 1,
             "title": "Earn Unit",
             "type": "integer"
           },
@@ -6383,16 +6667,16 @@
           },
           "first_order_bonus": {
             "default": 0,
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "First Order Bonus",
             "type": "integer"
           },
           "max_points_per_order": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 1.0,
+                "maximum": 1000000000,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -6402,15 +6686,15 @@
             "title": "Max Points Per Order"
           },
           "points_per_unit": {
-            "maximum": 1000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000,
+            "minimum": 1,
             "title": "Points Per Unit",
             "type": "integer"
           },
           "referral_bonus": {
             "default": 0,
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "Referral Bonus",
             "type": "integer"
           }
@@ -6652,6 +6936,10 @@
         "description": "Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.",
         "properties": {
           "policy": {
+            "enum": [
+              "warn",
+              "block"
+            ],
             "title": "Policy",
             "type": "string"
           }
@@ -6660,6 +6948,24 @@
           "policy"
         ],
         "title": "ReceiptDupSettingsIn",
+        "type": "object"
+      },
+      "ReceiptDupSettingsOut": {
+        "description": "The policy currently in force for the store (``warn`` until a manager chooses otherwise).",
+        "properties": {
+          "policy": {
+            "enum": [
+              "warn",
+              "block"
+            ],
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "ReceiptDupSettingsOut",
         "type": "object"
       },
       "ReceiptOcrIn": {
@@ -6703,8 +7009,8 @@
           },
           "timeout_seconds": {
             "default": 25,
-            "maximum": 90.0,
-            "minimum": 5.0,
+            "maximum": 90,
+            "minimum": 5,
             "title": "Timeout Seconds",
             "type": "integer"
           }
@@ -6943,7 +7249,7 @@
           },
           "debt_limit": {
             "default": 0,
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Debt Limit",
             "type": "integer"
           },
@@ -7006,7 +7312,7 @@
           "debt_limit": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7181,8 +7487,8 @@
       "RewardIn": {
         "properties": {
           "cost_points": {
-            "maximum": 1000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000,
+            "minimum": 1,
             "title": "Cost Points",
             "type": "integer"
           },
@@ -7218,8 +7524,8 @@
           "per_user_limit": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 1.0,
+                "maximum": 1000000000,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -7230,16 +7536,16 @@
           },
           "sort_order": {
             "default": 0,
-            "maximum": 10000.0,
-            "minimum": -10000.0,
+            "maximum": 10000,
+            "minimum": -10000,
             "title": "Sort Order",
             "type": "integer"
           },
           "stock": {
             "anyOf": [
               {
-                "maximum": 1000000000.0,
-                "minimum": 0.0,
+                "maximum": 1000000000,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7249,8 +7555,8 @@
             "title": "Stock"
           },
           "value": {
-            "maximum": 1000000000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000000000,
+            "minimum": 1,
             "title": "Value",
             "type": "integer"
           }
@@ -7299,8 +7605,8 @@
           "expiring_within_days": {
             "anyOf": [
               {
-                "maximum": 3650.0,
-                "minimum": 0.0,
+                "maximum": 3650,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7548,8 +7854,8 @@
           },
           "capacity": {
             "default": 500,
-            "exclusiveMinimum": 0.0,
-            "maximum": 100000.0,
+            "exclusiveMinimum": 0,
+            "maximum": 100000,
             "title": "Capacity",
             "type": "integer"
           },
@@ -7820,7 +8126,7 @@
           "max_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -7847,7 +8153,7 @@
             "title": "Product Id"
           },
           "value": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Value",
             "type": "integer"
           }
@@ -8060,8 +8366,8 @@
           },
           "ttl_seconds": {
             "default": 180,
-            "maximum": 600.0,
-            "minimum": 60.0,
+            "maximum": 600,
+            "minimum": 60,
             "title": "Ttl Seconds",
             "type": "integer"
           }
@@ -8947,7 +9253,7 @@
             "type": "string"
           },
           "remote_template_id": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Remote Template Id",
             "type": "integer"
           }
@@ -9096,15 +9402,15 @@
       "TierIn": {
         "properties": {
           "min_points": {
-            "maximum": 1000000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000000,
+            "minimum": 0,
             "title": "Min Points",
             "type": "integer"
           },
           "multiplier_bp": {
             "default": 10000,
-            "maximum": 100000.0,
-            "minimum": 1.0,
+            "maximum": 100000,
+            "minimum": 1,
             "title": "Multiplier Bp",
             "type": "integer"
           },
@@ -9279,7 +9585,7 @@
       "TopupRequest": {
         "properties": {
           "amount": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Amount",
             "type": "integer"
           },
@@ -9485,7 +9791,7 @@
           "sales_limit": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "exclusiveMinimum": 0,
                 "type": "integer"
               },
               {
@@ -9527,8 +9833,8 @@
           "capacity": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
-                "maximum": 100000.0,
+                "exclusiveMinimum": 0,
+                "maximum": 100000,
                 "type": "integer"
               },
               {
@@ -11658,7 +11964,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CouponOut"
+                  },
+                  "title": "Response List Coupons Api V1 Admin Coupons Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -11700,7 +12012,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -11756,7 +12070,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -16982,6 +17298,63 @@
         ]
       }
     },
+    "/api/v1/admin/payments/{payment_id}/reconcile-create": {
+      "post": {
+        "description": "Resolve a payment whose gateway create outcome is unknown (timeout/lost response).",
+        "operationId": "reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreateReconcileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconcile Payment Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/payments/{payment_id}/refund": {
       "post": {
         "operationId": "refund_payment_api_v1_admin_payments__payment_id__refund_post",
@@ -19210,7 +19583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BankSmsSaveOut"
+                  "$ref": "#/components/schemas/BankSmsSourceSavedOut"
                 }
               }
             },
@@ -19441,7 +19814,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19495,7 +19870,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -25370,7 +25747,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CouponOut"
+                  },
+                  "title": "Response List Coupons Api V1 Stores  Store Id  Coupons Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -25424,7 +25807,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -25592,7 +25977,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28351,7 +28738,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BankSmsSaveOut"
+                  "$ref": "#/components/schemas/BankSmsSourceSavedOut"
                 }
               }
             },
@@ -30045,7 +30432,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -30099,7 +30488,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"

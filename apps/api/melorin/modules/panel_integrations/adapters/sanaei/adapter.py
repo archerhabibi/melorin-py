@@ -7,6 +7,7 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 
+from melorin.core.invariants import require
 from melorin.modules.panel_integrations.adapters.base import AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
 from melorin.modules.panel_integrations.adapters.sanaei.wire import as_int, classify, from_ms, is_not_found, to_ms
 from melorin.modules.panel_integrations.adapters.sanaei.legacy import LegacyMixin
@@ -104,8 +105,8 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
         if not user or not pwd:
             raise PanelError(ErrorKind.PERMANENT, "sanaei: credentials missing (api_token or username/password)")
         try:
-            assert self._client is not None  # _login only runs right after the client was built
-            r = await self._client.post("/login", data={"username": user, "password": pwd})
+            client = require(self._client, "sanaei http client")  # _login only runs right after the client was built
+            r = await client.post("/login", data={"username": user, "password": pwd})
         except httpx.TimeoutException as e:
             raise PanelError(ErrorKind.TRANSIENT, f"sanaei: login timeout: {e}") from e
         except httpx.HTTPError as e:

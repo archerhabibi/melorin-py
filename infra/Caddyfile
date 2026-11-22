@@ -67,12 +67,21 @@ https:// {
   encode gzip
   @blocked_ops path /metrics /docs /redoc /openapi.json /api/v1/internal/*
   respond @blocked_ops 404
-  @api path /api/* /health/* /health /healthz
-  handle @api {
-    reverse_proxy api:8000
-  }
-  handle {
-    reverse_proxy store_web:80
+  # The reseller's website switch must mean "no page at all" (its bot keeps running; bots never come through here). The
+  # on-demand ``ask`` only stops *issuing* certificates, so a certificate issued earlier would keep serving the site: ask Core
+  # on every request and answer 404 unless the host is an active reseller store with the website switch on. Fail-closed:
+  # if Core is unreachable the gate answers 5xx, never the storefront.
+  route {
+    forward_auth api:8000 {
+      uri /api/v1/tls/ask?domain={host}
+    }
+    @api path /api/* /health/* /health /healthz
+    handle @api {
+      reverse_proxy api:8000
+    }
+    handle {
+      reverse_proxy store_web:80
+    }
   }
   header {
     Strict-Transport-Security "max-age=31536000"
