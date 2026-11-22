@@ -69,12 +69,17 @@ async def startup(ctx):
 
     assert_lock_backend_configured()  # fail-closed locks: without a Redis URL every guarded job would be refused
     quiet_worker_heartbeat()  # arq (re)configures its loggers before startup(), so the filter is attached here (audit V-026)
+    from melorin.worker.metrics_server import start_metrics_server
+
+    await start_metrics_server(ctx)
     return None
 
 
 async def shutdown(ctx):
     from melorin.channels.telegram.bot_api import close_shared_clients
+    from melorin.worker.metrics_server import stop_metrics_server
 
+    await stop_metrics_server(ctx)
     await close_shared_clients()
 
 
