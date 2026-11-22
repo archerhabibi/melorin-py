@@ -15,6 +15,7 @@ from melorin.modules.payments.schemas import (
     BankSmsLinkIn,
     BankSmsMessageOut,
     BankSmsOverviewOut,
+    BankSmsReconcileOut,
     BankSmsSourceIn,
     BankSmsSourceSavedOut,
     BankSmsTokenOut,
@@ -190,7 +191,7 @@ async def bank_sms_rotate_token(store_id: uuid.UUID, admin: AdminUser, session: 
     return {"token": await bank_sms.rotate_token(session, store, actor_id=admin.id, actor_type="admin")}
 
 
-@router.post("/stores/{store_id}/bank-sms/reconcile")
+@router.post("/stores/{store_id}/bank-sms/reconcile", response_model=BankSmsReconcileOut)
 async def bank_sms_reconcile(store_id: uuid.UUID, _: AdminUser, session: Session):
     return await bank_sms.reconcile_store(session, await _store(session, store_id))
 

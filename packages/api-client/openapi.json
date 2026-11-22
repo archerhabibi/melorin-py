@@ -1161,13 +1161,16 @@
           "direction": {
             "anyOf": [
               {
+                "enum": [
+                  "deposit",
+                  "withdrawal"
+                ],
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "deposit | withdrawal",
             "title": "Direction"
           },
           "id": {
@@ -1178,13 +1181,16 @@
           "matched_by": {
             "anyOf": [
               {
+                "enum": [
+                  "auto",
+                  "admin"
+                ],
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "auto | admin",
             "title": "Matched By"
           },
           "note": {
@@ -1245,7 +1251,13 @@
             "title": "Serial"
           },
           "status": {
-            "description": "unmatched | matched | ambiguous | ignored | unparsed",
+            "enum": [
+              "unmatched",
+              "matched",
+              "ambiguous",
+              "ignored",
+              "unparsed"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -1292,6 +1304,24 @@
           "messages"
         ],
         "title": "BankSmsOverviewOut",
+        "type": "object"
+      },
+      "BankSmsReconcileOut": {
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "integer"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked",
+          "matched"
+        ],
+        "title": "BankSmsReconcileOut",
         "type": "object"
       },
       "BankSmsSettingsIn": {
@@ -19494,7 +19524,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsReconcileOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -28647,7 +28679,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BankSmsReconcileOut"
+                }
               }
             },
             "description": "Successful Response"

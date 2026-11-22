@@ -98,6 +98,10 @@ class BankSmsSourceIn(BaseModel):
     settings: BankSmsSettingsIn | None = None
 
 
+# ----- Bank SMS: response models (the admin and reseller screens read the same shapes; they feed the generated TS types) -----
+BankSmsStatus = Literal["unmatched", "matched", "ambiguous", "ignored", "unparsed"]
+
+
 class BankSmsSettingsOut(BaseModel):
     """Effective settings: stored values with the domain defaults filled in."""
 
@@ -126,15 +130,15 @@ class BankSmsSourceOut(BaseModel):
 class BankSmsMessageOut(BaseModel):
     id: uuid.UUID
     store_id: uuid.UUID
-    status: str = Field(description="unmatched | matched | ambiguous | ignored | unparsed")
-    direction: str | None = Field(description="deposit | withdrawal")
+    status: BankSmsStatus
+    direction: Literal["deposit", "withdrawal"] | None
     amount_rial: int | None
     balance_rial: int | None
     occurred_at: dt.datetime | None
     serial: str | None
     sender: str | None
     payment_id: uuid.UUID | None
-    matched_by: str | None = Field(description="auto | admin")
+    matched_by: Literal["auto", "admin"] | None
     note: str | None
     balance_gap: bool = Field(description="The balance does not follow the previous SMS (a message may be missing).")
     created_at: dt.datetime
@@ -160,6 +164,11 @@ class BankSmsLinkIn(BaseModel):
 
 class BankSmsIgnoreIn(BaseModel):
     ignored: bool = True
+
+
+class BankSmsReconcileOut(BaseModel):
+    checked: int
+    matched: int
 
 
 class GraceSettingsIn(BaseModel):

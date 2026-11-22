@@ -8,6 +8,12 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Bank SMS: end-to-end typed API (admin-web + API contract)
+- Core declares response models for every admin and reseller bank-SMS route (`BankSmsOverviewOut`, `BankSmsSourceSavedOut`, `BankSmsMessageOut`, `BankSmsTokenOut`, `BankSmsReconcileOut`); the OpenAPI snapshot and generated TS types now carry real bodies instead of `{}`, and `status` / `direction` / `matched_by` are literal unions. The save body types the tuning knobs (`BankSmsSettingsIn`); ranges and unknown keys are still rejected by `clean_settings` with `BANK_SMS_SETTING_INVALID`.
+- admin-web `BankSmsPanel` reads every response from the generated types (no `Json`, no casts); `@melorin/web-kit/bankSms` has real `BankSmsForm` / `BankSmsSourceBody` types; shared `errMsg()` in `shared/kit.tsx` (also understands FastAPI 422 lists).
+- Fixed: changing the status filter, pairing, ignoring or reconciling no longer wipes the unsaved settings form; stale or aborted loads cannot overwrite newer data; a 422 validation message is shown instead of the generic failure text.
+- Tests: typed GET/PUT/POST requests, form preservation, 422 message, OpenAPI contract guard for all bank-SMS routes; typing ratchet lowered to 1993.
+
 ### Admin web: typed receipt downloads
 - `@melorin/api-client` gets `rawGet(path, init)`: a typed GET for binary endpoints (receipt images). The path must exist in the OpenAPI snapshot, path parameters are required exactly when the operation declares them, `query` is typed, and a missing parameter is a rejected promise. It shares the bearer-token / single-refresh transport with every other verb.
 - Payments screen: the three receipt viewers (payment list, drawer, receipt-review queue) use that typed download and one `openBlobInTab` helper instead of hand-built `/api/v1/admin/payments/${id}/receipt` strings; the drawer ignores a download that finishes after the admin moved to another payment; the destinations effect depends on the typed client it actually uses.

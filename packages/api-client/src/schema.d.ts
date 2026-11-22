@@ -7549,21 +7549,15 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /**
-             * Direction
-             * @description deposit | withdrawal
-             */
-            direction: string | null;
+            /** Direction */
+            direction: ("deposit" | "withdrawal") | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /**
-             * Matched By
-             * @description auto | admin
-             */
-            matched_by: string | null;
+            /** Matched By */
+            matched_by: ("auto" | "admin") | null;
             /** Note */
             note: string | null;
             /** Occurred At */
@@ -7576,9 +7570,9 @@ export interface components {
             serial: string | null;
             /**
              * Status
-             * @description unmatched | matched | ambiguous | ignored | unparsed
+             * @enum {string}
              */
-            status: string;
+            status: "unmatched" | "matched" | "ambiguous" | "ignored" | "unparsed";
             /**
              * Store Id
              * Format: uuid
@@ -7590,6 +7584,13 @@ export interface components {
             /** Messages */
             messages: components["schemas"]["BankSmsMessageOut"][];
             source: components["schemas"]["BankSmsSourceOut"];
+        };
+        /** BankSmsReconcileOut */
+        BankSmsReconcileOut: {
+            /** Checked */
+            checked: number;
+            /** Matched */
+            matched: number;
         };
         /**
          * BankSmsSettingsIn
@@ -16409,7 +16410,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsReconcileOut"];
                 };
             };
             /** @description Validation Error */
@@ -22084,7 +22085,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BankSmsReconcileOut"];
                 };
             };
             /** @description Validation Error */
