@@ -8,6 +8,10 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Admin web: typed receipt downloads
+- `@melorin/api-client` gets `rawGet(path, init)`: a typed GET for binary endpoints (receipt images). The path must exist in the OpenAPI snapshot, path parameters are required exactly when the operation declares them, `query` is typed, and a missing parameter is a rejected promise. It shares the bearer-token / single-refresh transport with every other verb.
+- Payments screen: the three receipt viewers (payment list, drawer, receipt-review queue) use that typed download and one `openBlobInTab` helper instead of hand-built `/api/v1/admin/payments/${id}/receipt` strings; the drawer ignores a download that finishes after the admin moved to another payment; the destinations effect depends on the typed client it actually uses.
+
 ### Zarinpal refund credential (fix/zarinpal-refund-credentials)
 - The Zarinpal `access_token` (needed only for refunds) can now be added, replaced and deleted from the admin payments screen and the reseller store settings; it stays write-only: the API only reports `has_access_token`.
 - `store_config.upsert` validates Zarinpal secrets with a typed model (`ZarinpalSecretIn`, unknown fields refused): omitted/blank keeps the token, a value replaces it, `clear_access_token: true` deletes it, and replace + delete in one request is a 422 `PAYMENT_CONFIG_INVALID`. A refused request changes nothing (validation runs before the row is touched); the audit record carries `access_token_changed`.

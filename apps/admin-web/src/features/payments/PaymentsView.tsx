@@ -8,6 +8,8 @@ import { typedClient, useCall } from '../../api/api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from '../../shared/kit.tsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
+import { openBlobInTab } from './receiptFile.ts';
+import type { ReceiptFetcher } from './receiptFile.ts';
 import ReceiptOcrSettings from './ReceiptOcrSettings.tsx';
 
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
@@ -64,7 +66,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
         }),
       )
       .catch(() => {});
-  }, [call]);
+  }, [client]);
   useEffect(() => setPage(0), [tab, provider, q]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
@@ -131,6 +133,13 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       params: { path: { payment_id: id } },
       body: { reason },
     });
+  const receipt = useCallback<ReceiptFetcher>(
+    (paymentId) =>
+      client.rawGet('/api/v1/admin/payments/{payment_id}/receipt', {
+        params: { path: { payment_id: paymentId } },
+      }),
+    [client],
+  );
   const on = {
     approve: async (p: Json) => {
       if (
@@ -155,11 +164,9 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
     },
     receipt: async (p: Json) => {
       try {
-        const r = await call(`/api/v1/admin/payments/${p.id}/receipt`);
+        const r = await receipt(String(p.id));
         if (!r.ok) return toast('نمایش رسید ناموفق بود');
-        const url = URL.createObjectURL(await r.blob());
-        window.open(url, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        openBlobInTab(await r.blob());
       } catch {
         toast('ارتباط با سرور برقرار نشد');
       }
@@ -425,7 +432,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       )}
       <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} />
 
-      <BankSmsPanel call={call} toast={toast} payments={all} />
+      <BankSmsPanel call={call} toast={toast} payments={all} receipt={receipt} />
       <GatewaySettings obj={settings} save={saveSetting} />
       <ReceiptOcrSettings api={api} toast={toast} />
       {open && (
@@ -433,7 +440,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           p={open}
           busy={busy === open.id}
           on={on}
-          call={call}
+          receipt={receipt}
           toast={toast}
           onClose={() => setSel(null)}
         />
