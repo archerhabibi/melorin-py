@@ -5,6 +5,8 @@ import { Check, Undo2 } from 'lucide-react';
 import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptDuplicatePolicy from './ReceiptDuplicatePolicy.tsx';
+import { openBlobInTab } from './receiptFile.ts';
+import type { ReceiptFetcher } from './receiptFile.ts';
 import type { CallFn, Json, Toast } from '../../shared/types.ts';
 import { CUR, toInt, clock } from './receiptHelpers';
 import { Row } from './ReceiptRow';
@@ -17,22 +19,24 @@ const ADMIN_RESOLVE = '/api/v1/admin/stores/{store_id}/receipt-review/{payment_i
 const RESELLER_RESOLVE = '/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}' as const;
 type SettingsBody = RequestBody<typeof ADMIN_SETTINGS, 'put'>;
 type ResolveBody = RequestBody<typeof ADMIN_RESOLVE, 'post'>;
-const apiError = (error: Json, fallback: string) => {
-  const detail = error?.detail;
-  return error?.error?.message || (typeof detail === 'string' ? detail : detail?.message) || fallback;
+type ApiErrorBody = { detail?: string | { message?: string }; error?: { message?: string } };
+const apiError = (error: unknown, fallback: string) => {
+  const body = error as ApiErrorBody | undefined;
+  const detail = body?.detail;
+  return body?.error?.message || (typeof detail === 'string' ? detail : detail?.message) || fallback;
 };
 
 export default function ReceiptReviewPanel({
   call,
   toast,
   base,
-  receiptPath,
+  receipt,
   onChanged,
 }: {
   call: CallFn;
   toast: Toast;
   base?: string;
-  receiptPath?: Json;
+  receipt?: ReceiptFetcher;
   onChanged?: Json;
 }) {
   const [data, setData] = useState<Json>(null);
@@ -70,9 +74,9 @@ export default function ReceiptReviewPanel({
       const { data, response, error } = result;
       if (!response.ok) {
         setFailed(true);
-        return toast(apiError(error as Json, 'دریافت صف بازبینی ناموفق بود'));
+        return toast(apiError(error, 'دریافت صف بازبینی ناموفق بود'));
       }
-      const d = data as Json;
+      const d = data as { config?: unknown } | undefined; // the queue response has no schema in the OpenAPI snapshot
       if (!d?.config) return setFailed(true); // an older server without this feature: show nothing instead of breaking the page
       setFailed(false);
       apply(d);
@@ -115,7 +119,7 @@ export default function ReceiptReviewPanel({
         ? await client.put(RESELLER_SETTINGS, options)
         : await client.put(ADMIN_SETTINGS, options);
       const { response, error } = result;
-      if (!response.ok) return toast(apiError(error as Json, 'ذخیره ناموفق بود'));
+      if (!response.ok) return toast(apiError(error, 'ذخیره ناموفق بود'));
       toast(form.enabled ? 'تأیید موقت فعال شد' : 'تنظیمات ذخیره شد');
       setForm(null);
       load();
@@ -145,18 +149,17 @@ export default function ReceiptReviewPanel({
         ? await client.post(RESELLER_RESOLVE, options)
         : await client.post(ADMIN_RESOLVE, options);
       const { response, error } = result;
-      if (!response.ok) return toast(apiError(error as Json, 'ثبت تصمیم ناموفق بود'));
+      if (!response.ok) return toast(apiError(error, 'ثبت تصمیم ناموفق بود'));
       toast(approve ? 'تأیید شد' : provisional ? 'شارژ موقت لغو شد' : 'رسید رد شد');
       load();
       onChanged?.();
     });
   const viewReceipt = async (item: Json) => {
+    if (!receipt) return;
     try {
-      const r = await call(receiptPath(item.payment_id));
+      const r = await receipt(String(item.payment_id));
       if (!r.ok) return toast(await errText(r, 'نمایش رسید ناموفق بود'));
-      const url = URL.createObjectURL(await r.blob());
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      openBlobInTab(await r.blob());
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     }
@@ -195,7 +198,7 @@ export default function ReceiptReviewPanel({
         ))}
       </ol>
 
-      <ReceiptDuplicatePolicy toast={toast} base={base} />
+      <ReceiptDuplicatePolicy key={base} toast={toast} base={base} />
 
       <details className="group rounded-xl border border-[var(--ln)]" open={!c.enabled}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-xs font-extrabold">
@@ -318,7 +321,7 @@ export default function ReceiptReviewPanel({
                   tone="wn"
                   now={now}
                   minutes={c.minutes}
-                  onReceipt={receiptPath && viewReceipt}
+                  onReceipt={receipt && viewReceipt}
                 >
                   <button
                     className="btn btn-p !py-1.5"
@@ -360,7 +363,7 @@ export default function ReceiptReviewPanel({
                   tone="ln"
                   now={now}
                   minutes={c.minutes}
-                  onReceipt={receiptPath && viewReceipt}
+                  onReceipt={receipt && viewReceipt}
                 >
                   <button
                     className="btn btn-p !py-1.5"

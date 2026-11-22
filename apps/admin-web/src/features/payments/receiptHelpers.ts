@@ -19,3 +19,17 @@ export const ago = (sec: Json) => {
   if (m < 60) return `${num(m)} دقیقه پیش`;
   return `${num(Math.floor(m / 60))} ساعت و ${num(m % 60)} دقیقه پیش`;
 };
+
+/** Which store a receipt panel works on, and through which API family (the admin console or the reseller's own store). */
+export type ReceiptTarget = { scope: 'admin' | 'reseller'; storeId: string };
+
+const ADMIN_BASE = /^\/api\/v1\/admin\/stores\/([^/]+)\/?$/;
+const RESELLER_BASE = /^\/api\/v1\/stores\/([^/]+)\/reseller\/?$/;
+
+/** Strict parse of a panel `base` ("/api/v1/admin/stores/:id" or "/api/v1/stores/:id/reseller"); anything else is null, never a guess. */
+export function parseStoreBase(base?: string | null): ReceiptTarget | null {
+  const admin = base?.match(ADMIN_BASE);
+  if (admin) return { scope: 'admin', storeId: decodeURIComponent(admin[1]) };
+  const reseller = base?.match(RESELLER_BASE);
+  return reseller ? { scope: 'reseller', storeId: decodeURIComponent(reseller[1]) } : null;
+}

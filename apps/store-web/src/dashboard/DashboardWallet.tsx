@@ -20,6 +20,24 @@ export function Wallet({
   const [amount, setAmount] = useState('');
   const [pay, setPay] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
+  const topupStorageKey = `melorin:wallet-topup:${storeId}`;
+  // state: 'unknown' = the outcome of the last request is not known (network error / 5xx / unknown-outcome code), so the same
+  // key must be reused; 'active' = a payment exists and was received, so a different amount may start a fresh request.
+  type TopupAttempt = { amount?: string; idempotencyKey?: string; state?: 'unknown' | 'active' };
+  const saveAttempt = (a: TopupAttempt) => {
+    try {
+      localStorage.setItem(topupStorageKey, JSON.stringify(a));
+    } catch {
+      /* storage unavailable: the pre-send check below already refused to send */
+    }
+  };
+  const clearAttempt = () => {
+    try {
+      localStorage.removeItem(topupStorageKey);
+    } catch {
+      /* ignore */
+    }
+  };
   const load = () =>
     coreFetch(`/api/v1/stores/${storeId}/wallet/transactions`)
       .then((r: Json) => r.json())
@@ -30,15 +48,57 @@ export function Wallet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [storeId]);
   async function topup() {
+    const requestedAmount = String(Number(amount));
+    let idempotencyKey: string;
+    try {
+      const raw = localStorage.getItem(topupStorageKey);
+      const saved: TopupAttempt | null = raw ? JSON.parse(raw) : null;
+      if (saved?.idempotencyKey && saved.amount === requestedAmount) {
+        idempotencyKey = saved.idempotencyKey;
+      } else if (saved?.idempotencyKey && saved.state === 'unknown') {
+        notify(
+          'نتیجهٔ درخواست شارژ قبلی هنوز مشخص نیست. برای جلوگیری از پرداخت تکراری، همان مبلغ قبلی را دوباره ارسال کنید یا با پشتیبانی تماس بگیرید.',
+        );
+        return;
+      } else {
+        idempotencyKey = `topup-${crypto.randomUUID()}`;
+      }
+      // Persist BEFORE sending: a reload or a lost HTTP response must reuse this exact key.
+      localStorage.setItem(
+        topupStorageKey,
+        JSON.stringify({ amount: requestedAmount, idempotencyKey, state: 'unknown' }),
+      );
+    } catch {
+      notify('ذخیره امن وضعیت درخواست در مرورگر ممکن نیست؛ برای جلوگیری از پرداخت تکراری، درخواست ارسال نشد.');
+      return;
+    }
     setBusy(true);
     try {
       const r = await coreFetch(`/api/v1/stores/${storeId}/wallet/topups`, {
         method: 'POST',
-        headers: { ...J, 'Idempotency-Key': `topup-${crypto.randomUUID()}` },
+        headers: { ...J, 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify({ amount: Number(amount), provider: 'manual_card' }),
       });
-      if (!r.ok) throw 0;
+      if (!r.ok) {
+        const error = await r.json().catch(() => ({}));
+        const code = error?.error?.code;
+        const message = error?.error?.message || 'ایجاد درخواست شارژ ناموفق بود';
+        // Only discard keys for client-side rejections that happen before an external intent can exist.
+        if (
+          r.status >= 400 &&
+          r.status < 500 &&
+          !['PAYMENT_INTENT_IN_PROGRESS', 'PAYMENT_INTENT_OUTCOME_UNKNOWN', 'IDEMPOTENCY_KEY_REUSE'].includes(code)
+        ) {
+          clearAttempt();
+        }
+        notify(message);
+        return;
+      }
       const p = await r.json();
+      // Keep the key while this payment is still active: a reload after a successful
+      // response must recover the same payment rather than create another one.
+      if (p.status === 'failed' || p.status === 'cancelled') clearAttempt();
+      else saveAttempt({ amount: String(Number(amount)), idempotencyKey, state: 'active' });
       setPay(p);
       if (p.instructions?.redirect_url) window.location.href = p.instructions.redirect_url;
     } catch (e: Json) {
@@ -55,6 +115,7 @@ export function Wallet({
   const resetReceipt = () => {
     setPay(null);
     setAmount('');
+    clearAttempt();
     setRc({ file: null, paid_at: '' });
     setRead(null);
   };

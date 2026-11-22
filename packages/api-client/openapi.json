@@ -224,7 +224,10 @@
           },
           "funded_by": {
             "default": "platform",
-            "pattern": "^(store|platform)$",
+            "enum": [
+              "store",
+              "platform"
+            ],
             "title": "Funded By",
             "type": "string"
           },
@@ -295,7 +298,10 @@
           },
           "scope": {
             "default": "store",
-            "pattern": "^(store|domain)$",
+            "enum": [
+              "store",
+              "domain"
+            ],
             "title": "Scope",
             "type": "string"
           },
@@ -313,7 +319,11 @@
           },
           "status": {
             "default": "active",
-            "pattern": "^(active|disabled|archived)$",
+            "enum": [
+              "active",
+              "disabled",
+              "archived"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -1930,7 +1940,11 @@
           },
           "status": {
             "default": "active",
-            "pattern": "^(active|disabled|archived)$",
+            "enum": [
+              "active",
+              "disabled",
+              "archived"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -1939,6 +1953,222 @@
           "code"
         ],
         "title": "CouponIn",
+        "type": "object"
+      },
+      "CouponOut": {
+        "description": "What every coupon route (admin and store-scoped) returns; mirrors ``service.coupon_out``.",
+        "properties": {
+          "allowed_store_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Store Ids"
+          },
+          "allowed_store_kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Store Kinds"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "combinable": {
+            "title": "Combinable",
+            "type": "boolean"
+          },
+          "creator_type": {
+            "enum": [
+              "admin",
+              "reseller"
+            ],
+            "title": "Creator Type",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "fixed": {
+            "title": "Fixed",
+            "type": "integer"
+          },
+          "funded_by": {
+            "enum": [
+              "store",
+              "platform"
+            ],
+            "title": "Funded By",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "max_discount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Discount"
+          },
+          "max_redemptions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Redemptions"
+          },
+          "min_amount": {
+            "title": "Min Amount",
+            "type": "integer"
+          },
+          "per_customer_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Customer Limit"
+          },
+          "percent_bp": {
+            "title": "Percent Bp",
+            "type": "integer"
+          },
+          "product_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Ids"
+          },
+          "redemptions": {
+            "title": "Redemptions",
+            "type": "integer"
+          },
+          "scope": {
+            "enum": [
+              "store",
+              "domain"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "disabled",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "store_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Id"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "scope",
+          "store_id",
+          "allowed_store_ids",
+          "allowed_store_kinds",
+          "product_ids",
+          "creator_type",
+          "funded_by",
+          "percent_bp",
+          "fixed",
+          "max_discount",
+          "min_amount",
+          "currency",
+          "starts_at",
+          "ends_at",
+          "max_redemptions",
+          "per_customer_limit",
+          "redemptions",
+          "combinable",
+          "status"
+        ],
+        "title": "CouponOut",
         "type": "object"
       },
       "CouponPatch": {
@@ -1994,7 +2224,11 @@
           "status": {
             "anyOf": [
               {
-                "pattern": "^(active|disabled|archived)$",
+                "enum": [
+                  "active",
+                  "disabled",
+                  "archived"
+                ],
                 "type": "string"
               },
               {
@@ -5294,11 +5528,52 @@
                 "type": "null"
               }
             ],
-            "description": "gateway secrets, e.g. {merchant_id}; write-only",
+            "description": "write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds",
             "title": "Secret"
           }
         },
         "title": "PaymentConfigIn",
+        "type": "object"
+      },
+      "PaymentCreateReconcileIn": {
+        "properties": {
+          "action": {
+            "enum": [
+              "bind",
+              "abandon"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "external_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ref"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "PaymentCreateReconcileIn",
         "type": "object"
       },
       "PaymentOut": {
@@ -6230,6 +6505,10 @@
         "description": "Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.",
         "properties": {
           "policy": {
+            "enum": [
+              "warn",
+              "block"
+            ],
             "title": "Policy",
             "type": "string"
           }
@@ -6238,6 +6517,24 @@
           "policy"
         ],
         "title": "ReceiptDupSettingsIn",
+        "type": "object"
+      },
+      "ReceiptDupSettingsOut": {
+        "description": "The policy currently in force for the store (``warn`` until a manager chooses otherwise).",
+        "properties": {
+          "policy": {
+            "enum": [
+              "warn",
+              "block"
+            ],
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "ReceiptDupSettingsOut",
         "type": "object"
       },
       "ReceiptOcrIn": {
@@ -11236,7 +11533,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CouponOut"
+                  },
+                  "title": "Response List Coupons Api V1 Admin Coupons Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -11278,7 +11581,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -11334,7 +11639,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -16560,6 +16867,63 @@
         ]
       }
     },
+    "/api/v1/admin/payments/{payment_id}/reconcile-create": {
+      "post": {
+        "description": "Resolve a payment whose gateway create outcome is unknown (timeout/lost response).",
+        "operationId": "reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreateReconcileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconcile Payment Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/payments/{payment_id}/refund": {
       "post": {
         "operationId": "refund_payment_api_v1_admin_payments__payment_id__refund_post",
@@ -19007,7 +19371,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19061,7 +19427,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -24936,7 +25304,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CouponOut"
+                  },
+                  "title": "Response List Coupons Api V1 Stores  Store Id  Coupons Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -24990,7 +25364,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -25158,7 +25534,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CouponOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -29599,7 +29977,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -29653,7 +30033,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"

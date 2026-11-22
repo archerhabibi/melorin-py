@@ -9,6 +9,7 @@ const json = (body, status = 200) =>
 const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'screen.png', { type: 'image/png' });
 
 beforeEach(() => {
+  localStorage.clear();
   URL.createObjectURL = vi.fn(() => 'blob:ticket-image');
   URL.revokeObjectURL = vi.fn();
   Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout, so no scrolling
@@ -39,6 +40,100 @@ describe('Wallet shows the Telegram ID', () => {
   it('says so when no Telegram account is linked', async () => {
     render(<Wallet {...base} wallet={{ balance: 0, currency: 'IRT', telegram_id: null }} />);
     expect(screen.getByText('متصل نیست')).toBeInTheDocument();
+  });
+
+  it('reuses the persisted idempotency key after an ambiguous response and a page reload', async () => {
+    const keys = [];
+    let posts = 0;
+    const coreFetch = vi.fn(async (path, opts = {}) => {
+      if (path.endsWith('/wallet/transactions')) return json([]);
+      if (path.endsWith('/wallet/topups') && opts.method === 'POST') {
+        posts += 1;
+        keys.push(opts.headers['Idempotency-Key']);
+        if (posts === 1)
+          return json({ error: { code: 'PAYMENT_INTENT_OUTCOME_UNKNOWN', message: 'نتیجه نامعلوم' } }, 503);
+        return json({
+          id: 'p1',
+          amount: 1000,
+          currency: 'IRT',
+          status: 'pending',
+          instructions: { card_number: '1234' },
+        });
+      }
+      return json([]);
+    });
+    const notify = vi.fn();
+    const first = render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('نتیجه نامعلوم'));
+    expect(localStorage.getItem('melorin:wallet-topup:s1')).toContain(keys[0]);
+
+    first.unmount();
+    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(posts).toBe(2));
+
+    expect(keys[1]).toBe(keys[0]);
+    expect(localStorage.getItem('melorin:wallet-topup:s1')).toContain(keys[0]);
+    expect(screen.getByText('1234')).toBeInTheDocument();
+  });
+
+  it('does not create a new payment key when an unresolved attempt exists for another amount', async () => {
+    let posts = 0;
+    const coreFetch = vi.fn(async (path, opts = {}) => {
+      if (path.endsWith('/wallet/transactions')) return json([]);
+      if (path.endsWith('/wallet/topups') && opts.method === 'POST') {
+        posts += 1;
+        return json({ error: { code: 'PAYMENT_INTENT_OUTCOME_UNKNOWN', message: 'نتیجه نامعلوم' } }, 503);
+      }
+      return json([]);
+    });
+    const notify = vi.fn();
+    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    const amount = screen.getByPlaceholderText('مبلغ');
+    await userEvent.type(amount, '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(posts).toBe(1));
+
+    await userEvent.clear(amount);
+    await userEvent.type(amount, '2000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+
+    expect(posts).toBe(1);
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('درخواست شارژ قبلی'));
+  });
+
+  it('allows a different amount once the previous payment was received (no dead end after reload)', async () => {
+    const keys = [];
+    const coreFetch = vi.fn(async (path, opts = {}) => {
+      if (path.endsWith('/wallet/transactions')) return json([]);
+      if (path.endsWith('/wallet/topups') && opts.method === 'POST') {
+        keys.push(opts.headers['Idempotency-Key']);
+        return json({
+          id: `p${keys.length}`,
+          amount: 1,
+          currency: 'IRT',
+          status: 'pending',
+          instructions: { card_number: '1234' },
+        });
+      }
+      return json([]);
+    });
+    const notify = vi.fn();
+    const first = render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(1));
+    first.unmount();
+
+    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '2000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).not.toBe(keys[0]);
+    expect(notify).not.toHaveBeenCalled();
   });
 });
 

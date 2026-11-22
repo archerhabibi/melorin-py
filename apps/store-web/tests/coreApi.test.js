@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { publicGet, publicGetOrNull } from '../src/coreApi.ts';
 
-const reply = (status, body) => ({ status, ok: status < 400, text: async () => JSON.stringify(body) });
+const reply = (status, body) => new Response(JSON.stringify(body), { status });
 
 describe('coreApi (api-client consumer, T15)', () => {
   it('publicGet returns parsed JSON and sends an Accept header without a bearer token', async () => {
