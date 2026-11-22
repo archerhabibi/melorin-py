@@ -84,7 +84,6 @@ test('raw: bearer + one refresh on 401, body verbatim, unread Response back', as
   assert.equal(calls[1][1].headers.Authorization, 'Bearer new');
 });
 
-
 test('rawGet builds a schema-path URL, preserves binary response and auth refresh', async () => {
   const calls = [];
   let token = 'old';
@@ -123,4 +122,15 @@ test('rawGet: query string, extra headers and a missing path parameter', async (
   assert.equal(calls[0].init.headers.Accept, 'text/csv');
   await assert.rejects(() => api.rawGet('/api/v1/admin/payments/{payment_id}/receipt', { params: { path: {} } }), /Missing path parameter: payment_id/);
   assert.equal(calls.length, 1);
+});
+
+test('typed calls leave `response` unread so callers can still read the server message from it', async () => {
+  const api = createApiClient({ fetch: async () => reply(409, { error: { code: 'COUPON_EXISTS', message: 'کد تکراری است' } }) });
+  const r = await api.request('post', '/x', { body: {} });
+  assert.deepEqual(r.error, { error: { code: 'COUPON_EXISTS', message: 'کد تکراری است' } });
+  assert.equal(r.response.bodyUsed, false);
+  assert.equal((await r.response.json()).error.message, 'کد تکراری است');
+  const ok = await createApiClient({ fetch: async () => reply(200, { a: 1 }) }).request('get', '/x');
+  assert.deepEqual(ok.data, { a: 1 });
+  assert.deepEqual(await ok.response.json(), { a: 1 });
 });

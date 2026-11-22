@@ -102,16 +102,24 @@ export function PayConfig({ coreFetch, base, notify }: { coreFetch?: Json; base?
     notify(r.ok ? 'اطلاعات کارت ذخیره شد' : 'ذخیره ناموفق بود');
     r.ok && reload();
   };
-  const [zp, setZp] = useState('');
   const zcur = (rows || []).find((r: Json) => r.provider === 'zarinpal');
+  const [zp, setZp] = useState({ merchant_id: '', access_token: '', clear: false });
+  useEffect(() => {
+    if (zcur) setZp({ merchant_id: zcur.merchant_id || '', access_token: '', clear: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset the write-only fields whenever the server rows reload
+  }, [rows]);
+  const zpValid = !!zp.merchant_id.trim() && !(zp.clear && zp.access_token.trim());
   const saveZp = async () => {
+    const secret: Rec = { merchant_id: zp.merchant_id.trim() };
+    if (zp.access_token.trim()) secret.access_token = zp.access_token.trim();
+    if (zp.clear) secret.clear_access_token = true;
     const r = await coreFetch(`${base}/payment-config/zarinpal`, {
       method: 'PUT',
       headers: J,
-      body: JSON.stringify({ is_enabled: true, public_config: {}, secret: { merchant_id: zp } }),
+      body: JSON.stringify({ is_enabled: true, public_config: zcur?.public_config || {}, secret }),
     });
     notify(r.ok ? 'درگاه ذخیره شد' : 'ذخیره ناموفق بود');
-    r.ok && (setZp(''), reload());
+    r.ok && reload();
   };
   const fld = (k: Json, l: Json, t?: Json) => (
     <label className="text-xs font-bold">
@@ -149,17 +157,38 @@ export function PayConfig({ coreFetch, base, notify }: { coreFetch?: Json; base?
       <div className={card}>
         <h4 className="font-extrabold">درگاه زرین‌پال</h4>
         <p className="mt-2 text-xs text-muted">
-          وضعیت: {zcur ? (zcur.has_secret ? 'merchant ID ثبت شده' : 'بدون secret') : 'تنظیم نشده'} (مقدار ثبت‌شده هرگز
-          نمایش داده نمی‌شود)
+          وضعیت: {zcur?.merchant_id ? 'Merchant ID ثبت شده' : 'تنظیم نشده'} ·{' '}
+          {zcur?.has_access_token ? 'استرداد خودکار فعال است' : 'بدون Access Token استرداد خودکار انجام نمی‌شود'}
         </p>
         <input
           dir="ltr"
           className={`${inp} mt-3`}
-          placeholder="Merchant ID جدید"
-          value={zp}
-          onChange={(e) => setZp(e.target.value)}
+          placeholder="Merchant ID"
+          value={zp.merchant_id}
+          onChange={(e) => setZp({ ...zp, merchant_id: e.target.value })}
         />
-        <button disabled={!zp} onClick={saveZp} className={`${btn} mt-3`}>
+        <input
+          dir="ltr"
+          type="password"
+          autoComplete="new-password"
+          className={`${inp} mt-3`}
+          placeholder={
+            zcur?.has_access_token ? 'توکن ذخیره شده؛ برای حفظ آن خالی بگذارید' : 'Access Token (فقط برای استرداد)'
+          }
+          value={zp.access_token}
+          onChange={(e) => setZp({ ...zp, access_token: e.target.value, clear: false })}
+        />
+        {zcur?.has_access_token && (
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={zp.clear}
+              onChange={(e) => setZp({ ...zp, clear: e.target.checked, access_token: '' })}
+            />
+            حذف توکن ذخیره‌شده
+          </label>
+        )}
+        <button disabled={!zpValid} onClick={saveZp} className={`${btn} mt-3`}>
           ذخیره
         </button>
       </div>

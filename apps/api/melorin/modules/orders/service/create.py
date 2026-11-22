@@ -9,6 +9,7 @@ from melorin.core import audit, codes, events, flags, settings_store
 from melorin.core.deps import StoreContext, main_store
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.core.invariants import require
 from melorin.core.scope import StoreScope
 from melorin.modules.catalog import service as catalog
 from melorin.kernel.models.orders import Order, OrderStateTransition
@@ -79,7 +80,7 @@ async def create_order(
         # plain ids above on purpose (see the note on rollback), not from ORM instances.
         account = await StoreScope(store_id=store_id, user_id=user_id).lock(session, VpnAccount, vpn_account_id) if vpn_account_id else None
         await renewal.check_renewable(session, account, user_id=user_id, store_id=store_id)
-        assert account is not None  # check_renewable refuses a missing account
+        account = require(account, "vpn account")  # check_renewable refuses a missing account
         if product_id != account.product_id:
             raise AppError("RENEWAL_PRODUCT_MISMATCH", "تمدید فقط با همان پکیجی انجام می‌شود که اکانت با آن ساخته شده است.", 409)
         try:

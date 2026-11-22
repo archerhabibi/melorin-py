@@ -1,8 +1,8 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
-from melorin.core import audit
+from melorin.core import audit, channel
 from melorin.core.scope import StoreScope
 from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
 from melorin.core.errors import AppError, NotFound
@@ -13,6 +13,7 @@ from melorin.kernel.models.catalog import Coupon
 from melorin.modules.catalog.schemas import (
     CatalogItem,
     CouponIn,
+    CouponOut,
     CouponPatch,
     CouponValidateIn,
     BundleOut,
@@ -58,10 +59,25 @@ def _site_off(s: Store) -> bool:
     return s.kind == "reseller" and not s.site_enabled
 
 
+def _is_reseller_runner(request: Request) -> bool:
+    """True only for the reseller bot runner calling over the private network with its own secret.
+
+    The website switch hides the public storefront; it must not take the reseller's *bot* down (the runner reads the store's
+    id and bot texts through this route). A request that came through the reverse proxy (it carries forwarding headers)
+    is somebody on the internet and never gets this exception, even if it knows the secret.
+    """
+    # Read from the request, not declared as a parameter: this must not change the public OpenAPI contract.
+    presented_secret = request.headers.get("x-bot-secret", "")
+    if not presented_secret or any(h in request.headers for h in ("x-forwarded-for", "x-forwarded-host", "x-real-ip")):
+        return False
+    bot = channel.identify_bot(presented_secret)
+    return bot is not None and bot.may_serve("reseller")
+
+
 @public.get("/stores/by-slug/{slug}", response_model=StoreOut)
-async def store_by_slug(slug: str, session: Session):
+async def store_by_slug(slug: str, session: Session, request: Request):
     s = await queries.active_store_by_slug(session, slug)
-    if not s or _site_off(s):
+    if not s or (_site_off(s) and not _is_reseller_runner(request)):
         raise NotFound("فروشگاه")
     return _store_out(s)
 
@@ -316,13 +332,13 @@ def _rule_from_in(body: CouponIn, store: Store, creator_type: str) -> cdom.Coupo
     )
 
 
-@public.get("/stores/{store_id}/coupons")
+@public.get("/stores/{store_id}/coupons", response_model=list[CouponOut])
 async def list_coupons(ctx: OwnerCtx, session: Session):
     rows = await queries.coupons_of_store(session, ctx.store.id)
     return [service.coupon_out(c) for c in rows]
 
 
-@public.post("/stores/{store_id}/coupons", status_code=201)
+@public.post("/stores/{store_id}/coupons", response_model=CouponOut, status_code=201)
 async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
     creator = "admin" if ctx.is_admin and not ctx.is_owner else "reseller"
     rule = _rule_from_in(body, ctx.store, creator)
@@ -369,7 +385,7 @@ async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
     return service.coupon_out(c)
 
 
-@public.patch("/stores/{store_id}/coupons/{coupon_id}")
+@public.patch("/stores/{store_id}/coupons/{coupon_id}", response_model=CouponOut)
 async def patch_coupon(coupon_id: uuid.UUID, body: CouponPatch, ctx: OwnerCtx, session: Session):
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c or c.owner_key != str(ctx.store.id):

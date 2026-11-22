@@ -2267,6 +2267,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/{payment_id}/reconcile-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile Payment Create
+         * @description Resolve a payment whose gateway create outcome is unknown (timeout/lost response).
+         */
+        post: operations["reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments/{payment_id}/refund": {
         parameters: {
             query?: never;
@@ -7195,8 +7215,9 @@ export interface components {
             /**
              * Funded By
              * @default platform
+             * @enum {string}
              */
-            funded_by: string;
+            funded_by: "store" | "platform";
             /** Max Discount */
             max_discount?: number | null;
             /** Max Redemptions */
@@ -7221,15 +7242,17 @@ export interface components {
             /**
              * Scope
              * @default store
+             * @enum {string}
              */
-            scope: string;
+            scope: "store" | "domain";
             /** Starts At */
             starts_at?: string | null;
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "disabled" | "archived";
             /** Store Id */
             store_id?: string | null;
         };
@@ -7792,8 +7815,72 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "disabled" | "archived";
+        };
+        /**
+         * CouponOut
+         * @description What every coupon route (admin and store-scoped) returns; mirrors ``service.coupon_out``.
+         */
+        CouponOut: {
+            /** Allowed Store Ids */
+            allowed_store_ids: string[] | null;
+            /** Allowed Store Kinds */
+            allowed_store_kinds: string[] | null;
+            /** Code */
+            code: string;
+            /** Combinable */
+            combinable: boolean;
+            /**
+             * Creator Type
+             * @enum {string}
+             */
+            creator_type: "admin" | "reseller";
+            /** Currency */
+            currency: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /** Fixed */
+            fixed: number;
+            /**
+             * Funded By
+             * @enum {string}
+             */
+            funded_by: "store" | "platform";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Discount */
+            max_discount: number | null;
+            /** Max Redemptions */
+            max_redemptions: number | null;
+            /** Min Amount */
+            min_amount: number;
+            /** Per Customer Limit */
+            per_customer_limit: number | null;
+            /** Percent Bp */
+            percent_bp: number;
+            /** Product Ids */
+            product_ids: string[] | null;
+            /** Redemptions */
+            redemptions: number;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "store" | "domain";
+            /** Starts At */
+            starts_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "disabled" | "archived";
+            /** Store Id */
+            store_id: string | null;
         };
         /** CouponPatch */
         CouponPatch: {
@@ -7806,7 +7893,7 @@ export interface components {
             /** Per Customer Limit */
             per_customer_limit?: number | null;
             /** Status */
-            status?: string | null;
+            status?: ("active" | "disabled" | "archived") | null;
         };
         /** CouponValidateIn */
         CouponValidateIn: {
@@ -9034,9 +9121,21 @@ export interface components {
             public_config?: Record<string, never>;
             /**
              * Secret
-             * @description gateway secrets, e.g. {merchant_id}; write-only
+             * @description write-only gateway secrets. zarinpal: {merchant_id, access_token?, clear_access_token?}; access_token is only needed for refunds
              */
             secret?: Record<string, never> | null;
+        };
+        /** PaymentCreateReconcileIn */
+        PaymentCreateReconcileIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "bind" | "abandon";
+            /** External Ref */
+            external_ref?: string | null;
+            /** Reason */
+            reason?: string | null;
         };
         /** PaymentOut */
         PaymentOut: {
@@ -11426,7 +11525,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"][];
                 };
             };
             /** @description Validation Error */
@@ -11459,7 +11558,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -11494,7 +11593,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -14796,6 +14895,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_payment_create_api_v1_admin_payments__payment_id__reconcile_create_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentCreateReconcileIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -20132,7 +20266,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"][];
                 };
             };
             /** @description Validation Error */
@@ -20167,7 +20301,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */
@@ -20269,7 +20403,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CouponOut"];
                 };
             };
             /** @description Validation Error */

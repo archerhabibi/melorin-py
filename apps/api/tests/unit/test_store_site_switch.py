@@ -69,16 +69,17 @@ async def test_site_off_does_not_stop_the_bot(session):
 
 async def test_public_lookup_and_tls_gate_follow_the_switch(session):
     _, rs = await _stores(session, False)
-    with pytest.raises(Exception):
+    public = _req("r.example.com")  # an ordinary public request: no runner secret
+    with pytest.raises(AppError):  # not just any exception: the 404, so a signature slip cannot pass this test by accident
         await store_by_domain("r.example.com", session)
-    with pytest.raises(Exception):
-        await store_by_slug("r", session)
-    with pytest.raises(Exception):
+    with pytest.raises(AppError):
+        await store_by_slug("r", session, public)
+    with pytest.raises(AppError):
         await tls_ask("r.example.com", session)
     rs.site_enabled = True
     await session.flush()
     assert (await tls_ask("r.example.com", session))["ok"] is True
-    assert (await store_by_slug("r", session)).slug == "r"
+    assert (await store_by_slug("r", session, public)).slug == "r"
 
 
 async def test_main_store_is_never_hidden_by_the_switch(session):

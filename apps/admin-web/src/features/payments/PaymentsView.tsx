@@ -55,7 +55,13 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
           zarinpal: (() => {
             const z = rows.find((x) => x.provider === 'zarinpal');
-            return z && { merchant_id: z.merchant_id || '', sandbox: !!z.public_config?.sandbox };
+            return (
+              z && {
+                merchant_id: z.merchant_id || '',
+                sandbox: !!z.public_config?.sandbox,
+                has_access_token: !!z.has_access_token,
+              }
+            );
           })(),
         }),
       )
@@ -172,7 +178,11 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
         ? {
             is_enabled: true,
             public_config: { sandbox: !!value.sandbox },
-            secret: { merchant_id: value.merchant_id.trim() },
+            secret: {
+              merchant_id: value.merchant_id.trim(),
+              ...(value.access_token?.trim() ? { access_token: value.access_token.trim() } : {}),
+              ...(value.clear_access_token ? { clear_access_token: true } : {}),
+            },
           }
         : { is_enabled: true, public_config: value };
     try {
@@ -183,7 +193,18 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       });
       if (r.ok) {
         toast('تنظیمات ذخیره شد');
-        setSettings((x) => ({ ...x, [provider]: value }));
+        const saved =
+          provider === 'zarinpal'
+            ? {
+                ...value,
+                has_access_token: value.clear_access_token
+                  ? false
+                  : !!value.access_token?.trim() || !!value.has_access_token,
+                access_token: '',
+                clear_access_token: false,
+              }
+            : value;
+        setSettings((x) => ({ ...x, [provider]: saved }));
       } else toast(await errText(r, 'ذخیره تنظیمات ناموفق بود'));
     } catch {
       toast('ارتباط با سرور برقرار نشد');

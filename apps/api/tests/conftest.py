@@ -79,17 +79,29 @@ def _hermetic_environment(request: pytest.FixtureRequest):
 
 
 @pytest.fixture(autouse=True)
-def _no_ambient_job_lock(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
-    """Unit tests never talk to a real Redis for the worker job lock.
-
-    ``Settings.redis_url`` defaults to ``redis://localhost``, so wherever a Redis service is up (CI's quality job, a
-    developer's machine) ``tracked_job`` would take a *real* lock. Each test runs on its own event loop while
-    ``get_redis()`` is cached, so the release can fail and the key then lives for its 130 s TTL - the next test that
-    runs the same job gets "previous run still holds the lock" and the job silently returns ``None``.
-    Tests that exercise the lock install their own fake with ``monkeypatch.setattr(wrap, "get_redis", ...)``.
-    """
+def _hermetic_job_lock(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    """Unit tests use an in-memory lock backend; integration tests may use real Redis."""
     if request.node.get_closest_marker("integration"):
         return
+
     from melorin.worker import wrap
 
-    monkeypatch.setattr(wrap, "get_redis", lambda: None)
+    class TestRedisLock:
+        def __init__(self):
+            self.store: dict[str, str] = {}
+
+        async def set(self, key, value, nx=False, ex=None):
+            if nx and key in self.store:
+                return None
+            self.store[key] = value
+            return True
+
+        async def eval(self, _script, _n, key, token):
+            if self.store.get(key) == token:
+                del self.store[key]
+                return 1
+            return 0
+
+    redis = TestRedisLock()
+    monkeypatch.setattr(wrap, "get_redis", lambda: redis)
+    monkeypatch.setattr(wrap, "LOCK_RETRY_DELAY", 0)  # the retry loop is covered explicitly; other tests must not sleep
