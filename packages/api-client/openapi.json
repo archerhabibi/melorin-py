@@ -6505,6 +6505,10 @@
         "description": "Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.",
         "properties": {
           "policy": {
+            "enum": [
+              "warn",
+              "block"
+            ],
             "title": "Policy",
             "type": "string"
           }
@@ -6513,6 +6517,24 @@
           "policy"
         ],
         "title": "ReceiptDupSettingsIn",
+        "type": "object"
+      },
+      "ReceiptDupSettingsOut": {
+        "description": "The policy currently in force for the store (``warn`` until a manager chooses otherwise).",
+        "properties": {
+          "policy": {
+            "enum": [
+              "warn",
+              "block"
+            ],
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "ReceiptDupSettingsOut",
         "type": "object"
       },
       "ReceiptOcrIn": {
@@ -19349,7 +19371,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19403,7 +19427,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -29951,7 +29977,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -30005,7 +30033,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDupSettingsOut"
+                }
               }
             },
             "description": "Successful Response"

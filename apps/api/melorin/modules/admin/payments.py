@@ -18,6 +18,7 @@ from melorin.modules.payments.schemas import (
     GraceSettingsIn,
     PaymentCreateReconcileIn,
     ReceiptDupSettingsIn,
+    ReceiptDupSettingsOut,
 )
 from melorin.kernel.models.payments import Payment
 from melorin.modules.reseller.schemas import PaymentConfigIn
@@ -227,13 +228,13 @@ async def receipt_review_resolve(store_id: uuid.UUID, payment_id: uuid.UUID, bod
 
 
 # ----- Duplicate receipt pictures -----
-@router.get("/stores/{store_id}/receipt-duplicates/settings")
+@router.get("/stores/{store_id}/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def receipt_dup_settings(store_id: uuid.UUID, _: AdminUser, session: Session):
     store = await _store(session, store_id)
     return {"policy": await receipt_fingerprints.get_policy(session, store.id)}
 
 
-@router.put("/stores/{store_id}/receipt-duplicates/settings")
+@router.put("/stores/{store_id}/receipt-duplicates/settings", response_model=ReceiptDupSettingsOut)
 async def receipt_dup_save_settings(store_id: uuid.UUID, body: ReceiptDupSettingsIn, admin: AdminUser, session: Session):
     store = await _store(session, store_id)
     return await receipt_fingerprints.save_policy(session, store, body.policy, actor_id=admin.id, actor_type="admin")

@@ -9451,8 +9451,22 @@ export interface components {
          * @description Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.
          */
         ReceiptDupSettingsIn: {
-            /** Policy */
-            policy: string;
+            /**
+             * Policy
+             * @enum {string}
+             */
+            policy: "warn" | "block";
+        };
+        /**
+         * ReceiptDupSettingsOut
+         * @description The policy currently in force for the store (``warn`` until a manager chooses otherwise).
+         */
+        ReceiptDupSettingsOut: {
+            /**
+             * Policy
+             * @enum {string}
+             */
+            policy: "warn" | "block";
         };
         /**
          * ReceiptOcrIn
@@ -16412,7 +16426,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -16447,7 +16461,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -22979,7 +22993,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -23014,7 +23028,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReceiptDupSettingsOut"];
                 };
             };
             /** @description Validation Error */
