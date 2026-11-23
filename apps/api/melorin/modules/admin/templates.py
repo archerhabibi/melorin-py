@@ -24,6 +24,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn_accounts import live, plans
 from melorin.modules.panel_integrations import templates
+from melorin.core.limits import INT32_MAX
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -35,7 +36,7 @@ class TemplateCreateIn(BaseModel):
 
 class TemplateLinkIn(BaseModel):
     product_id: uuid.UUID
-    remote_template_id: int = Field(gt=0)
+    remote_template_id: int = Field(gt=0, le=INT32_MAX)
 
 
 class ChangePlanIn(BaseModel):

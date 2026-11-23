@@ -4,6 +4,7 @@ import uuid
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
+from melorin.core.limits import MAX_COUNT, MAX_DAYS, MAX_MONEY, MAX_TRAFFIC_GB
 
 
 class CreateProduct(BaseModel):
@@ -11,12 +12,12 @@ class CreateProduct(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     description: str | None = None
     category: str | None = None
-    duration_days: int = Field(gt=0)
-    traffic_gb: int = Field(ge=0)
-    max_devices: int | None = Field(default=None, gt=0)
-    main_price: int = Field(ge=0)
+    duration_days: int = Field(gt=0, le=MAX_DAYS)
+    traffic_gb: int = Field(ge=0, le=MAX_TRAFFIC_GB)
+    max_devices: int | None = Field(default=None, gt=0, le=MAX_COUNT)
+    main_price: int = Field(ge=0, le=MAX_MONEY)
     # The cooperation (reseller) price is set per sales bundle; this is only the fallback. Omitted = same as main_price.
-    reseller_price: int | None = Field(default=None, ge=0)
+    reseller_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     currency: Literal["IRT", "USD", "USDT", "XTR"] = "IRT"
     is_test: bool = False
     reseller_enabled: bool = True
@@ -28,11 +29,11 @@ class ProductPatch(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=200)
     description: str | None = None
     category: str | None = None
-    duration_days: int | None = Field(default=None, gt=0)
-    traffic_gb: int | None = Field(default=None, ge=0)
-    max_devices: int | None = Field(default=None, gt=0)
-    main_price: int | None = Field(default=None, ge=0)
-    reseller_price: int | None = Field(default=None, ge=0)
+    duration_days: int | None = Field(default=None, gt=0, le=MAX_DAYS)
+    traffic_gb: int | None = Field(default=None, ge=0, le=MAX_TRAFFIC_GB)
+    max_devices: int | None = Field(default=None, gt=0, le=MAX_COUNT)
+    main_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
+    reseller_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     currency: Literal["IRT", "USD", "USDT", "XTR"] | None = None
     is_test: bool | None = None
     is_active: bool | None = None
@@ -51,7 +52,7 @@ class ProductOut(CreateProduct):
 class Availability(BaseModel):
     store_id: uuid.UUID
     enabled: bool = True
-    customer_price: int | None = Field(default=None, ge=0)
+    customer_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     listed: bool = True
 
 
@@ -110,7 +111,7 @@ class CreateBundle(BaseModel):
     kind_label: str = Field(default="", max_length=40)
     is_enabled: bool = True
     reseller_enabled: bool = True
-    sales_limit: int | None = Field(default=None, gt=0)
+    sales_limit: int | None = Field(default=None, gt=0, le=MAX_COUNT)
     panel_ids: list[uuid.UUID] = Field(default_factory=list)
     member_labels: dict[uuid.UUID, str] = Field(default_factory=dict)  # panel_id -> what the customer sees (manual bundles)
 
@@ -123,7 +124,7 @@ class UpdateBundle(BaseModel):
     kind_label: str | None = Field(default=None, max_length=40)
     is_enabled: bool | None = None
     reseller_enabled: bool | None = None
-    sales_limit: int | None = Field(default=None, gt=0)
+    sales_limit: int | None = Field(default=None, gt=0, le=MAX_COUNT)
     panel_ids: list[uuid.UUID] | None = None
     member_labels: dict[uuid.UUID, str] | None = None
 
@@ -201,7 +202,7 @@ class ReviewPayment(BaseModel):
 
 class ResellerApproval(BaseModel):
     approve: bool
-    debt_limit: int = Field(default=0, ge=0)
+    debt_limit: int = Field(default=0, ge=0, le=MAX_MONEY)
     reason: str | None = None
 
 
@@ -220,7 +221,7 @@ class AttachExistingAccount(BaseModel):
 class BundleProductIn(BaseModel):
     """A package inside a bundle. A null price means "use the product's own price"."""
 
-    main_price: int | None = Field(default=None, ge=0)
-    reseller_price: int | None = Field(default=None, ge=0)
+    main_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
+    reseller_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     is_listed: bool = True
-    sort: int = 0
+    sort: int = Field(default=0, ge=-MAX_COUNT, le=MAX_COUNT)

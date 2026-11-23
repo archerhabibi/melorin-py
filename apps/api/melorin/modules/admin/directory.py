@@ -11,6 +11,7 @@ from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
 from melorin.modules.catalog import allocation
 from melorin.modules.vpn_accounts import inquiry, live
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")
@@ -70,7 +71,7 @@ async def vpn_accounts(
     store_id: uuid.UUID | None = Query(None),
     state: str | None = Query(None, pattern="^(active|expiring|expired)$"),
     limit: int = Query(100, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     """The platform owner's inquiry: every account of every store, searchable and paged (``inquiry.admin_accounts``)."""
     rows, total = await inquiry.admin_accounts(session, q=q, store_id=store_id, state=state, limit=limit, offset=offset)

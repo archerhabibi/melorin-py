@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.reports import queries
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -33,7 +34,7 @@ async def payment_totals(
     date_from: dt.date | None = Query(default=None, description="first sale day, inclusive (UTC)"),
     date_to: dt.date | None = Query(default=None, description="last sale day, inclusive (UTC)"),
     limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
 ):
     """Succeeded-payment totals per (store, currency), optionally limited to a UTC date range and paginated.
 

@@ -8,7 +8,7 @@ import datetime as dt
 import logging
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from melorin.core import audit
@@ -18,6 +18,7 @@ from melorin.kernel.models.vpn import PanelOrphan
 from melorin.modules.vpn_accounts import manual_assign
 
 from melorin.modules.panelops import queries
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_orphans")
@@ -47,7 +48,12 @@ class OrphanIgnoreIn(BaseModel):
 # ------------------------------------------------------------------------------------------------------------------ orphans
 @router.get("/panel-orphans")
 async def panel_orphans(
-    _: AdminUser, session: Session, status: str | None = "open", panel_id: uuid.UUID | None = None, limit: int = 100, offset: int = 0
+    _: AdminUser,
+    session: Session,
+    status: str | None = "open",
+    panel_id: uuid.UUID | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     total, rows = await queries.orphan_rows(session, status=status, panel_id=panel_id, limit=max(1, min(limit, 500)), offset=max(0, offset))
     return {

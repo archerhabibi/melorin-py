@@ -7,7 +7,7 @@ Nothing here exposes a device key or its hash: the admin sees the browser label,
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from sqlalchemy import ColumnElement, func, or_, select
 
@@ -19,6 +19,7 @@ from melorin.kernel.models.identity import TrustedDevice, User
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent
 from melorin.domain.timeutil import aware as _aware
+from melorin.core.limits import MAX_DAYS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -171,7 +172,7 @@ async def revoke_account_devices(body: RevokeIn, admin: AdminUser, session: Sess
 
 
 @router.get("/identity-auto-merges")
-async def identity_auto_merges(_: AdminUser, session: Session, days: int = 90):
+async def identity_auto_merges(_: AdminUser, session: Session, days: int = Query(90, ge=1, le=MAX_DAYS)):
     """Accounts that were folded together automatically (newest first): who was kept, which empty shell was archived, which rule applied."""
     days = max(1, min(int(days), 365))
     since = utcnow() - dt.timedelta(days=days)

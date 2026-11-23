@@ -17,6 +17,7 @@ from melorin.modules.panelops import bulk, governance, subscription_check
 from melorin.modules.panelops import ops_console
 
 from melorin.modules.panelops import queries
+from melorin.core.limits import MAX_COUNT, MAX_OFFSET
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -97,7 +98,7 @@ class BulkPreviewIn(BaseModel):
 
 
 class BulkConfirmIn(BaseModel):
-    count: int = Field(ge=1)
+    count: int = Field(ge=1, le=MAX_COUNT)
 
 
 def op_out(op: BulkOperation, *, panel_name: str | None = None, store_name: str | None = None) -> dict:
@@ -148,7 +149,7 @@ async def bulk_list(
     status: str | None = None,
     panel_id: uuid.UUID | None = None,
     limit: int = Query(30, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     total, rows = await queries.bulk_operation_rows(session, status=status, panel_id=panel_id, limit=limit, offset=offset)
     return {"total": total, "items": [await _named(session, r) for r in rows]}
@@ -161,7 +162,7 @@ async def bulk_detail(
     session: Session,
     item_status: str | None = None,
     limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     op = await bulk.get(session, op_id)
     items = await bulk.items_page(session, op_id, status=item_status, limit=limit, offset=offset)

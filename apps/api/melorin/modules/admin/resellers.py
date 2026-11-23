@@ -21,6 +21,7 @@ from melorin.kernel.models.identity import User
 from melorin.modules.reseller import identity
 from melorin.modules.reseller.bots import status_out
 from melorin.kernel.models.stores import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
+from melorin.core.limits import MAX_MONEY
 
 router = APIRouter(tags=["admin-resellers"])
 
@@ -32,7 +33,7 @@ class ResellerEdit(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=200)
     domain: str | None = Field(default=None, max_length=255)
     status: Literal["active", "suspended"] | None = None
-    debt_limit: int | None = Field(default=None, ge=0)
+    debt_limit: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     sales_enabled: bool | None = None
     api_enabled: bool | None = None
     bot_enabled: bool | None = None
