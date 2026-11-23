@@ -3602,6 +3602,8 @@
             "additionalProperties": {
               "anyOf": [
                 {
+                  "maximum": 2147483647,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -4630,6 +4632,8 @@
           "traffic_low_levels": {
             "description": "percents (1-99) at which the customer is warned; [] = no warnings",
             "items": {
+              "maximum": 99,
+              "minimum": 1,
               "type": "integer"
             },
             "maxItems": 4,
@@ -7911,6 +7915,8 @@
           },
           "ids": {
             "items": {
+              "maximum": 2147483647,
+              "minimum": 0,
               "type": "integer"
             },
             "maxItems": 200,
@@ -9269,6 +9275,8 @@
             "anyOf": [
               {
                 "items": {
+                  "maximum": 2147483647,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 "maxItems": 50,
@@ -9507,6 +9515,8 @@
           },
           "ids": {
             "items": {
+              "maximum": 2147483647,
+              "minimum": 0,
               "type": "integer"
             },
             "maxItems": 200,
@@ -15739,6 +15749,8 @@
             "name": "core_id",
             "required": true,
             "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
               "title": "Core Id",
               "type": "integer"
             }
@@ -15850,6 +15862,8 @@
             "name": "node_id",
             "required": true,
             "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
               "title": "Node Id",
               "type": "integer"
             }

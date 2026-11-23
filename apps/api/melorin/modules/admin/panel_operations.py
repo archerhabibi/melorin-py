@@ -4,9 +4,9 @@ Thin layer: every rule lives in ``modules/vpn_accounts/{ops_console,bulk,governa
 audited by the service it calls."""
 
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Path, Query
 from pydantic import BaseModel, Field
 
 from melorin.core.deps import AdminUser, Session
@@ -17,7 +17,7 @@ from melorin.modules.panelops import bulk, governance, subscription_check
 from melorin.modules.panelops import ops_console
 
 from melorin.modules.panelops import queries
-from melorin.core.limits import MAX_COUNT, MAX_OFFSET
+from melorin.core.limits import INT32_MAX, MAX_COUNT, MAX_OFFSET
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -39,7 +39,12 @@ class ReasonIn(BaseModel):
 
 @router.post("/panels/{panel_id}/ops/nodes/{node_id}/{action}")
 async def ops_node_action(
-    panel_id: uuid.UUID, node_id: int, action: Literal["reconnect", "sync"], body: ReasonIn, admin: AdminUser, session: Session
+    panel_id: uuid.UUID,
+    node_id: Annotated[int, Path(ge=0, le=INT32_MAX)],
+    action: Literal["reconnect", "sync"],
+    body: ReasonIn,
+    admin: AdminUser,
+    session: Session,
 ):
     return await ops_console.node_action(session, panel_id, node_id, action, admin_id=admin.id, reason=body.reason)
 
@@ -49,12 +54,14 @@ class CoreRestartIn(ReasonIn):
 
 
 @router.post("/panels/{panel_id}/ops/cores/{core_id}/restart")
-async def ops_core_restart(panel_id: uuid.UUID, core_id: int, body: CoreRestartIn, admin: AdminUser, session: Session):
+async def ops_core_restart(
+    panel_id: uuid.UUID, core_id: Annotated[int, Path(ge=0, le=INT32_MAX)], body: CoreRestartIn, admin: AdminUser, session: Session
+):
     return await ops_console.core_restart(session, panel_id, core_id, admin_id=admin.id, reason=body.reason, confirm_name=body.confirm_name)
 
 
 class ToggleIn(ReasonIn):
-    ids: list[int] = Field(min_length=1, max_length=ops_console.MAX_IDS)
+    ids: list[Annotated[int, Field(ge=0, le=INT32_MAX)]] = Field(min_length=1, max_length=ops_console.MAX_IDS)
     disabled: bool
     force: bool = False
 

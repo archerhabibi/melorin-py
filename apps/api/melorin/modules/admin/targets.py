@@ -8,6 +8,7 @@ many slots at once (wizard / sync with the panel).
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -16,6 +17,7 @@ from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
+from melorin.core.limits import INT32_MAX
 from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.panelops import queries
 from melorin.modules.panelops.panel_probes import fetch_listing, live_group_health
@@ -99,7 +101,7 @@ class ServersFromTargets(BaseModel):
     """Wizard / sync: one server slot per chosen group, template or inbound (or per ``set`` of inbounds)."""
 
     kind: str = Field(pattern="^(group|template|inbound)$")
-    ids: list[int] = Field(min_length=1, max_length=200)
+    ids: list[Annotated[int, Field(ge=0, le=INT32_MAX)]] = Field(min_length=1, max_length=200)
     capacity: int = Field(default=DEFAULT_CAPACITY, gt=0, le=100000)
     allow_test: bool = True
     limits_from: str | None = Field(default=None, pattern="^(product|template)$")  # templates only

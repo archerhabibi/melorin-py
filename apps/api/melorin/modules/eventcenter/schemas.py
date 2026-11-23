@@ -1,8 +1,14 @@
+from typing import Annotated
+
 from pydantic import BaseModel, Field
+
+from melorin.core.limits import INT32_MAX
 
 
 class EventCenterIn(BaseModel):
     chat_id: str = Field(min_length=1, max_length=50)
-    topics: dict[str, int | str | None] = Field(default_factory=dict)  # {"payments": 12, ...}; empty value = General
+    topics: dict[str, Annotated[int, Field(ge=0, le=INT32_MAX)] | str | None] = Field(
+        default_factory=dict
+    )  # {"payments": 12, ...}; empty value = General
     is_enabled: bool = True
     note: str | None = Field(default=None, max_length=300)

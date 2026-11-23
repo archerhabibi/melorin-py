@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -18,7 +19,7 @@ log = logging.getLogger("melorin.admin.store_vpn_notices")
 
 # ------------------------------------------------------------------------------------------- per-store notice settings (PG-06)
 class NoticeSettingsIn(BaseModel):
-    traffic_low_levels: list[int] = Field(
+    traffic_low_levels: list[Annotated[int, Field(ge=1, le=99)]] = Field(
         max_length=notices.MAX_LEVELS, description="percents (1-99) at which the customer is warned; [] = no warnings"
     )
 
