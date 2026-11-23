@@ -6,7 +6,7 @@ current schema on an EMPTY database:
 * every table, index and constraint declared by ``melorin.models`` (generated from the metadata, then verified by
   ``tests/integration/test_migration_baseline.py`` which diffs the migrated database against the models);
 * PostgreSQL sequences ``order_number_seq`` / ``ticket_number_seq`` (short customer-facing codes);
-* the append-only guard on ``account_link_audits`` (trigger on PostgreSQL, triggers on SQLite);
+* the append-only guard on ``account_link_audits``, ``ledger_entries`` and ``ledger_transactions`` (trigger on PostgreSQL, triggers on SQLite);
 * the two idempotent default rows of ``system_settings`` (provisioning retry policy).
 
 Downgrade drops everything this revision created; it is intended for development databases only.
@@ -24,7 +24,7 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
-_APPEND_ONLY_TABLES = ("account_link_audits",)
+_APPEND_ONLY_TABLES = ("account_link_audits", "ledger_entries", "ledger_transactions")
 _SEQUENCES = ("order_number_seq", "ticket_number_seq")
 _SETTINGS = (
     ("provisioning.max_attempts", 4),
@@ -795,6 +795,14 @@ def upgrade() -> None:
     op.create_index(op.f("ix_ledger_transactions_order_id"), "ledger_transactions", ["order_id"], unique=False)
     op.create_index(op.f("ix_ledger_transactions_payment_id"), "ledger_transactions", ["payment_id"], unique=False)
     op.create_index(op.f("ix_ledger_transactions_store_id"), "ledger_transactions", ["store_id"], unique=False)
+    op.create_index(
+        "uq_ledger_transactions_reverses_id",
+        "ledger_transactions",
+        ["reverses_id"],
+        unique=True,
+        postgresql_where=sa.text("reverses_id IS NOT NULL"),
+        sqlite_where=sa.text("reverses_id IS NOT NULL"),
+    )
     op.create_table(
         "loyalty_accounts",
         sa.Column("store_id", sa.Uuid(), nullable=False),
@@ -932,6 +940,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_orders_status"), "orders", ["status"], unique=False)
     op.create_index(op.f("ix_orders_store_id"), "orders", ["store_id"], unique=False)
     op.create_index(op.f("ix_orders_user_id"), "orders", ["user_id"], unique=False)
+    op.create_index(op.f("ix_orders_vpn_account_id"), "orders", ["vpn_account_id"], unique=False)
     op.create_table(
         "panel_admin_change_requests",
         sa.Column("store_id", sa.Uuid(), nullable=False),
@@ -1546,6 +1555,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("user_id", "store_id", "idempotency_key", name=op.f("uq_payments_user_id_store_id_idempotency_key")),
     )
     op.create_index(op.f("ix_payments_order_id"), "payments", ["order_id"], unique=False)
+    op.create_index(op.f("ix_payments_receipt_file_id"), "payments", ["receipt_file_id"], unique=False)
     op.create_index(op.f("ix_payments_status"), "payments", ["status"], unique=False)
     op.create_index(op.f("ix_payments_store_id"), "payments", ["store_id"], unique=False)
     op.create_index(op.f("ix_payments_user_id"), "payments", ["user_id"], unique=False)
@@ -1616,6 +1626,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_vpn_accounts_last_synced_at"), "vpn_accounts", ["last_synced_at"], unique=False)
     op.create_index(op.f("ix_vpn_accounts_order_id"), "vpn_accounts", ["order_id"], unique=False)
+    op.create_index("ix_vpn_accounts_panel_id_status", "vpn_accounts", ["panel_id", "status"], unique=False)
     op.create_index(op.f("ix_vpn_accounts_server_id"), "vpn_accounts", ["server_id"], unique=False)
     op.create_index(op.f("ix_vpn_accounts_sold_expires_at"), "vpn_accounts", ["sold_expires_at"], unique=False)
     op.create_index(op.f("ix_vpn_accounts_status"), "vpn_accounts", ["status"], unique=False)
@@ -1948,6 +1959,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_vpn_accounts_status"), table_name="vpn_accounts")
     op.drop_index(op.f("ix_vpn_accounts_sold_expires_at"), table_name="vpn_accounts")
     op.drop_index(op.f("ix_vpn_accounts_server_id"), table_name="vpn_accounts")
+    op.drop_index("ix_vpn_accounts_panel_id_status", table_name="vpn_accounts")
     op.drop_index(op.f("ix_vpn_accounts_order_id"), table_name="vpn_accounts")
     op.drop_index(op.f("ix_vpn_accounts_last_synced_at"), table_name="vpn_accounts")
     op.drop_table("vpn_accounts")
@@ -1958,6 +1970,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_payments_user_id"), table_name="payments")
     op.drop_index(op.f("ix_payments_store_id"), table_name="payments")
     op.drop_index(op.f("ix_payments_status"), table_name="payments")
+    op.drop_index(op.f("ix_payments_receipt_file_id"), table_name="payments")
     op.drop_index(op.f("ix_payments_order_id"), table_name="payments")
     op.drop_table("payments")
     op.drop_index(op.f("ix_order_state_transitions_order_id"), table_name="order_state_transitions")
@@ -2070,6 +2083,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_panel_admin_change_requests_store_id"), table_name="panel_admin_change_requests")
     op.drop_index(op.f("ix_panel_admin_change_requests_status"), table_name="panel_admin_change_requests")
     op.drop_table("panel_admin_change_requests")
+    op.drop_index(op.f("ix_orders_vpn_account_id"), table_name="orders")
     op.drop_index(op.f("ix_orders_user_id"), table_name="orders")
     op.drop_index(op.f("ix_orders_store_id"), table_name="orders")
     op.drop_index(op.f("ix_orders_status"), table_name="orders")
@@ -2086,6 +2100,12 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_loyalty_accounts_user_id"), table_name="loyalty_accounts")
     op.drop_index(op.f("ix_loyalty_accounts_store_id"), table_name="loyalty_accounts")
     op.drop_table("loyalty_accounts")
+    op.drop_index(
+        "uq_ledger_transactions_reverses_id",
+        table_name="ledger_transactions",
+        postgresql_where=sa.text("reverses_id IS NOT NULL"),
+        sqlite_where=sa.text("reverses_id IS NOT NULL"),
+    )
     op.drop_index(op.f("ix_ledger_transactions_store_id"), table_name="ledger_transactions")
     op.drop_index(op.f("ix_ledger_transactions_payment_id"), table_name="ledger_transactions")
     op.drop_index(op.f("ix_ledger_transactions_order_id"), table_name="ledger_transactions")

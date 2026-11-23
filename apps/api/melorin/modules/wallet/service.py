@@ -188,11 +188,20 @@ async def post(
     return tx, True
 
 
+async def find_reversal(session: AsyncSession, tx: LedgerTransaction) -> LedgerTransaction | None:
+    """The compensating transaction of ``tx`` when it has already been reversed."""
+    return await session.scalar(select(LedgerTransaction).where(LedgerTransaction.reverses_id == tx.id))
+
+
 async def reverse(
     session: AsyncSession, tx: LedgerTransaction, *, key: str, kind: str = "reversal", actor_id=None, memo=None
 ) -> LedgerTransaction:
-    """Compensating transaction: negates every entry; history is never mutated."""
-    existing = await find_tx(session, key)
+    """Compensating transaction: negates every entry; history is never mutated.
+
+    A transaction is reversed at most once (DB-003): a second call under another key returns the first reversal instead of
+    debiting the books twice, and ``uq_ledger_transactions_reverses_id`` keeps that true when two callers race.
+    """
+    existing = await find_tx(session, key) or await find_reversal(session, tx)
     if existing:
         return existing
     entries = (await session.scalars(select(LedgerEntry).where(LedgerEntry.transaction_id == tx.id))).all()
@@ -200,17 +209,23 @@ async def reverse(
     for e in entries:
         w = await session.get(Wallet, e.wallet_id) if e.wallet_id else None
         postings.append(Posting(-e.amount, wallet=w, account=None if w else e.account, min_balance=None))
-    new, _ = await post(
-        session,
-        kind=kind,
-        key=key,
-        currency=tx.currency,
-        postings=postings,
-        store_id=tx.store_id,
-        order_id=tx.order_id,
-        payment_id=tx.payment_id,
-        actor_id=actor_id,
-        memo=memo,
-        reverses_id=tx.id,
-    )
+    try:
+        new, _ = await post(
+            session,
+            kind=kind,
+            key=key,
+            currency=tx.currency,
+            postings=postings,
+            store_id=tx.store_id,
+            order_id=tx.order_id,
+            payment_id=tx.payment_id,
+            actor_id=actor_id,
+            memo=memo,
+            reverses_id=tx.id,
+        )
+    except IntegrityError:  # a concurrent reversal of the same transaction (another key) won the unique index
+        done = await find_reversal(session, tx)
+        if done is None:
+            raise
+        return done
     return new

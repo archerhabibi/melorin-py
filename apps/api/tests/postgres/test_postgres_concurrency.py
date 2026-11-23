@@ -68,6 +68,29 @@ async def test_parallel_debits_can_never_overdraw_the_wallet():
             assert (await s.scalar(select(func.sum(LedgerEntry.amount)))) == 0
 
 
+async def test_parallel_reversals_of_one_transaction_under_different_keys_reverse_it_once():
+    """DB-003: two refund paths racing on the same original transaction must not both debit the books."""
+    async with open_schema_engine() as engine:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        store_id, wallet_id = await _funded_wallet(factory, 1_000)
+        async with factory() as s:
+            seed_id = (await wallet.find_tx(s, "seed")).id
+
+        async def reverse_once(key: str):
+            async with factory() as s:
+                done = await wallet.reverse(s, await s.get(LedgerTransaction, seed_id), key=key)
+                await s.commit()
+                return done.id
+
+        ids = await asyncio.gather(*[reverse_once(f"refund-{i}") for i in range(4)])
+        assert len(set(ids)) == 1
+        async with factory() as s:
+            assert (await s.get(Wallet, wallet_id)).balance == 0
+            count = await s.scalar(select(func.count()).select_from(LedgerTransaction).where(LedgerTransaction.reverses_id == seed_id))
+            assert count == 1
+            assert (await s.scalar(select(func.sum(LedgerEntry.amount)))) == 0
+
+
 async def test_same_idempotency_key_in_parallel_posts_exactly_once():
     async with open_schema_engine() as engine:
         factory = async_sessionmaker(engine, expire_on_commit=False)
