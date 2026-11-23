@@ -6,6 +6,7 @@ import Dashboard, { Faq } from './Dashboard.tsx';
 import { clearTokens, getAccessToken, setTokens } from './auth.ts';
 import { publicGetOrNull } from './coreApi.ts';
 import { useCoreFetch } from './useCoreFetch.ts';
+import { submitOrder } from './orderRequest.ts';
 import { useStoreCatalog } from './useStoreCatalog.ts';
 import { googleSignOut } from './GoogleSignIn.tsx';
 import TelegramLogin from './TelegramLogin.tsx';
@@ -166,19 +167,20 @@ export default function App() {
   const panelLabel = bundle?.panels?.find((x: Json) => x.id === panelId)?.label;
   const bundleBody = () => ({ bundle_id: bundleId, ...(manual ? { selected_panel_id: panelId } : {}) });
   async function buySelected() {
-    const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `web-${crypto.randomUUID()}` },
-      body: JSON.stringify({
+    const { response, order } = await submitOrder({
+      coreFetch,
+      storeId,
+      accountId: account?.id,
+      body: {
         product_id: selectedQuote?.product_id || selectedQuote?.id,
         payment_method: 'wallet',
         kind: 'purchase',
         ...bundleBody(),
         ...(customName && accountName.trim() ? { account_name: accountName.trim() } : {}),
-      }),
+      },
     });
-    if (!r.ok) throw Error(await errOf(r, 'order failed'));
-    const order = await r.json();
+    if (!response.ok) throw Error(await errOf(response, 'order failed'));
+    if (!order) throw Error('نتیجه سفارش مشخص نیست.');
     setPurchasedOrder(order.id);
     setModal('delivery');
     loadAccount();
@@ -463,6 +465,7 @@ export default function App() {
               customName={customName}
               accountName={accountName}
               selectedQuote={selectedQuote}
+              accountReady={Boolean(account?.id)}
               busy={busy}
               run={run}
               buySelected={buySelected}

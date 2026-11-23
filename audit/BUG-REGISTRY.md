@@ -15,6 +15,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-003 | High | Wallet topup retry state is shared between accounts using the same store and browser | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
+| FE-004 | High | Retrying a purchase or renewal after a lost response uses a new idempotency key | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | QA-001 | Medium | Flaky `tests/http/test_store_scoped_referral_program.py::test_earned_counts_every_commission_of_the_store_not_only_the_latest_page_the_screens_list` (IntegrityError on PostgreSQL, CI run 45077001718) | AI-08 | Open | (AI-08 report) |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)

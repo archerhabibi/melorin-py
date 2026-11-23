@@ -15,6 +15,7 @@ import {
 import AccountInquiry from '../AccountInquiry.tsx';
 import { Empty, Loading, StatusBadge, fa, fd } from '../ui.tsx';
 import { msgOf } from './DashboardTickets.tsx';
+import { submitOrder } from '../orderRequest.ts';
 import type { Json } from '../types';
 
 export const J = { 'Content-Type': 'application/json' };
@@ -55,6 +56,7 @@ function Renew({
   account,
   coreFetch,
   storeId,
+  userId,
   notify,
   reload,
   onClose,
@@ -62,6 +64,7 @@ function Renew({
   account?: Json;
   coreFetch?: Json;
   storeId?: Json;
+  userId?: string;
   notify?: Json;
   reload?: Json;
   onClose?: Json;
@@ -103,20 +106,23 @@ function Renew({
   async function buy() {
     setBusy(true);
     try {
-      const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, {
-        method: 'POST',
-        headers: { ...J, 'Idempotency-Key': `web-renew-${crypto.randomUUID()}` },
-        body: JSON.stringify({
+      const { response } = await submitOrder({
+        coreFetch,
+        storeId,
+        accountId: userId,
+        body: {
           product_id: info.package.product_id,
           payment_method: 'wallet',
           kind: 'renewal',
           vpn_account_id: account.id,
-        }),
+        },
       });
-      if (!r.ok) return notify(await msgOf(r, 'تمدید ناموفق بود'));
+      if (!response.ok) return notify(await msgOf(response, 'تمدید ناموفق بود'));
       notify('تمدید ثبت شد');
       reload?.();
       onClose();
+    } catch (error: Json) {
+      notify(error?.message || 'تمدید ناموفق بود');
     } finally {
       setBusy(false);
     }
@@ -161,7 +167,11 @@ function Renew({
             </b>
             {!quote.sufficient_funds && <span className="mr-2 text-xs text-danger">موجودی کافی نیست</span>}
           </span>
-          <button disabled={busy || !quote.sufficient_funds} onClick={buy} className="btn-primary !px-4 !py-2 text-xs">
+          <button
+            disabled={busy || !quote.sufficient_funds || !userId}
+            onClick={buy}
+            className="btn-primary !px-4 !py-2 text-xs"
+          >
             پرداخت از کیف پول و تمدید
           </button>
         </div>
@@ -230,11 +240,13 @@ function ReturnAccount({
 export function Vpn({
   coreFetch,
   storeId,
+  userId,
   notify,
   reload,
 }: {
   coreFetch?: Json;
   storeId?: Json;
+  userId?: string;
   notify?: Json;
   reload?: Json;
 }) {
@@ -298,6 +310,7 @@ export function Vpn({
               account={a}
               coreFetch={coreFetch}
               storeId={storeId}
+              userId={userId}
               notify={notify}
               reload={() => {
                 reload?.();

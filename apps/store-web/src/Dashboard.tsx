@@ -346,7 +346,9 @@ export default function Dashboard({
             <Notifications coreFetch={coreFetch} storeId={storeId} notify={notify} onCount={setUnread} />
           )}
           {tab === 'orders' && <Orders orders={orders} />}
-          {tab === 'vpn' && <Vpn coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} />}
+          {tab === 'vpn' && (
+            <Vpn coreFetch={coreFetch} storeId={storeId} userId={account?.id} notify={notify} reload={reload} />
+          )}
           {tab === 'wallet' && (
             <Wallet
               key={`${storeId}:${account?.id ?? ''}`}

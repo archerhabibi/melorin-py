@@ -129,7 +129,10 @@ test('bot handoff link signs in and never leaves the token in the URL', async ({
 
 test('an expired handoff link opens the sign-in dialog instead of a blank page', async ({ page }) => {
   const assertNoErrors = failOnPageErrors(page);
-  await mockCore(page, baseHandlers({ 'POST /api/v1/auth/web-handoff/redeem': { status: 400, body: { detail: 'expired' } } }));
+  await mockCore(
+    page,
+    baseHandlers({ 'POST /api/v1/auth/web-handoff/redeem': { status: 400, body: { detail: 'expired' } } }),
+  );
   await page.goto('/#/auth/handoff?t=old-token');
   await expect(page.getByRole('dialog').getByText('ورود به ملورین')).toBeVisible();
   assertNoErrors();
@@ -151,4 +154,42 @@ test('mobile menu opens and lists the section links', async ({ page }) => {
   await page.getByRole('button', { name: 'منو' }).click();
   await expect(page.getByRole('button', { name: 'منو' })).toHaveAttribute('aria-expanded', 'true');
   assertNoErrors();
+});
+
+test('a lost order response is retried with the same key after a reload', async ({ page }) => {
+  const keys = [];
+  await mockCore(
+    page,
+    signedIn({
+      'POST /api/v1/stores/store-main/checkout/quote': {
+        total: 100000,
+        currency: 'تومان',
+        wallet_balance: 500000,
+        sufficient_funds: true,
+      },
+      'POST /api/v1/stores/store-main/orders': (req) => {
+        keys.push(req.headers()['idempotency-key']);
+        return keys.length === 1
+          ? { status: 503, body: { error: { code: 'TEMPORARY', message: 'نتیجه نامعلوم' } } }
+          : { id: 'o1' };
+      },
+    }),
+  );
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /Tester/ }).first()).toBeVisible();
+  await page.getByRole('button', { name: /E2E Plan/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /پرداخت از کیف پول/ })
+    .click();
+  await expect.poll(() => keys.length).toBe(1);
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Tester/ }).first()).toBeVisible();
+  await page.getByRole('button', { name: /E2E Plan/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /پرداخت از کیف پول/ })
+    .click();
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[1]).toBe(keys[0]);
 });

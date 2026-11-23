@@ -168,6 +168,7 @@ export function CheckoutDialog({
   customName,
   accountName,
   selectedQuote,
+  accountReady,
   busy,
   run,
   buySelected,
@@ -179,6 +180,7 @@ export function CheckoutDialog({
   customName?: Json;
   accountName?: Json;
   selectedQuote?: Json;
+  accountReady?: boolean;
   busy?: Json;
   run?: Json;
   buySelected?: Json;
@@ -226,8 +228,13 @@ export function CheckoutDialog({
           موجودی کافی نیست. ابتدا از بخش «کیف پول» حساب را شارژ کن.
         </p>
       )}
+      {!accountReady && (
+        <p role="status" className="mt-3 text-xs text-muted">
+          برای ثبت سفارش، اطلاعات حساب باید بارگذاری شود.
+        </p>
+      )}
       <button
-        disabled={!selectedQuote?.sufficient_funds || busy}
+        disabled={!accountReady || !selectedQuote?.sufficient_funds || busy}
         onClick={() => run(buySelected, 'ثبت سفارش ناموفق بود')}
         className="btn-primary mt-5 w-full"
       >

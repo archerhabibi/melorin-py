@@ -27,11 +27,23 @@ The storage key now includes the signed-in account ID and store ID. The action i
 
 Legacy per-store-only browser entries cannot be reliably assigned to an account and are not reused; any test payment already in flight under the old key must be reconciled before retrying.
 
+## FE-004 — purchases and renewals use a fresh key after an uncertain response
+
+Severity: High. Status: Fixed.
+
+Purchase and renewal requests generated a new idempotency key on every click. If Core committed an order but the response was lost, retrying after a reload could create a second order and wallet debit. A browser test reproduced the key change on the original code.
+
+The frontend now persists the request key before sending, scoped to the signed-in account, store, and exact order payload, and keeps it through ambiguous outcomes. A confirmed order clears the key so a later intentional purchase can proceed. If identity or safe browser storage is unavailable, no order is sent. The same mechanism covers the customer purchase and renewal flows.
+
+Orders already submitted by the old frontend had no durable key; check order history before retrying an unresolved pre-fix purchase or renewal. Simultaneous first attempts from separate tabs and reseller retry paths remain under review.
+
 ## Verification
 
 - FE-001: five policy and real Nginx response tests passed.
 - FE-002: all 89 storefront tests passed before FE-003, including the recovery action and application entry point; lint, typecheck, format check and build also passed.
 - FE-003: all 12 wallet/ticket tests passed; storefront lint, typecheck and format check passed.
+- FE-004: six order/renewal unit tests, all 98 storefront tests, lint, typecheck and build passed. The browser suite passed 25 tests, including retry after reload; two staging-only tests were skipped.
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
+- Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 
 Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 and FE-003 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
