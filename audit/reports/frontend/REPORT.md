@@ -43,7 +43,7 @@ Severity: High. Status: Fixed for customer purchase and renewal requests.
 
 Two tabs could both see no pending order key and create different keys; a late response could also delete a newer attempt's key. Browser localStorage operations alone do not make the read-modify-write sequence atomic.
 
-A short IndexedDB transaction now serializes key creation and conditional removal across tabs. A delayed success only clears the key it actually used. If browser storage or cross-tab coordination is unavailable, the request is not sent. Existing pending localStorage keys remain usable. Reseller, loyalty and wallet topup flows still need their own concurrency review.
+A short IndexedDB transaction now serializes key creation and conditional removal across tabs. A delayed success only clears the key it actually used. If browser storage or cross-tab coordination is unavailable, the request is not sent. Existing pending localStorage keys remain usable. Reseller and loyalty flows still need their own concurrency review; wallet topups are addressed separately by FE-007.
 
 ## FE-006 — an unresolved order can become impossible to retry
 
@@ -53,11 +53,19 @@ At b2b0099 the frontend retained the original idempotency key but did not expose
 
 The order and VPN views now expose unresolved attempts for the current customer and store, even when a fresh quote is unavailable. Recovery submits the original payload and key; an action whose key has already been cleared cannot start a new order. The UI explains that an order not previously registered is retried at the current price. This relies on the existing backend idempotency contract and makes no API or schema changes.
 
+## FE-007 — wallet topup attempts can overwrite or erase one another
+
+Severity: High. Status: Fixed.
+
+At bed1f67, different tabs could choose or update a topup key without coordination. In a deterministic reproduction, two requests for the same payment shared a key; after one succeeded, a different topup began, and the late response from the first payment overwrote or deleted the newer key. Confirming an older receipt could also delete the newer attempt. Retrying after either loss could create a duplicate payment intent. Four new regression cases failed on that base.
+
+Topup key creation and changes now use the existing IndexedDB transaction lock. A response or receipt can update or remove only its own key, and a malformed success response stays unresolved. If browser coordination or valid stored state is unavailable, the topup is not sent. Existing per-customer keys are retained; the server API and database are unchanged. Previously unresolved test payments should be reconciled before retrying.
+
 ## Customer order retry invariants
 
 For a store, signed-in customer and exact request payload, every unresolved retry uses the same key. A late response must not erase a newer key, and a stale recovery action must never start a new order. If coordination or storage fails, no order is sent. Purchase and renewal recovery remains reachable without relying on a fresh quote.
 
-The order request helper alone creates and conditionally clears the stored key; browser transactions serialize changes across tabs. Recovery views only read the attempt and submit its expected key. Reseller, loyalty and wallet-topup paths are outside this invariant and remain under review.
+The order request helper alone creates and conditionally clears the stored key; browser transactions serialize changes across tabs. Recovery views only read the attempt and submit its expected key. Reseller and loyalty paths are outside this invariant and remain under review.
 
 | Event | No pending key | Pending key | Confirmed or stale recovery |
 |---|---|---|---|
@@ -75,7 +83,8 @@ The order request helper alone creates and conditionally clears the stored key; 
 - FE-004: six order/renewal unit tests, all 98 storefront tests, lint, typecheck and build passed. The browser suite passed 25 tests, including retry after reload; two staging-only tests were skipped.
 - FE-005: all 100 storefront tests, lint, typecheck, format check and build passed. The full browser suite passed 26 tests including real two-tab coordination; two staging-only tests were skipped.
 - FE-006: storefront lint, typecheck, format check, build and all 104 unit tests passed. The browser suite passed 28 tests, including purchase and renewal recovery; two staging-only tests were skipped. Backend lint and tests are running separately.
+- FE-007: 17 focused wallet/ticket tests passed, including five new topup regressions; lint and typecheck passed. Two real-browser tests passed, covering coordinated purchases and topups across tabs.
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
 - Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 
-Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 through FE-005 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
+Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 through FE-007 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
