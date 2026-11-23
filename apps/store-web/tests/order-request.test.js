@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { submitOrder } from '../src/orderRequest.ts';
+import { listPendingOrders, submitOrder } from '../src/orderRequest.ts';
 import { withAttemptLock } from '../src/attemptLock.ts';
 
 // Browser tests exercise IndexedDB locking; these tests isolate request and UI behavior.
@@ -75,6 +75,33 @@ describe('durable order requests', () => {
     expect(keys(coreFetch)[3]).toBe(keys(coreFetch)[2]);
     pending[3](json({ id: 'new' }));
     await retry;
+  });
+
+  it('finds pending orders only for the current store, account and kind', async () => {
+    const coreFetch = vi.fn(async () => json({}, 503));
+    const renewal = { product_id: 'p1', payment_method: 'wallet', kind: 'renewal', vpn_account_id: 'vpn1' };
+    await submitOrder(input(coreFetch, 'u1', renewal));
+    await submitOrder(input(coreFetch, 'u1', body));
+    expect(await listPendingOrders('renewal', 's1', 'u1')).toEqual([{ body: renewal, key: keys(coreFetch)[0] }]);
+    expect(await listPendingOrders('purchase', 's1', 'u1')).toEqual([{ body, key: keys(coreFetch)[1] }]);
+    expect(await listPendingOrders('renewal', 's1', 'u2')).toEqual([]);
+    expect(await listPendingOrders('purchase', 's1', 'u2')).toEqual([]);
+    expect(await listPendingOrders('renewal', 's2', 'u1')).toEqual([]);
+  });
+
+  it('does not resubmit a stale recovery action after another tab confirmed it', async () => {
+    const coreFetch = vi
+      .fn()
+      .mockResolvedValueOnce(json({}, 503))
+      .mockResolvedValueOnce(json({ id: 'o1' }));
+    const renewal = { product_id: 'p1', payment_method: 'wallet', kind: 'renewal', vpn_account_id: 'vpn1' };
+    await submitOrder(input(coreFetch, 'u1', renewal));
+    const [attempt] = await listPendingOrders('renewal', 's1', 'u1');
+    await submitOrder(input(coreFetch, 'u1', renewal));
+    await expect(submitOrder({ ...input(coreFetch, 'u1', renewal), expectedKey: attempt.key })).rejects.toThrow(
+      'وضعیت درخواست قبلی تغییر کرده است',
+    );
+    expect(coreFetch).toHaveBeenCalledTimes(2);
   });
 
   it('does not send if cross-tab storage coordination is unavailable', async () => {

@@ -4,6 +4,7 @@ import { GoogleSignInButton } from './GoogleSignIn.tsx';
 import { Empty, Loading, PageTitle, PasswordInput, fa, fd } from './ui.tsx';
 import { J, tabs, card, btn, inp, Orders, Vpn } from './dashboard/DashboardAccounts.tsx';
 import { Wallet } from './dashboard/DashboardWallet.tsx';
+import { PendingPurchases } from './dashboard/PendingPurchases.tsx';
 import { Tickets } from './dashboard/DashboardTickets.tsx';
 import { LINKING_TAB_KEY } from './linkingTab.ts';
 import type { Json } from './types';
@@ -345,9 +346,27 @@ export default function Dashboard({
           {tab === 'notifications' && (
             <Notifications coreFetch={coreFetch} storeId={storeId} notify={notify} onCount={setUnread} />
           )}
-          {tab === 'orders' && <Orders orders={orders} />}
+          {tab === 'orders' && (
+            <>
+              <PendingPurchases
+                coreFetch={coreFetch}
+                storeId={storeId}
+                accountId={account?.id}
+                notify={notify}
+                reload={reload}
+              />
+              <Orders orders={orders} />
+            </>
+          )}
           {tab === 'vpn' && (
-            <Vpn coreFetch={coreFetch} storeId={storeId} userId={account?.id} notify={notify} reload={reload} />
+            <Vpn
+              key={String(storeId) + ':' + (account?.id ?? '')}
+              coreFetch={coreFetch}
+              storeId={storeId}
+              userId={account?.id}
+              notify={notify}
+              reload={reload}
+            />
           )}
           {tab === 'wallet' && (
             <Wallet
