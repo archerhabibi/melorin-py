@@ -1,9 +1,12 @@
 """User-facing API of linking (``/identity``). Thin: the rules live in ``linking`` / ``telegram`` / ``consolidation``."""
 
-from fastapi import APIRouter, Request, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Request, Response
 
 from melorin.core.deps import CurrentUser, Session, main_store
 from melorin.core.errors import AppError
+from melorin.core.limits import MAX_OFFSET
 from melorin.core.ratelimit import hit
 from melorin.modules.identity import google as google_signin
 from melorin.modules.identity import service
@@ -49,9 +52,14 @@ async def link_operations(user: CurrentUser, session: Session):
 
 
 @router.get("/history")
-async def unified_orders(user: CurrentUser, session: Session, limit: int = 50, offset: int = 0):
+async def unified_orders(
+    user: CurrentUser,
+    session: Session,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=MAX_OFFSET)] = 0,
+):
     person = await persons.ensure_person(session, user)
-    return await queries.orders(session, person.id, min(max(limit, 1), 100), max(offset, 0))
+    return await queries.orders(session, person.id, limit, offset)
 
 
 @router.post("/link/telegram/start", response_model=TelegramStartOut)

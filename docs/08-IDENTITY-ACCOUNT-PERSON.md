@@ -281,7 +281,7 @@ they expired or were revoked.
 * بررسی کوپن (سقف استفاده‌ی هر کاربر) و ثبت رفرال (`attach`) از نظر هم‌پوشانی فروشگاه‌ها (تیکت و `/me/referrals` در این پچ بسته شد).
 * (انجام شد در R06 - docs/17) secretهای جدای رانرها در compose/installer/update.
 * (انجام شد در T03) اتصال کانال به کلید API نماینده.
-* (انجام شد در T54) `rate_limit_per_minute` کلید با `core.ratelimit.hit` اعمال می‌شود، به شرط `MELORIN_ENFORCE_API_KEY_RATE_LIMIT=true` (پیش‌فرض خاموش). هنگام قطع Redis در staging/production همان سیاست `core.ratelimit` (رد با 429) گرفته می‌شود؛ پاسخ: `API_RATE_LIMITED` (429).
+* (انجام شد در T54) `rate_limit_per_minute` کلید با `core.ratelimit.hit` اعمال می‌شود، مگر آنکه `MELORIN_ENFORCE_API_KEY_RATE_LIMIT=false` باشد (پیش‌فرض روشن؛ SEC-001). هنگام قطع Redis در staging/production همان سیاست `core.ratelimit` (رد با 429) گرفته می‌شود؛ پاسخ: `API_RATE_LIMITED` (429).
 
 ##### Site switch per store (`stores.site_enabled`)
 

@@ -7,12 +7,15 @@
 | 2026-11-22 | The dedicated test server `melorin-server` may be used freely (installs, docker, browsers). | Owner |
 | 2026-11-22 | Branch chain kept as proposed; audit phase parallel and read-only, fix phase in chain order. | AI-00 |
 | 2026-11-23 | Baseline on `ee384d6` is green on every reproducible CI step. | AI-00 |
+| 2026-11-23 | Fix phase runs team by team in chain order and every team is pushed as soon as its first proven change is green (owner request). The test server has no GitHub credentials: commits are relayed through the owner machine over SSH with a pinned host key. | AI-00 |
 
 ## Status
 | Team | Phase | State |
 |---|---|---|
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
-| AI-01..AI-08 | 1 | Not started (starting after Phase 0 PR) |
+| AI-01 | 3 | BE-001 fixed (PR #161) |
+| AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
+| AI-03..AI-08 | 1 | Not started (sequential, in chain order) |
 
 ## Scope / ownership exceptions
-None yet.
+- 2026-11-23 AI-02 changed `apps/api/melorin/core/config.py` (AI-01) and `.env.example` (AI-07), one default each, for SEC-001. Approved by AI-00; the owners review them in the AI-02 PR.

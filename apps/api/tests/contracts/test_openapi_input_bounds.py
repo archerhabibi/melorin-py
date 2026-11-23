@@ -11,16 +11,6 @@ from melorin.app import app
 # Violations owned by a later audit team (audit/OWNERSHIP-MATRIX.md). Each owner deletes its entries in its own PR; the second
 # test fails when an entry is no longer violated, so this list can only shrink.
 PENDING: set[str] = {
-    # AI-02 (identity / telegram): Telegram ids use ``limits.MAX_TELEGRAM_ID``; history paging uses ``MAX_OFFSET`` and a limit cap.
-    "GET /api/v1/identity/history ?limit",
-    "GET /api/v1/identity/history ?offset",
-    "GET /api/v1/internal/identity/telegram/status ?telegram_id",
-    "TelegramBotLogin.telegram_id",
-    "TelegramLink.telegram_id",
-    "TelegramWebDecision.telegram_id",
-    "TelegramWebDevices.telegram_id",
-    "TelegramWebInspect.telegram_id",
-    "TelegramWebRevoke.telegram_id",
     # AI-03 (payments/schemas.py, money rules): amounts use ``limits.MAX_MONEY``, minutes/hours use ``MAX_DAYS``-style caps.
     "BankSmsSettingsIn.max_auto_amount_rial",
     "BankSmsSettingsIn.time_tolerance_minutes",

@@ -274,8 +274,11 @@ async def test_over_http_the_key_decides_the_store_and_errors_keep_their_public_
 
 
 # ------------------------------------------------------------------ T54: the key's own rate limit
-async def test_api_key_rate_limit_is_off_by_default_and_enforced_when_enabled(monkeypatch):
-    from melorin.core.config import get_settings
+async def test_api_key_rate_limit_is_on_by_default_and_can_be_turned_off(monkeypatch):
+    from melorin.core.config import Settings, get_settings
+
+    # SEC-001: the limit shown to the reseller must be the limit that is applied unless an operator opts out.
+    assert Settings.model_fields["enforce_api_key_rate_limit"].default is True
 
     calls = []
 
@@ -287,14 +290,16 @@ async def test_api_key_rate_limit_is_off_by_default_and_enforced_when_enabled(mo
     async with open_session() as s:
         w = await _world(s)
         raw = await _key(s, w.a, w.owner_a)
-        await _open(s, raw, w.a)
-        assert calls == []  # default: not enforced, Redis not touched
-
         monkeypatch.setattr(get_settings(), "enforce_api_key_rate_limit", True)
         await _open(s, raw, w.a)
         await _open(s, raw, w.a)
         assert await _code(_open(s, raw, w.a)) == "API_RATE_LIMITED"
         assert calls[0][1:] == (120, 60) and calls[0][0].startswith("apikey:")
+
+        calls.clear()
+        monkeypatch.setattr(get_settings(), "enforce_api_key_rate_limit", False)
+        await _open(s, raw, w.a)
+        assert calls == []  # explicit opt-out: the budget is not counted and Redis is not touched
 
 
 async def test_unknown_key_never_burns_a_budget(monkeypatch):
