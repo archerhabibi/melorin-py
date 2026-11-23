@@ -80,4 +80,4 @@ The order request helper alone creates and conditionally clears the stored key; 
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
 - Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 
-Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 through FE-006 only change frontend code and audit documentation. A fresh backend make lint passed; make test is running. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
+Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 through FE-006 only change frontend code and audit documentation. A fresh backend make lint and make test also passed on the FE-006 tree: 2,921 tests passed and 19 were skipped. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
