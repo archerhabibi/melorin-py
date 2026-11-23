@@ -16,7 +16,7 @@
 | AI-01 | 3 | BE-001 fixed (PR #161) |
 | AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
 | AI-03 | 3 | DB-001..DB-003 fixed; ledger reconciliation, CHECK constraints and the order-creation concurrency test follow |
-| AI-04 | 3 | INT-001 fixed (SMTP certificate verification); panel adapters and the rest of bank SMS still to review |
+| AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05..AI-08 | 1 | Not started (sequential, in chain order) |
 
 ## Scope / ownership exceptions
