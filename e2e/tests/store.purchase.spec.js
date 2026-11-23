@@ -265,3 +265,85 @@ test('overlapping tabs wait for storage coordination and share one order key', a
   expect(keys[0]).toBe(keys[1]);
   releaseResponses.forEach((release) => release());
 });
+
+test('a pending renewal stays recoverable after reload when the account becomes ineligible', async ({ page }) => {
+  const keys = [];
+  const assertNoErrors = failOnPageErrors(page);
+  await mockCore(
+    page,
+    signedIn({
+      'GET /api/v1/stores/store-main/vpn-accounts': () => [
+        {
+          id: 'vpn1',
+          username: 'account1',
+          health: 'active',
+          is_test: false,
+          can_renew: keys.length === 0,
+          can_return: false,
+        },
+      ],
+      'GET /api/v1/stores/store-main/vpn-accounts/summary': { total: 1, active: 1, expiring: 0, expired: 0 },
+      'GET /api/v1/stores/store-main/accounts/vpn1/renewal': () =>
+        keys.length
+          ? { renewable: false, code: 'RENEWAL_IN_PROGRESS', message: 'تمدید در حال انجام است' }
+          : { renewable: true, package: { product_id: 'p1', name: 'E2E Plan' } },
+      'POST /api/v1/stores/store-main/checkout/quote': {
+        total: 100000,
+        currency: 'تومان',
+        sufficient_funds: true,
+      },
+      'POST /api/v1/stores/store-main/orders': (req) => {
+        keys.push(req.headers()['idempotency-key']);
+        return keys.length === 1 ? { status: 503, body: { error: { message: 'نتیجه نامعلوم' } } } : { id: 'o1' };
+      },
+    }),
+  );
+  await page.goto('/#/dashboard');
+  await page.getByRole('button', { name: 'اکانت‌های VPN' }).click();
+  await page.getByRole('button', { name: 'تمدید', exact: true }).click();
+  await page.getByRole('button', { name: 'پرداخت از کیف پول و تمدید' }).click();
+  await expect.poll(() => keys.length).toBe(1);
+  await page.reload();
+  await page.getByRole('button', { name: 'اکانت‌های VPN' }).click();
+  await page.getByRole('button', { name: 'پیگیری تمدید قبلی' }).click();
+  await page.getByRole('button', { name: 'تلاش مجدد تمدید قبلی' }).click();
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[1]).toBe(keys[0]);
+  assertNoErrors();
+});
+
+test('a lost purchase remains recoverable even when the new quote has insufficient funds', async ({ page }) => {
+  const keys = [];
+  const assertNoErrors = failOnPageErrors(page);
+  await mockCore(
+    page,
+    signedIn({
+      'POST /api/v1/stores/store-main/checkout/quote': () => ({
+        total: 100000,
+        currency: 'تومان',
+        wallet_balance: keys.length ? 0 : 500000,
+        sufficient_funds: keys.length === 0,
+      }),
+      'POST /api/v1/stores/store-main/orders': (req) => {
+        keys.push(req.headers()['idempotency-key']);
+        return keys.length === 1 ? { status: 503, body: { error: { message: 'نتیجه نامعلوم' } } } : { id: 'o1' };
+      },
+    }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: /E2E Plan/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /پرداخت از کیف پول/ })
+    .click();
+  await expect.poll(() => keys.length).toBe(1);
+  await page.reload();
+  await page.getByRole('button', { name: /E2E Plan/ }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /پرداخت از کیف پول/ })).toBeDisabled();
+  await page.getByRole('dialog').getByRole('button', { name: 'رفتن به کیف پول' }).click();
+  await page.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'سفارش‌ها' }).click();
+  await page.getByRole('button', { name: 'تلاش مجدد سفارش قبلی' }).click();
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[1]).toBe(keys[0]);
+  assertNoErrors();
+});

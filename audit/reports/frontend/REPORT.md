@@ -1,7 +1,7 @@
 # AI-05 — Frontend audit (in progress)
 
 Base: audit/04-integrations at 6e5f745f61d09915f9528ccd0e967cd5ff544222.
-Scope so far: browser-facing headers in the store and admin Nginx configurations, the bundled Caddy proxy, and the external-proxy deployment.
+Scope so far: browser security headers, storefront recovery, wallet topups, and purchase and renewal retry flows. Reseller and loyalty flows remain under review.
 
 ## FE-001 — browser protections depend on which proxy is used
 
@@ -45,13 +45,36 @@ Two tabs could both see no pending order key and create different keys; a late r
 
 A short IndexedDB transaction now serializes key creation and conditional removal across tabs. A delayed success only clears the key it actually used. If browser storage or cross-tab coordination is unavailable, the request is not sent. Existing pending localStorage keys remain usable. Reseller, loyalty and wallet topup flows still need their own concurrency review.
 
+## FE-006 — an unresolved order can become impossible to retry
+
+Severity: High. Status: Fixed.
+
+At b2b0099 the frontend retained the original idempotency key but did not expose it if a fresh purchase quote showed insufficient funds, or if a VPN account was no longer eligible for renewal. A lost response after the order was committed could therefore leave the customer unable to recover its result. The renewal unit regression and purchase browser regression both failed against the previous frontend because the recovery action was absent.
+
+The order and VPN views now expose unresolved attempts for the current customer and store, even when a fresh quote is unavailable. Recovery submits the original payload and key; an action whose key has already been cleared cannot start a new order. The UI explains that an order not previously registered is retried at the current price. This relies on the existing backend idempotency contract and makes no API or schema changes.
+
+## Customer order retry invariants
+
+For a store, signed-in customer and exact request payload, every unresolved retry uses the same key. A late response must not erase a newer key, and a stale recovery action must never start a new order. If coordination or storage fails, no order is sent. Purchase and renewal recovery remains reachable without relying on a fresh quote.
+
+The order request helper alone creates and conditionally clears the stored key; browser transactions serialize changes across tabs. Recovery views only read the attempt and submit its expected key. Reseller, loyalty and wallet-topup paths are outside this invariant and remain under review.
+
+| Event | No pending key | Pending key | Confirmed or stale recovery |
+|---|---|---|---|
+| Start or retry same payload | Create a key before sending | Reuse that key | A fresh intentional order creates a new key |
+| Different payload | Create its own key | Keep the existing key and scope the other payload separately | A stale recovery cannot create a new key |
+| Network loss, non-2xx, invalid success body | No request if storage failed | Retain the key for the same customer and payload | Never clear a newer key |
+| Valid success | No change unless it matches the sent key | Clear only the matching key | A delayed response cannot clear another attempt |
+| Storage or coordination unavailable | Refuse to send | Refuse to send | Refuse to send |
+
 ## Verification
 
 - FE-001: five policy and real Nginx response tests passed.
 - FE-002: all 89 storefront tests passed before FE-003, including the recovery action and application entry point; lint, typecheck, format check and build also passed.
 - FE-003: all 12 wallet/ticket tests passed; storefront lint, typecheck and format check passed.
 - FE-004: six order/renewal unit tests, all 98 storefront tests, lint, typecheck and build passed. The browser suite passed 25 tests, including retry after reload; two staging-only tests were skipped.
-- FE-005: all 100 storefront tests, a real-browser two-tab coordination test, lint, typecheck, format check and build passed. The full browser suite is running.
+- FE-005: all 100 storefront tests, lint, typecheck, format check and build passed. The full browser suite passed 26 tests including real two-tab coordination; two staging-only tests were skipped.
+- FE-006: storefront lint, typecheck, format check, build and all 104 unit tests passed. The browser suite passed 28 tests, including purchase and renewal recovery; two staging-only tests were skipped. Backend lint and tests are running separately.
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
 - Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 
