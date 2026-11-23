@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listPendingOrders } from './orderRequest.ts';
+import { subscribeToAttemptChanges } from './attemptLock.ts';
 import type { OrderKind, PendingOrder } from './orderRequest.ts';
 
 /** Keep recovery views scoped to the current account and in sync with other tabs. */
@@ -21,11 +22,9 @@ export function usePendingOrders(kind: OrderKind, storeId?: string, accountId?: 
     };
   }, [kind, storeId, accountId, scope, version]);
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key.startsWith('melorin:order-attempt:')) refresh();
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    return subscribeToAttemptChanges((key) => {
+      if (key === null || key.startsWith('melorin:order-attempt:')) refresh();
+    });
   }, [refresh]);
   const current = snapshot?.scope === scope ? snapshot : null;
   return {

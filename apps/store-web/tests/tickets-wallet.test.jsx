@@ -3,13 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Dashboard, { Tickets, Wallet } from '../src/Dashboard.tsx';
 import { PasswordInput } from '../src/ui.tsx';
+import { readAttempt, resetAttemptStorage } from './attemptStorage.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'screen.png', { type: 'image/png' });
 
 beforeEach(() => {
-  localStorage.clear();
+  resetAttemptStorage();
   URL.createObjectURL = vi.fn(() => 'blob:ticket-image');
   URL.revokeObjectURL = vi.fn();
   Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout, so no scrolling
@@ -67,7 +68,7 @@ describe('Wallet shows the Telegram ID', () => {
     await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('نتیجه نامعلوم'));
-    expect(localStorage.getItem('melorin:wallet-topup:s1:u1')).toContain(keys[0]);
+    expect(await readAttempt('melorin:wallet-topup:s1:u1')).toContain(keys[0]);
 
     first.unmount();
     render(<Wallet accountId="u1" coreFetch={coreFetch} storeId="s1" notify={notify} />);
@@ -76,7 +77,7 @@ describe('Wallet shows the Telegram ID', () => {
     await waitFor(() => expect(posts).toBe(2));
 
     expect(keys[1]).toBe(keys[0]);
-    expect(localStorage.getItem('melorin:wallet-topup:s1:u1')).toContain(keys[0]);
+    expect(await readAttempt('melorin:wallet-topup:s1:u1')).toContain(keys[0]);
     expect(screen.getByText('1234')).toBeInTheDocument();
   });
 
@@ -171,7 +172,7 @@ describe('Wallet shows the Telegram ID', () => {
     await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
     await waitFor(() => expect(keys).toHaveLength(1));
-    expect(localStorage.getItem('melorin:wallet-topup:s1:user-c')).toContain(keys[0]);
+    expect(await readAttempt('melorin:wallet-topup:s1:user-c')).toContain(keys[0]);
   });
 
   it('allows a different amount once the previous payment was received (no dead end after reload)', async () => {
