@@ -348,7 +348,15 @@ export default function Dashboard({
           {tab === 'orders' && <Orders orders={orders} />}
           {tab === 'vpn' && <Vpn coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} />}
           {tab === 'wallet' && (
-            <Wallet coreFetch={coreFetch} storeId={storeId} wallet={wallet} reload={reload} notify={notify} />
+            <Wallet
+              key={`${storeId}:${account?.id ?? ''}`}
+              coreFetch={coreFetch}
+              storeId={storeId}
+              accountId={account?.id}
+              wallet={wallet}
+              reload={reload}
+              notify={notify}
+            />
           )}
           {tab === 'profile' && (
             <Profile coreFetch={coreFetch} storeId={storeId} account={account} notify={notify} reload={reload} />

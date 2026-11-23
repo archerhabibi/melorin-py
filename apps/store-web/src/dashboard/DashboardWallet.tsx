@@ -6,12 +6,14 @@ import type { Json } from '../types';
 export function Wallet({
   coreFetch,
   storeId,
+  accountId,
   wallet,
   reload,
   notify,
 }: {
   coreFetch?: Json;
   storeId?: Json;
+  accountId?: string;
   wallet?: Json;
   reload?: Json;
   notify?: Json;
@@ -20,11 +22,15 @@ export function Wallet({
   const [amount, setAmount] = useState('');
   const [pay, setPay] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
-  const topupStorageKey = `melorin:wallet-topup:${storeId}`;
+  const topupStorageKey =
+    typeof storeId === 'string' && storeId.trim() && typeof accountId === 'string' && accountId.trim()
+      ? `melorin:wallet-topup:${encodeURIComponent(storeId)}:${encodeURIComponent(accountId)}`
+      : null;
   // state: 'unknown' = the outcome of the last request is not known (network error / 5xx / unknown-outcome code), so the same
   // key must be reused; 'active' = a payment exists and was received, so a different amount may start a fresh request.
   type TopupAttempt = { amount?: string; idempotencyKey?: string; state?: 'unknown' | 'active' };
   const saveAttempt = (a: TopupAttempt) => {
+    if (!topupStorageKey) return;
     try {
       localStorage.setItem(topupStorageKey, JSON.stringify(a));
     } catch {
@@ -32,6 +38,7 @@ export function Wallet({
     }
   };
   const clearAttempt = () => {
+    if (!topupStorageKey) return;
     try {
       localStorage.removeItem(topupStorageKey);
     } catch {
@@ -48,6 +55,10 @@ export function Wallet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [storeId]);
   async function topup() {
+    if (!topupStorageKey) {
+      notify('برای ایجاد درخواست شارژ، اطلاعات حساب باید بارگذاری شود.');
+      return;
+    }
     const requestedAmount = String(Number(amount));
     let idempotencyKey: string;
     try {
@@ -196,7 +207,16 @@ export function Wallet({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
               />
-              <button disabled={busy || !Number(amount)} onClick={topup} className={`${btn} mt-3 w-full`}>
+              {!topupStorageKey && (
+                <p role="status" className="mt-2 text-xs text-muted">
+                  برای ایجاد درخواست شارژ، اطلاعات حساب باید بارگذاری شود.
+                </p>
+              )}
+              <button
+                disabled={busy || !Number(amount) || !topupStorageKey}
+                onClick={topup}
+                className={`${btn} mt-3 w-full`}
+              >
                 ایجاد درخواست
               </button>
             </>

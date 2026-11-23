@@ -17,9 +17,21 @@ Severity: Medium. Status: Fixed.
 
 A rendering error could unmount the entire storefront with no way for the customer to recover. The application now has a top-level error boundary with an accessible reload action. The message asks the customer to check payment status without claiming that every in-flight operation is automatically preserved. The boundary does not handle event-handler or asynchronous exceptions.
 
+## FE-003 — wallet retry state is shared by different customers in the same browser
+
+Severity: High. Status: Fixed.
+
+The frontend stored a topup attempt using only the store ID, while the backend identifies an idempotent payment by both user and store. A second customer using the same browser could be blocked by, or overwrite, another customer's unresolved attempt. That can prevent safe recovery of the original request.
+
+The storage key now includes the signed-in account ID and store ID. The action is disabled until a valid account identity is available, and the wallet view remounts if the account changes. Tests reproduce the original cross-account failure, check independent retry keys, and exercise the dashboard wiring.
+
+Legacy per-store-only browser entries cannot be reliably assigned to an account and are not reused; any test payment already in flight under the old key must be reconciled before retrying.
+
 ## Verification
 
 - FE-001: five policy and real Nginx response tests passed.
-- FE-002: all 89 storefront tests passed, including the recovery action and application entry point; lint, typecheck, format check and build also passed.
+- FE-002: all 89 storefront tests passed before FE-003, including the recovery action and application entry point; lint, typecheck, format check and build also passed.
+- FE-003: all 12 wallet/ticket tests passed; storefront lint, typecheck and format check passed.
+- Admin web: 361 tests, lint, typecheck, format check and build passed.
 
-The backend make lint passed; make test is running and its result will be recorded after it finishes. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
+Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 and FE-003 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
