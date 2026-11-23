@@ -12,6 +12,8 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | DB-003 | Low | A ledger transaction can be reversed twice when the second caller uses another idempotency key | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | INT-001 | Medium | SMTP over TLS (`ssl` and `starttls`) accepts any certificate and any host name: `smtplib` falls back to an unverified context | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-002 | Medium | Outgoing webhook delivery buffers the receiver's whole response and bounds only each read: a tenant-controlled endpoint can exhaust worker memory or hold its delivery slots | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
+| FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | QA-001 | Medium | Flaky `tests/http/test_store_scoped_referral_program.py::test_earned_counts_every_commission_of_the_store_not_only_the_latest_page_the_screens_list` (IntegrityError on PostgreSQL, CI run 45077001718) | AI-08 | Open | (AI-08 report) |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)

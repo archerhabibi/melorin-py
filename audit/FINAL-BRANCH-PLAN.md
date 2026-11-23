@@ -14,7 +14,7 @@ main
         └── audit/02-security
             └── audit/03-database-finance
                 └── audit/04-integrations
-                    └── audit/05-frontend
+                    └── audit/05-frontend-fe001
                         └── audit/06-telegram-workers
                             └── audit/07-devops
                                 └── audit/08-qa-performance
