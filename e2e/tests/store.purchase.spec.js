@@ -305,6 +305,49 @@ test('overlapping wallet topups wait for coordination and share one payment key'
   releaseResponses.forEach((release) => release());
 });
 
+test('overlapping loyalty redemptions wait for coordination and share one key', async ({ page, context }) => {
+  const pages = [page, await context.newPage()];
+  const keys = [];
+  const releaseResponses = [];
+  const club = {
+    enabled: true,
+    currency: 'IRT',
+    balance: 1000,
+    lifetime_earned: 1000,
+    debt: 0,
+    rewards: [{ id: 'r1', name: 'پاداش', cost_points: 100, value: 1000, available: true }],
+    history: [],
+  };
+  for (const p of pages) {
+    await mockCore(p, signedIn({ 'GET /api/v1/stores/store-main/loyalty': club }));
+    await p.route('**/api/v1/stores/store-main/loyalty/rewards/r1/redeem', async (route) => {
+      keys.push(route.request().headers()['idempotency-key']);
+      await new Promise((resolve) => releaseResponses.push(resolve));
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+    });
+    await p.goto('/#/dashboard');
+    await p.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'پروفایل و امنیت' }).click();
+    await expect(p.getByRole('button', { name: 'دریافت پاداش' })).toBeEnabled();
+  }
+  await holdAttemptLock(page);
+  for (const p of pages) {
+    await p.evaluate(() => {
+      const original = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (...args) => {
+        window.loyaltyLockRequested = true;
+        return original(...args);
+      };
+    });
+  }
+  await Promise.all(pages.map((p) => p.getByRole('button', { name: 'دریافت پاداش' }).click()));
+  for (const p of pages) await expect.poll(() => p.evaluate(() => window.loyaltyLockRequested)).toBe(true);
+  expect(keys).toHaveLength(0);
+  await page.evaluate(() => window.releaseAttemptTestLock());
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[0]).toBe(keys[1]);
+  releaseResponses.forEach((release) => release());
+});
+
 test('a pending renewal stays recoverable after reload when the account becomes ineligible', async ({ page }) => {
   const keys = [];
   const assertNoErrors = failOnPageErrors(page);
