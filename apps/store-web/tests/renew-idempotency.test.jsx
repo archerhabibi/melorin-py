@@ -3,6 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Vpn } from '../src/dashboard/DashboardAccounts.tsx';
 
+// Browser tests exercise IndexedDB locking; these tests isolate request and UI behavior.
+vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: async (operation) => operation() }));
+
 vi.mock('../src/AccountInquiry.tsx', () => ({
   default: ({ renderExtra }) => <div>{renderExtra({ id: 'vpn1', can_renew: true, is_test: false })}</div>,
 }));

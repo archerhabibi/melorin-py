@@ -35,7 +35,15 @@ Purchase and renewal requests generated a new idempotency key on every click. If
 
 The frontend now persists the request key before sending, scoped to the signed-in account, store, and exact order payload, and keeps it through ambiguous outcomes. A confirmed order clears the key so a later intentional purchase can proceed. If identity or safe browser storage is unavailable, no order is sent. The same mechanism covers the customer purchase and renewal flows.
 
-Orders already submitted by the old frontend had no durable key; check order history before retrying an unresolved pre-fix purchase or renewal. Simultaneous first attempts from separate tabs and reseller retry paths remain under review.
+Orders already submitted by the old frontend had no durable key; check order history before retrying an unresolved pre-fix purchase or renewal. Reseller and loyalty retry paths remain under review.
+
+## FE-005 — concurrent tabs can duplicate an order or lose a newer retry key
+
+Severity: High. Status: Fixed for customer purchase and renewal requests.
+
+Two tabs could both see no pending order key and create different keys; a late response could also delete a newer attempt's key. Browser localStorage operations alone do not make the read-modify-write sequence atomic.
+
+A short IndexedDB transaction now serializes key creation and conditional removal across tabs. A delayed success only clears the key it actually used. If browser storage or cross-tab coordination is unavailable, the request is not sent. Existing pending localStorage keys remain usable. Reseller, loyalty and wallet topup flows still need their own concurrency review.
 
 ## Verification
 
@@ -43,7 +51,8 @@ Orders already submitted by the old frontend had no durable key; check order his
 - FE-002: all 89 storefront tests passed before FE-003, including the recovery action and application entry point; lint, typecheck, format check and build also passed.
 - FE-003: all 12 wallet/ticket tests passed; storefront lint, typecheck and format check passed.
 - FE-004: six order/renewal unit tests, all 98 storefront tests, lint, typecheck and build passed. The browser suite passed 25 tests, including retry after reload; two staging-only tests were skipped.
+- FE-005: all 100 storefront tests, a real-browser two-tab coordination test, lint, typecheck, format check and build passed. The full browser suite is running.
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
 - Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 
-Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 and FE-003 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
+Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 through FE-005 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.

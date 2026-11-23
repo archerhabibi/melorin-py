@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { submitOrder } from '../src/orderRequest.ts';
+import { withAttemptLock } from '../src/attemptLock.ts';
+
+// Browser tests exercise IndexedDB locking; these tests isolate request and UI behavior.
+vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: vi.fn(async (operation) => operation()) }));
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const body = { product_id: 'p1', payment_method: 'wallet', kind: 'purchase', bundle_id: 'b1' };
@@ -47,6 +51,37 @@ describe('durable order requests', () => {
     await submitOrder(input(coreFetch));
     await submitOrder(input(coreFetch));
     expect(keys(coreFetch)[1]).not.toBe(keys(coreFetch)[0]);
+  });
+
+  it('keeps a newer pending key when a duplicate response arrives late', async () => {
+    const pending = [];
+    const coreFetch = vi.fn(() => new Promise((resolve) => pending.push(resolve)));
+    const first = submitOrder(input(coreFetch));
+    const duplicate = submitOrder(input(coreFetch));
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    expect(keys(coreFetch)[0]).toBe(keys(coreFetch)[1]);
+
+    pending[0](json({ id: 'old' }));
+    await first;
+    const next = submitOrder(input(coreFetch));
+    await vi.waitFor(() => expect(pending).toHaveLength(3));
+    expect(keys(coreFetch)[2]).not.toBe(keys(coreFetch)[0]);
+    pending[1](json({ id: 'old' }));
+    await duplicate;
+    pending[2](json({}, 503));
+    await next;
+    const retry = submitOrder(input(coreFetch));
+    await vi.waitFor(() => expect(pending).toHaveLength(4));
+    expect(keys(coreFetch)[3]).toBe(keys(coreFetch)[2]);
+    pending[3](json({ id: 'new' }));
+    await retry;
+  });
+
+  it('does not send if cross-tab storage coordination is unavailable', async () => {
+    const coreFetch = vi.fn();
+    withAttemptLock.mockRejectedValueOnce(new Error('blocked'));
+    await expect(submitOrder(input(coreFetch))).rejects.toThrow('درخواست ارسال نشد');
+    expect(coreFetch).not.toHaveBeenCalled();
   });
 
   it('does not send without an account or when safe storage is unavailable', async () => {

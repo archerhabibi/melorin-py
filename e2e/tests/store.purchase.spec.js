@@ -193,3 +193,75 @@ test('a lost order response is retried with the same key after a reload', async 
   await expect.poll(() => keys.length).toBe(2);
   expect(keys[1]).toBe(keys[0]);
 });
+
+test('overlapping tabs wait for storage coordination and share one order key', async ({ page, context }) => {
+  const pages = [page, await context.newPage()];
+  const keys = [];
+  const releaseResponses = [];
+  const quote = { total: 100000, currency: 'تومان', wallet_balance: 500000, sufficient_funds: true };
+  for (const p of pages) {
+    await mockCore(p, signedIn({ 'POST /api/v1/stores/store-main/checkout/quote': quote }));
+    await p.route('**/api/v1/stores/store-main/orders', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      keys.push(route.request().headers()['idempotency-key']);
+      await new Promise((resolve) => releaseResponses.push(resolve));
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+    });
+    await p.goto('/');
+    await expect(p.getByRole('button', { name: /Tester/ }).first()).toBeVisible();
+    await p.getByRole('button', { name: /E2E Plan/ }).click();
+    await expect(p.getByRole('dialog').getByRole('button', { name: /پرداخت از کیف پول/ })).toBeEnabled();
+  }
+
+  // Hold a real read/write transaction so both tabs must wait before choosing a key.
+  await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open('melorin-attempt-lock', 1);
+        open.onerror = () => reject(open.error);
+        open.onupgradeneeded = () => open.result.createObjectStore('locks');
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('locks', 'readwrite');
+          const store = tx.objectStore('locks');
+          let released = false;
+          window.releaseAttemptTestLock = () => {
+            released = true;
+          };
+          const hold = () => {
+            if (!released) store.get('gate').onsuccess = hold;
+          };
+          const first = store.get('gate');
+          first.onsuccess = () => {
+            hold();
+            resolve();
+          };
+          tx.oncomplete = () => db.close();
+          tx.onabort = () => reject(tx.error);
+        };
+      }),
+  );
+  for (const p of pages) {
+    await p.evaluate(() => {
+      const original = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (...args) => {
+        window.orderLockRequested = true;
+        return original(...args);
+      };
+    });
+  }
+  await Promise.all(
+    pages.map((p) =>
+      p
+        .getByRole('dialog')
+        .getByRole('button', { name: /پرداخت از کیف پول/ })
+        .click(),
+    ),
+  );
+  for (const p of pages) await expect.poll(() => p.evaluate(() => window.orderLockRequested)).toBe(true);
+  expect(keys).toHaveLength(0);
+  await page.evaluate(() => window.releaseAttemptTestLock());
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[0]).toBe(keys[1]);
+  releaseResponses.forEach((release) => release());
+});

@@ -1,3 +1,5 @@
+import { withAttemptLock } from './attemptLock.ts';
+
 type OrderRequest = {
   coreFetch: (path: string, options: RequestInit) => Promise<Response>;
   storeId?: string;
@@ -22,10 +24,13 @@ export async function submitOrder({ coreFetch, storeId, accountId, body }: Order
     encodeURIComponent(payload);
   let key: string;
   try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved && !/^web-order-[0-9a-f-]+$/i.test(saved)) throw new Error('invalid stored key');
-    key = saved || 'web-order-' + crypto.randomUUID();
-    localStorage.setItem(storageKey, key);
+    key = await withAttemptLock(() => {
+      const saved = localStorage.getItem(storageKey);
+      if (saved && !/^web-order-[0-9a-f-]+$/i.test(saved)) throw new Error('invalid stored key');
+      const current = saved || 'web-order-' + crypto.randomUUID();
+      localStorage.setItem(storageKey, current);
+      return current;
+    });
   } catch {
     throw new Error('ذخیره امن وضعیت سفارش ممکن نیست؛ درخواست ارسال نشد.');
   }
@@ -50,7 +55,10 @@ export async function submitOrder({ coreFetch, storeId, accountId, body }: Order
     throw new Error('نتیجه سفارش مشخص نیست. برای جلوگیری از خرید تکراری، همین سفارش را دوباره بررسی کنید.');
   }
   try {
-    localStorage.removeItem(storageKey);
+    await withAttemptLock(() => {
+      // A delayed response must never clear a newer attempt in another tab.
+      if (localStorage.getItem(storageKey) === key) localStorage.removeItem(storageKey);
+    });
   } catch {
     // Keeping a confirmed key is safer than accidentally repeating the order.
   }
