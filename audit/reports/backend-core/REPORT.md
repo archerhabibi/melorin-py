@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-006 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-007 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -71,6 +71,15 @@
 - Regression: tests/postgres/test_loyalty_replay_postgres.py exercises four race cases and a different-key control; the service suite exercises a replay after program disablement. One redemption, one points debit, one balanced wallet credit and the correct remaining balance are asserted.
 - Compatibility: a conflicting same-key request now returns IDEMPOTENCY_KEY_REUSED (409); a retry of an already completed reward remains retrievable after the program is disabled. No schema migration.
 
+### BE-007 — Loyalty adjustment retries can acknowledge a different amount
+- Severity: Medium. Status: Fixed. Base: PR #180 at c2f361ccc65e370f3253e0ce07010578422b37a5.
+- File / symbol: modules/loyalty/adjustments.py, adjust.
+- Evidence: an administrator granted 80 points, then reused the same key with 120 or -10 points. HTTP returned 200 and the old 80-point transaction, without performing the requested adjustment. Both changed-amount PostgreSQL races and the HTTP regression failed on the parent.
+- Root cause: the points ledger returns an existing transaction by key, but the adjustment caller did not verify its account, operation kind or amount.
+- Fix: after the existing account lock and ledger lookup, reject a key whose stored account, kind or signed amount differs. Repeating the same adjustment returns the same transaction; a different key still applies a new adjustment. Reason remains descriptive audit metadata.
+- Regression: tests/http/test_loyalty_http.py checks real responses, balances and audit counts; tests/postgres/test_loyalty_adjustment_race_postgres.py exercises same-key, changed-amount, opposite-sign and different-key races.
+- Compatibility: changed amounts using an existing key now return IDEMPOTENCY_KEY_REUSED (409) rather than 200. No schema migration.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
@@ -99,6 +108,8 @@
 | BE-005 final service and HTTP checks | PASS | 9 passed, including replay after provisioning |
 | `gen_api_client.py --check`, `gen_docs.py --check` | PASS | API snapshot and generated docs unchanged |
 | BE-006 loyalty concurrency regressions | PASS | PostgreSQL: 5 passed after the fix; 4 failed on the parent. SQLite: 33 loyalty service and 8 HTTP tests passed; mypy and make lint passed |
+| BE-006 full make test | PASS | 2,951 passed, 39 skipped on the PR #180 code tree |
+| BE-007 focused regressions | PASS | PostgreSQL: 4 passed, including 2 races failing on the parent; SQLite: 42 loyalty service/HTTP tests passed; mypy and make lint passed |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.

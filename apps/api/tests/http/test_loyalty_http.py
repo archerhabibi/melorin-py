@@ -227,3 +227,30 @@ async def test_the_outbox_handlers_pay_and_take_back_club_points(monkeypatch):
             assert (acc.balance, acc.lifetime_earned) == (0, 0)
             kinds = (await s.scalars(select(LoyaltyTransaction.kind).order_by(LoyaltyTransaction.created_at))).all()
             assert kinds == ["order_earn", "reversal"]
+
+
+async def test_adjustment_key_reuse_rejects_a_different_amount():
+    async with api_client() as (c, maker, main):
+        admin = await _admin(c, maker)
+        customer = await add_user(maker, email="adjust-retry@example.com")
+        async with maker() as s:
+            from melorin.kernel.models.stores import StoreMembership
+
+            s.add(StoreMembership(store_id=main.id, user_id=customer.id, role="customer"))
+            await s.commit()
+        url = f"{V1}/stores/{main.id}/loyalty/manage/adjust"
+        body = {"user_id": str(customer.id), "delta": 80, "reason": "gift", "idempotency_key": "adjust-key-1"}
+        first = await c.post(url, headers=admin, json=body)
+        replay = await c.post(url, headers=admin, json=body)
+        assert first.status_code == replay.status_code == 200
+        assert first.json()["id"] == replay.json()["id"]
+        for delta in (120, -10):
+            conflict = await c.post(url, headers=admin, json={**body, "delta": delta})
+            assert conflict.status_code == 409 and _code(conflict) == "IDEMPOTENCY_KEY_REUSED"
+        other = await c.post(url, headers=admin, json={**body, "delta": -10, "idempotency_key": "adjust-key-2"})
+        assert other.status_code == 200 and other.json()["balance_after"] == 70
+        async with maker() as s:
+            acc = await s.scalar(select(LoyaltyAccount).where(LoyaltyAccount.user_id == customer.id, LoyaltyAccount.store_id == main.id))
+            assert (acc.balance, acc.lifetime_earned) == (70, 80)
+            assert await s.scalar(select(func.count()).select_from(LoyaltyTransaction)) == 2
+            assert await s.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "loyalty.points.adjusted")) == 2

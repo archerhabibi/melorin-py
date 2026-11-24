@@ -17,12 +17,13 @@
 | 2026-11-24 | SEC-003 follows SEC-002; password login rechecks the verified credential and account state under a row lock before issuing a session. | AI-00 |
 | 2026-11-24 | SEC-004 follows SEC-003; admin password changes and identity unlinking recheck password proof under a row lock. | AI-00 |
 | 2026-11-24 | BE-006 follows PR #179; loyalty redemption retries are rechecked under the existing account lock and conflicting rewards are rejected. | AI-00 |
+| 2026-11-24 | BE-007 follows PR #180; loyalty adjustment retries verify the existing amount and operation kind. | AI-00 |
 
 ## Status
 | Team | Phase | State |
 |---|---|---|
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
-| AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-006 fixed in follow-ups; broader business-logic review continues |
+| AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-007 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 through SEC-004 fixed; authorization matrix test added; 9 `PENDING` bounds closed; broader security review continues |
 | AI-03 | 3 | DB-001..DB-003 fixed; order-creation concurrency now tested, ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
@@ -37,3 +38,4 @@
 - 2026-11-24 BE-002 updates the shared PostgreSQL concurrency test (AI-08) alongside the reseller API fix (AI-01).
 - 2026-11-24 BE-003 replaces the skipped order concurrency contract (AI-08) alongside the order service fix (AI-01).
 - 2026-11-24 BE-006 adds a PostgreSQL concurrency regression (AI-08) alongside the loyalty API fix (AI-01).
+- 2026-11-24 BE-007 adds a PostgreSQL concurrency regression (AI-08) alongside the loyalty API fix (AI-01).
