@@ -124,7 +124,14 @@ async def create_order(
 
     main = await main_store(session)
     unit = plan.unit_price
-    coupon, disc = await catalog.resolve_coupon(session, store, user.id, product, unit, coupon_code, lock=True)
+    try:
+        coupon, disc = await catalog.resolve_coupon(session, store, user.id, product, unit, coupon_code, lock=True)
+    except AppError:
+        # Another request with this key may have used the final coupon redemption while we waited for its lock.
+        existing = await existing_order()
+        if existing:
+            return existing
+        raise
     q = await catalog.build_quote(
         session,
         store,
