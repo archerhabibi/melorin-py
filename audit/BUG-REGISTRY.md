@@ -31,6 +31,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | INT-002 | Medium | Outgoing webhook delivery buffers the receiver's whole response and bounds only each read: a tenant-controlled endpoint can exhaust worker memory or hold its delivery slots | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-003 | Medium | OCR endpoint validation did not bind the checked address to the connection | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-004 | Medium | PasarGuard can use a cached token for different or missing credentials | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| INT-005 | Medium | Rejected receipt uploads can leave unreferenced stored files | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-003 | High | Wallet topup retry state is shared between accounts using the same store and browser | AI-05 | Fixed | audit/reports/frontend/REPORT.md |

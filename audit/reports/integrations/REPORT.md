@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. 4 findings confirmed and fixed (INT-001..INT-004, all Medium). Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-005 fixed, including receipt-storage cleanup. Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -58,6 +58,16 @@
 - Regression: `tests/adapters/test_pasarguard_adapter_contract.py` covers changed and missing passwords, the static-token collision and reuse of a matching password session across adapters.
 - Compatibility: no API or schema change; a changed password requires a new panel login.
 
+### INT-005 — Rejected receipt uploads leave stored files behind
+- Severity: Medium. Status: Fixed. Base: PR #190 at `461f9f0d09aa52ff247fa36b8f7f78fe852924fb`.
+- File / symbol: `modules/payments/router.py: upload_receipt`; `core/storage.py: LocalStorage`.
+- Evidence: a receipt uploaded after its payment succeeds returns 409 but leaves an extra file; a failure before fingerprint persistence also leaves a file. Both HTTP regressions fail on the parent; a third safety test confirms there was no deletion API.
+- Impact: repeated rejected uploads consume disk space without a database record or a normal way to locate the orphaned files.
+- Root cause: receipt bytes are written before the database state is checked and there is no cleanup when the operation is rejected before commit.
+- Fix: delete newly written objects for pre-commit preparation failures or explicit pre-commit payment-state rejection. Deletion cannot leave the storage root and is idempotent.
+- Regression: HTTP tests exercise completed payments and fingerprint persistence errors; a storage test checks missing-file and path-traversal handling.
+- Compatibility: storage implementations must provide `delete(key)`; no public API or schema change.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -71,6 +81,7 @@
 
 - `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_pinning.py` (INT-003).
 - `modules/panel_integrations/adapters/pasarguard/core.py` and `tests/adapters/test_pasarguard_adapter_contract.py` (INT-004).
+- `core/storage.py`, `modules/payments/router.py`, receipt HTTP and storage tests (INT-005).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -86,9 +97,14 @@
 | INT-004 focused adapter, capabilities, contract and service tests | PASS | 144 passed, 1 skipped; three new regression cases failed before the fix |
 | INT-004 `make lint` | PASS | 8 import contracts; formatting and lint passed |
 | INT-004 `make test` | PASS | 2,978 passed, 48 skipped |
+| INT-005 regressions on parent | FAIL (expected) | two orphaned uploads; deletion API missing |
+| INT-005 focused tests | PASS | 54 passed; 3 new regression cases passed |
+| INT-005 lint | PASS | import contracts, Ruff and format |
+| INT-005 full suite | RUNNING | see PR |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
+- Cleanup failure is logged. Objects are retained when the database commit outcome is uncertain to avoid deleting a referenced file; a later orphan sweep remains useful.
 - INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
 - PasarGuard password sessions remain cached for up to 50 minutes. An external password change may need upstream token revocation or a process restart; upstream bearer-token validity depends on the panel.
 - Provider contracts (Zarinpal refund endpoint, Sanaei, Pasarguard, Telethon flow) are checked against the code only, never against a live or sandbox peer.
@@ -103,3 +119,4 @@
 - Branch `audit/04-integrations`, base `audit/03-database-finance`.
 - INT-003 follow-up: branch `audit/20-ocr-endpoint-089a80a5`; parent PR #185.
 - INT-004 follow-up: branch `audit/22-panel-integrations-089a80a5`; parent PR #187.
+- INT-005 follow-up: branch `audit/25-receipt-cleanup-18ef6bf0`; parent PR #190.
