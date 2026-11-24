@@ -1,16 +1,19 @@
 # Audit report — AI-08 QA & Performance
 
 ## 1. Executive summary
-- Status: in progress. QA-001 is fixed; integration coverage and performance review remain open.
+- Status: in progress. QA-001 and QA-002 are fixed; integration coverage and performance review remain open.
 - Base: `audit/07-migration-ci-20261124` at `ed4b2ae`.
+- QA-002 follow-up base: `audit/08-fix-flaky-order-fixture-20261124` at `e0fb336`.
 
 ## 2. Reviewed
 - PostgreSQL CI failure in run 45077001718, attempt 1.
 - Shared order fixture `tests/_db.py` and the referral commission test that creates 61 orders.
+- PostgreSQL wallet property test, development requirements and PostgreSQL CI lane.
 
 ## 3. Method
 - Inspect the failed CI attempt and force two distinct UUIDs to share their first six characters to reproduce the collision.
 - Run the regression on SQLite and PostgreSQL, and rerun the originally affected referral test on PostgreSQL.
+- Check the installed test dependencies and run the property test with Hypothesis on an isolated PostgreSQL 16 instance.
 
 ## 4. Findings
 ### QA-001 — Shared order fixture can generate duplicate order numbers
@@ -20,16 +23,25 @@
 - Fix: the fixture now uses the application's sequence-backed six-character order-code generator when a number is not explicitly supplied. Explicit fixture numbers are preserved.
 - Regression: forced repeated UUID prefixes now pass on SQLite and PostgreSQL; the originally affected PostgreSQL referral test also passes.
 
+### QA-002 — Wallet property test silently skipped in the PostgreSQL CI lane
+- Severity: Medium. Status: Fixed.
+- Evidence: `tests/service/test_wallet_properties_db.py` uses `pytest.importorskip("hypothesis")`, but Hypothesis is absent from the hash-locked development requirements installed by CI. The PostgreSQL lane therefore skipped the property test even when `TEST_PG_URL` was configured.
+- Effect: randomly generated sequences of credits, debits and idempotency-key replays were not checking ledger balance, overdraft protection or orphan transactions in CI.
+- Fix: pin Hypothesis in the development input, regenerate the universal hashed lock, and import it normally so an incomplete test installation fails collection instead of silently skipping. The test still correctly skips on SQLite, where the documented PostgreSQL-only rollback property cannot be proved.
+- Regression: the property test passed on isolated PostgreSQL 16 with `max_examples=25`; the regenerated lock has the same digest on Windows and Linux. Missing Hypothesis now fails test collection.
+
 ## 5. Changes
 - `tests/_db.py` and `tests/service/test_order_fixture.py`; no production code or schema change.
+- `requirements-dev.in`, the generated `requirements-dev.txt` and `tests/service/test_wallet_properties_db.py`; test dependencies only.
 
 ## 6. Test results
 - Forced collision: failed before the fix and passed afterwards on SQLite.
 - PostgreSQL 16: forced collision and the original referral test passed (2 tests).
-- Full `make test` is run separately on this branch.
+- Full `make test` with Hypothesis installed: 2,927 passed, 21 skipped.
+- PostgreSQL wallet property test: 1 passed (`max_examples=25`); lock check and `make lint` passed.
 
 ## 7. Residual risks
-- Property-based wallet tests still require Hypothesis and the PostgreSQL lane; the live integration and staging-only browser skips need separate review.
+- Wallet property coverage runs in the PostgreSQL lane; the live integration and staging-only browser skips need separate review.
 - Full cross-system and load testing has not yet been completed.
 
 ## 8. Needs a human decision
@@ -37,3 +49,4 @@
 
 ## 9. Pull request
 - Branch `audit/08-fix-flaky-order-fixture-20261124`; parent `audit/07-migration-ci-20261124`.
+- QA-002 follow-up: branch `audit/08-wallet-properties-ci-20261124`; parent `audit/08-fix-flaky-order-fixture-20261124`.
