@@ -10,8 +10,11 @@ import time
 import uuid
 import asyncio
 import binascii
+import contextvars
 import functools
 import re
+from collections.abc import Callable
+from typing import TypeVar
 
 import jwt
 
@@ -57,6 +60,7 @@ _SCRYPT = dict(log2n=16, r=8, p=2, dklen=32)  # mutable on purpose: tests/confte
 _SCRYPT_MAXMEM = 160 * 1024 * 1024
 # Each scrypt costs ~64 MiB: bound how many run at once so a login flood cannot exhaust the container's memory.
 _KDF_SLOTS = asyncio.Semaphore(2)  # per API process; with 2 uvicorn workers => at most 4 x 64 MiB at once
+_KDFResult = TypeVar("_KDFResult")
 
 
 def _scrypt(password: str, salt: bytes, log2n: int, r: int, p: int) -> bytes:
@@ -114,16 +118,34 @@ def needs_rehash(stored: str | None) -> bool:
     return parsed is not None and parsed[:3] != (_SCRYPT["log2n"], _SCRYPT["r"], _SCRYPT["p"])
 
 
+async def _run_kdf(func: Callable[..., _KDFResult], *args: object) -> _KDFResult:
+    """Keep the slot until the worker actually stops, even when the caller is cancelled."""
+    slots = _KDF_SLOTS
+    await slots.acquire()
+    try:
+        context = contextvars.copy_context()  # preserve the context propagation of asyncio.to_thread
+        worker = asyncio.get_running_loop().run_in_executor(None, context.run, functools.partial(func, *args))
+    except BaseException:
+        slots.release()
+        raise
+
+    def finish(result: asyncio.Future[_KDFResult]) -> None:
+        slots.release()
+        if not result.cancelled():
+            result.exception()  # also consume errors when the caller has already gone away
+
+    worker.add_done_callback(finish)
+    return await asyncio.shield(worker)
+
+
 async def hash_password(password: str) -> str:
     """Run the deliberately expensive KDF off the asyncio event loop."""
-    async with _KDF_SLOTS:
-        return await asyncio.to_thread(_hash_password_sync, password)
+    return await _run_kdf(_hash_password_sync, password)
 
 
 async def verify_password(password: str, stored: str | None) -> bool:
     """Verify in the worker pool. Always does the full amount of work, even for a missing/invalid hash."""
-    async with _KDF_SLOTS:
-        return await asyncio.to_thread(_verify_password_sync, password, stored)
+    return await _run_kdf(_verify_password_sync, password, stored)
 
 
 def token_hash(token: str) -> str:
