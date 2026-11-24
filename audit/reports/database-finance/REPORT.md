@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: DB-001..DB-005 fixed, including bank-SMS candidate selection and decision races. Same-key order and bank-SMS concurrency have PostgreSQL regression coverage; broader ledger reconciliation and CHECK constraints remain to review.
+- Status: DB-001..DB-006 fixed, including the receipt-upload race. Same-key order and bank-SMS concurrency have PostgreSQL regression coverage; broader ledger reconciliation and CHECK constraints remain to review.
 - Base: stacked on `audit/02-security` (`2ab7d15`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -67,6 +67,16 @@
 - Fix: lock and refresh the SMS before matching or changing its ignored state; recheck status, amount and payment state under the SMS-then-payment locks. Manual provisional confirmation follows the same lock order.
 - Regression: stale-state HTTP tests and a PostgreSQL test where an automatic matcher waits for a human transaction and observes the committed ignored status.
 
+### DB-006 — A stale receipt upload can overwrite a completed payment decision
+- Severity: High. Status: Fixed. Base: PR #189 at `614e3bda14824b4ddf8a1f793cf5f41abc1cf5ae`.
+- File / symbol: `modules/payments/service.py: attach_receipt`; `modules/payments/router.py: upload_receipt`.
+- Evidence: five PostgreSQL regression cases fail on the parent. In the pending-to-succeeded case the wallet is credited but the stale upload changes payment status back to `awaiting_review`.
+- Impact: approval or rejection can be overwritten and a completed payment can receive a replacement receipt, leaving payment records inconsistent with the wallet and the review outcome.
+- Root cause: receipt upload validates a payment object loaded before file I/O without reacquiring the payment row lock or refreshing its status.
+- Fix: lock and refresh the payment before validating and attaching the receipt; reject a decision that completed while the upload was in flight.
+- Regression: PostgreSQL cases cover approval and rejection from pending or awaiting-review state and an upload waiting on a concurrent payment lock.
+- Dependencies: AI-08 PostgreSQL concurrency coverage; no API or schema change.
+
 ### Checked and not a defect
 - Money columns are `BigInteger`; no float arithmetic in `domain/{ledger,commission,pricing}.py` (`debt.state` uses a float ratio for a display state only).
 - Every write to `Wallet.balance` goes through `wallet.post`, which locks wallets in a fixed order and applies the lowest-allowed-balance rule.
@@ -78,6 +88,7 @@
 - `kernel/models/{vpn,orders,payments,wallet}.py`, `alembic/versions/0001_initial_baseline.py` (single baseline edited, as allowed by the owner decision of 2026-11-22), `modules/wallet/service.py`.
 - Tests: `tests/service/test_wallet_reversal_once.py`, `tests/contracts/test_db_guards_contract.py`, additions to `tests/postgres/test_postgres_concurrency.py` and `tests/postgres/test_migration_baseline.py`.
 - DB-004/DB-005: `modules/payments/bank_sms/{matching,review}.py`, HTTP regressions in `test_bank_sms_auto_verify.py` and `test_receipt_grace.py`, and `tests/postgres/test_bank_sms_concurrency.py`.
+- DB-006: `modules/payments/service.py` and `tests/postgres/test_receipt_payment_race.py`.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -91,7 +102,11 @@
 | DB-004/DB-005 PostgreSQL row-lock regression | PASS | 1 passed |
 | DB-004/DB-005 PostgreSQL HTTP regressions | PASS | 8 passed, including ambiguity, volume, manual resolution and stale decisions |
 | DB-004/DB-005 `make lint` and mypy | PASS | 8 import contracts; 391 files type-checked |
-| DB-004/DB-005 `make test` | PASS | 2,985 passed, 49 skipped on the byte-identical server workspace; repeat running in the isolated checkout |
+| DB-004/DB-005 `make test` | PASS | 2,985 passed, 49 skipped in the independent checkout |
+| DB-006 PostgreSQL regression on parent | FAIL (expected) | 5 failures; confirmed a succeeded payment reverted to awaiting review |
+| DB-006 PostgreSQL regression on fix | PASS | 5 passed on PostgreSQL |
+| DB-006 `make lint` | PASS | import contracts, Ruff and format |
+| DB-006 `make test` | RUNNING | see PR |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
@@ -105,3 +120,4 @@
 ## 9. Pull request
 - Branch `audit/03-database-finance`, base `audit/02-security`.
 - DB-004/DB-005 follow-up: `audit/23-bank-sms-18ef6bf0`, parent PR #188.
+- DB-006 follow-up: `audit/24-receipt-race-18ef6bf0`, parent PR #189.

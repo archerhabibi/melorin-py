@@ -26,6 +26,7 @@
 | 2026-11-24 | SEC-005 follows PR #186; reseller domain proof connects to a checked address and preserves the hostname for TLS. | AI-00 |
 | 2026-11-24 | INT-004 follows PR #187; PasarGuard password sessions are tied to the credentials that obtained them and explicit access tokens are used as supplied. | AI-00 |
 | 2026-11-24 | DB-004 and DB-005 follow PR #188; bank SMS matching compares pending and provisional receipts together and serializes decisions with human actions. | AI-00 |
+| 2026-11-25 | DB-006 follows PR #189; receipt uploads recheck the payment under the same row lock as review decisions. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -33,7 +34,7 @@
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
 | AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-011 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 through SEC-005 fixed; authorization matrix test added; 9 `PENDING` bounds closed; broader security review continues |
-| AI-03 | 3 | DB-001..DB-005 fixed; order-creation and bank-SMS concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
+| AI-03 | 3 | DB-001..DB-006 fixed; order-creation and bank-SMS concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001..INT-004 fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
@@ -54,3 +55,4 @@
 - 2026-11-24 INT-003 adds TLS and endpoint-policy regression coverage (AI-08) alongside the OCR integration fix (AI-04).
 - 2026-11-24 SEC-005 updates reseller domain verification and its HTTP policy description (AI-01) and adds security regressions (AI-08).
 - 2026-11-24 DB-004 and DB-005 update bank-SMS matching (AI-04) and add HTTP and PostgreSQL concurrency regressions (AI-08).
+- 2026-11-25 DB-006 adds PostgreSQL receipt upload and payment decision races (AI-08) alongside the payment service fix (AI-03).
