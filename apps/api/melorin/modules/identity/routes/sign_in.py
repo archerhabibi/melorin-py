@@ -95,17 +95,24 @@ async def password_login(body: PasswordLogin, session: Session, request: Request
     # stops a distributed guesser. Both are checked BEFORE any password work.
     if not await hit(f"auth-account:{email}:{ip}", 10, 900) or not await hit(f"auth-account-all:{email}", 100, 900):
         raise AppError("ACCOUNT_LOGIN_THROTTLED", "تلاش‌های ورود برای این حساب موقتاً محدود شده است.", 429, headers={"Retry-After": "60"})
-    # Read WITHOUT a row lock: the lock must not be held across the ~250 ms KDF (it would make a legitimate user queue behind an
-    # attacker). The row is locked below, after the password is proven, for the TOTP replay counter.
+    # Keep both KDF operations outside the row lock so legitimate users do not queue behind expensive password work.
     user = await session.scalar(select(User).where(User.email == email))
-    password_ok = await verify_password(body.password, user.password_hash if user else None)  # unknown e-mail => dummy hash, same cost
+    verified_hash = user.password_hash if user else None
+    password_ok = await verify_password(body.password, verified_hash)  # unknown e-mail => dummy hash, same cost
+    upgraded_hash = None
+    if user and password_ok and user.is_active:
+        if needs_rehash(verified_hash):
+            upgraded_hash = await hash_password(body.password)
+        # The password, email or activity may have changed while the KDF was running. Re-read under the same row lock
+        # that protects the TOTP counter and token issuance, and only accept the exact credential we verified.
+        user = await session.scalar(select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True))
+        password_ok = bool(user and user.password_hash == verified_hash and user.email == email)
     if not user or not password_ok or not user.is_active:
         audit.security_event(session, "login_failed", user.id if user else None, {"email": email})
         await session.commit()
         raise AppError("INVALID_CREDENTIALS", "ایمیل یا رمز عبور نادرست است.", 401)
-    await session.refresh(user, with_for_update=True)
-    if needs_rehash(user.password_hash):  # parameters are stored in the hash: upgrade it transparently on a successful login
-        user.password_hash = await hash_password(body.password)
+    if upgraded_hash is not None:
+        user.password_hash = upgraded_hash  # transparently upgrade only the credential that was verified
     if user.is_super_admin and not user.totp_enabled:
         audit.security_event(session, "admin_2fa_required", user.id)
         await session.commit()

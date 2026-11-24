@@ -98,14 +98,17 @@ async def test_wrong_password_and_unknown_user_are_indistinguishable_and_inactiv
         }
 
 
-@pytest.mark.parametrize("change", ["password", "inactive", "email"])
+@pytest.mark.parametrize("change", ["password", "password_rehash", "inactive", "email"])
 async def test_password_login_rechecks_account_after_password_verification(monkeypatch, change):
     async with api_client() as (client, maker, _):
         user = await add_user(maker)
         replacement = "another-password-after-reset"
-        # A legacy replacement hash also checks that an old login cannot rehash over the new password.
-        with monkeypatch.context() as patch:
-            patch.setitem(security._SCRYPT, "log2n", security._SCRYPT["log2n"] - 1)
+        if change == "password_rehash":
+            # An old login must not rehash over a replacement that uses legacy parameters.
+            with monkeypatch.context() as patch:
+                patch.setitem(security._SCRYPT, "log2n", security._SCRYPT["log2n"] - 1)
+                replacement_hash = await security.hash_password(replacement)
+        else:
             replacement_hash = await security.hash_password(replacement)
 
         verify = sign_in.verify_password
@@ -114,7 +117,7 @@ async def test_password_login_rechecks_account_after_password_verification(monke
             valid = await verify(password, stored)
             async with maker() as session:
                 row = await session.get(User, user.id)
-                if change == "password":
+                if change.startswith("password"):
                     row.password_hash = replacement_hash
                 elif change == "inactive":
                     row.is_active = False
@@ -128,12 +131,26 @@ async def test_password_login_rechecks_account_after_password_verification(monke
 
         async with maker() as session:
             row = await session.get(User, user.id)
-            if change == "password":
+            if change.startswith("password"):
                 assert row.password_hash == replacement_hash
                 assert await security.verify_password(replacement, row.password_hash)
             token_count = await session.scalar(select(func.count()).select_from(RefreshToken).where(RefreshToken.user_id == user.id))
         assert (response.status_code, _err(response)) == (401, "INVALID_CREDENTIALS")
         assert token_count == 0 and REFRESH_COOKIE not in response.cookies
+
+
+async def test_password_login_upgrades_an_old_hash(monkeypatch):
+    async with api_client() as (client, maker, _):
+        with monkeypatch.context() as patch:
+            patch.setitem(security._SCRYPT, "log2n", security._SCRYPT["log2n"] - 1)
+            user = await add_user(maker)
+        assert security.needs_rehash(user.password_hash)
+        response = await client.post(f"{API}/password/login", json={"email": "user@example.com", "password": PASSWORD})
+        assert response.status_code == 200, response.text
+        async with maker() as session:
+            row = await session.get(User, user.id)
+            assert not security.needs_rehash(row.password_hash)
+            assert await security.verify_password(PASSWORD, row.password_hash)
 
 
 async def test_repeated_failures_throttle_the_account_even_with_the_right_password():
