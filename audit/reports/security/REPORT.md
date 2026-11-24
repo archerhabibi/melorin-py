@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over authentication, authorization, rate limiting and exposure controls done. SEC-001 through SEC-004 are fixed; broader security review continues. The authorization perimeter is covered by a permanent matrix test.
+- Status: first pass over authentication, authorization, rate limiting and exposure controls done. SEC-001 through SEC-005 are fixed; broader security review continues. The authorization perimeter is covered by a permanent matrix test.
 - Base: stacked on `audit/01-backend-core` (`b0f7fd8`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -53,6 +53,15 @@
 - Compatibility: concurrent changes may now return 401 and require a retry with current credentials. No API or schema change.
 - Regression: HTTP tests cover the stale password and account-state changes on SQLite and PostgreSQL; PostgreSQL concurrency tests verify that only one simultaneous admin password change succeeds and that unlink holds the user lock until commit.
 
+### SEC-005 — Domain verification did not bind validation to its connection
+- Severity: Medium. Status: Fixed. Base: PR #186 at 10b9a1b8dd1b74a7dddd4a7984c6780a8b164659.
+- File / symbol: `modules/reseller/auto_verify.py`, `check_http`.
+- Evidence: DNS was checked for public addresses but the HTTP client then received the hostname and performed another lookup. Four new address-pinning and TLS cases failed on the parent; mixed public/private DNS answers were already refused.
+- Impact: a changed DNS answer could bypass the outbound address policy for the fixed domain-proof path. Valid TLS for the requested hostname was still required.
+- Fix: validate all DNS answers, connect to one checked IPv4 or IPv6 address and retain the original HTTP Host, TLS SNI and certificate hostname. Refuse non-hostname inputs before resolving them.
+- Regression: the domain-proof suite exercises address binding, mixed answers, malformed hostnames and real local TLS with matching and mismatched certificates. Existing body-size and proof-matching checks remain in place.
+- Compatibility: an unreachable first checked address can delay proof until an existing scheduled retry; no API or schema change.
+
 ### Checked and not a defect
 - Public sign-in routes look unthrottled by decorator but the `auth` router carries `RateLimit("auth", 30, 60)` and password sign-in adds per-account budgets (10/900 s per email+IP, 100/900 s per email).
 - `/metrics` needs a bearer token (constant-time compare), production start-up rejects weak or empty tokens, `/docs` and `/openapi.json` are dev-only, and the Caddyfile blocks `/metrics`, `/docs`, `/redoc`, `/openapi.json` and `/api/v1/internal/*`.
@@ -64,6 +73,8 @@
 - SEC-002 updates the KDF slot lifecycle and adds cancellation/worker-failure tests.
 - SEC-003 updates password login and adds credential-change race tests.
 - SEC-004 updates admin password changes and password-based unlink reauthentication, with concurrent PostgreSQL tests.
+
+- SEC-005 updates domain-proof egress validation and adds address, hostname and TLS regression coverage.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -84,8 +95,11 @@
 | SEC-004 PostgreSQL concurrency tests | PASS | 2 passed with independent transactions |
 | SEC-004 lint, formatting and mypy | PASS | 8 import contracts kept; 391 source files type-checked |
 | SEC-004 full backend suite | see PR | Final source revision tested in the background |
+| SEC-005 focused domain and OCR security regressions | PASS | 34 passed; 4 new cases failed on the parent |
+| SEC-005 make lint and mypy | PASS | 8 import contracts; 391 source files type-checked |
 
 ## 7. Residual risks
+- SEC-005 uses the first checked address; another address is not attempted within the same proof request. Existing retries handle later attempts.
 - The public Telegram web-login flow (`/auth/telegram/web/sessions*`) and provider callbacks are verified by code reading only, not by a live Telegram or gateway.
 - The matrix proves who is rejected, not that every allowed response contains only the caller's own data; per-endpoint data scoping stays covered by the existing store-scope tests.
 
@@ -94,3 +108,4 @@
 
 ## 9. Pull request
 - Branch `audit/02-security`, base `audit/01-backend-core`.
+- SEC-005 follow-up: branch `audit/21-domain-proof-089a80a5`; parent PR #186.

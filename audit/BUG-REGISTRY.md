@@ -20,6 +20,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | SEC-002 | Medium | Cancelled password operations can exceed the intended KDF concurrency bound | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-003 | High | Password login can succeed with credentials changed during verification | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-004 | High | Stale password proof can overwrite a newer admin password or unlink a login method | AI-02 | Fixed | audit/reports/security/REPORT.md |
+| SEC-005 | Medium | Reseller domain proof validated DNS without binding the connection to a checked address | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | DB-001 | Low | Foreign keys the code filters on (`vpn_accounts.panel_id`, `orders.vpn_account_id`, `payments.receipt_file_id`) have no index | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-002 | Low | Ledger tables are "append-only" by convention only; the database accepts UPDATE/DELETE | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-003 | Low | A ledger transaction can be reversed twice when the second caller uses another idempotency key | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |

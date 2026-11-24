@@ -86,15 +86,17 @@ def is_public_ip(raw: str) -> bool:
     return not netpolicy.is_forbidden_ip(raw)
 
 
-async def host_is_public(domain: str) -> bool:
-    """Every address the name resolves to must be public (a name pointing at 10.x / 127.x is refused)."""
+async def resolve_public_address(domain: str) -> str | None:
+    """Return a checked address only if every DNS answer is public."""
     loop = asyncio.get_running_loop()
     try:
         infos = await loop.getaddrinfo(domain, 443, type=socket.SOCK_STREAM)
     except OSError:
-        return False
-    addrs = {i[4][0] for i in infos}
-    return bool(addrs) and all(is_public_ip(str(a)) for a in addrs)
+        return None
+    addresses = [str(info[4][0]) for info in infos]
+    if not addresses or not all(is_public_ip(address) for address in addresses):
+        return None
+    return addresses[0]
 
 
 # ---------------------------------------------------------------- network ----------------------------------------------
@@ -110,12 +112,22 @@ async def check_dns(domain: str, value: str, *, transport: httpx.AsyncBaseTransp
 
 
 async def check_http(domain: str, value: str, *, transport: httpx.AsyncBaseTransport | None = None) -> bool:
-    if transport is None and not await host_is_public(domain):
+    # Stored application domains are hostnames, never URLs, credentials or ports.
+    if not domain or any(char in domain for char in "/:@?#"):
         return False
     try:
+        endpoint = httpx.URL(f"https://{domain}{HTTP_PATH}")
+        target, headers, extensions = endpoint, {}, {}
+        if transport is None:
+            address = await resolve_public_address(endpoint.raw_host.decode("ascii"))
+            if not address:
+                return False
+            target = endpoint.copy_with(host=address)
+            headers = {"Host": endpoint.netloc.decode("ascii")}
+            extensions = {"sni_hostname": endpoint.raw_host.decode("ascii")}
         async with outbound_client("domain_verify_http", timeout=8, transport=transport) as client:
             # Streamed and capped: a hostile domain must not be able to make the worker buffer an endless body.
-            async with client.stream("GET", f"https://{domain}{HTTP_PATH}") as r:
+            async with client.stream("GET", target, headers=headers, extensions=extensions) as r:
                 if r.status_code != 200:
                     return False
                 body = b""
@@ -124,7 +136,7 @@ async def check_http(domain: str, value: str, *, transport: httpx.AsyncBaseTrans
                     if len(body) > MAX_PROOF_BYTES:
                         return False
         return body.decode("utf-8", errors="replace").strip() == value
-    except httpx.HTTPError:
+    except (httpx.HTTPError, httpx.InvalidURL, ValueError):
         return False
 
 

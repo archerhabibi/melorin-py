@@ -10,7 +10,7 @@ policy. Everything that leaves the process now goes through :func:`outbound_clie
 * a stable ``User-Agent`` so operators of the peers can recognise the traffic.
 
 SSRF filtering of *user-supplied* hosts (webhooks, domain verification) stays with the callers that know the allow rules
-(``domain.webhook`` / ``reseller.auto_verify.host_is_public``); the guard test ``tests/test_core_http_policy.py`` keeps
+(``domain.webhook`` / ``reseller.auto_verify.resolve_public_address``); the guard test ``tests/test_core_http_policy.py`` keeps
 new code from bypassing this module. ``httpx`` is looked up at call time so tests may still patch ``httpx.AsyncClient``.
 """
 
