@@ -389,3 +389,45 @@ def test_bank_sms_responses_are_declared_in_openapi():
         f"{m.upper()} {p}" for p, m in routes if "$ref" not in paths[p][m]["responses"]["200"]["content"]["application/json"]["schema"]
     ]
     assert untyped == []
+
+
+async def test_automatic_match_cannot_override_an_ignored_sms():
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        token = await _setup_source(maker, main.id, auto=False)
+        when = _minute()
+        pid = await _topup(c, h, sid, paid_at=dom.utc_to_jalali_text(when))
+        assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "unmatched"
+        async with maker() as session:
+            sms = await session.scalar(select(BankSmsMessage))
+            store = await session.get(Store, main.id)
+            await bank_sms.set_ignored(session, store, sms.id, ignored=True, actor_id=None, actor_type="admin")
+            linked = await bank_sms._link(session, sms.id, __import__("uuid").UUID(pid), by="auto")
+            assert linked is False
+            await session.refresh(sms)
+            assert sms.status == "ignored" and sms.payment_id is None
+            assert (await session.get(Payment, __import__("uuid").UUID(pid))).status == "awaiting_review"
+
+
+async def test_stale_matcher_cannot_reopen_an_sms_already_linked_by_a_human():
+    async with api_client() as (c, maker, main):
+        first, sid = await _login(c, maker, "race1@example.com")
+        second, _ = await _login(c, maker, "race2@example.com")
+        third, _ = await _login(c, maker, "race3@example.com")
+        token = await _setup_source(maker, main.id, auto=False)
+        when = _minute()
+        assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "unmatched"
+        stamp = dom.utc_to_jalali_text(when)
+        ids = [await _topup(c, h, sid, key=f"race-key-{i}", paid_at=stamp) for i, h in enumerate((first, second, third))]
+        async with maker() as stale, maker() as fresh:
+            old_sms = await stale.scalar(select(BankSmsMessage))
+            stale_src = await bank_sms.get_source(stale, main.id)
+            stale_store = await stale.get(Store, main.id)
+            current = await fresh.get(BankSmsMessage, old_sms.id)
+            await bank_sms.manual_link(
+                fresh, await fresh.get(Store, main.id), current.id, __import__("uuid").UUID(ids[0]), actor_id=None, actor_type="admin"
+            )
+            status = await bank_sms.match_message(stale, old_sms, stale_src, stale_store)
+            assert status == "matched"
+            await stale.refresh(old_sms)
+            assert old_sms.status == "matched" and str(old_sms.payment_id) == ids[0]
