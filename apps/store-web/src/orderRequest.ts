@@ -1,4 +1,4 @@
-import { withAttemptLock } from './attemptLock.ts';
+import { listStoredAttempts, updateStoredAttempt } from './attemptLock.ts';
 
 type OrderRequest = {
   coreFetch: (path: string, options: RequestInit) => Promise<Response>;
@@ -24,33 +24,18 @@ export async function listPendingOrders(
   accountId?: string,
 ): Promise<PendingOrder[]> {
   if (!storeId?.trim() || !accountId?.trim()) return [];
-  return withAttemptLock(() => {
-    const prefix = attemptPrefix(storeId, accountId);
-    const attempts: PendingOrder[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const storageKey = localStorage.key(i);
-      if (!storageKey?.startsWith(prefix)) continue;
-      let body: Record<string, unknown>;
-      try {
-        body = JSON.parse(decodeURIComponent(storageKey.slice(prefix.length)));
-      } catch {
-        continue;
-      }
-      const key = localStorage.getItem(storageKey);
-      if (
-        body &&
-        body.kind === kind &&
-        body.payment_method === 'wallet' &&
-        typeof body.product_id === 'string' &&
-        (kind !== 'renewal' || typeof body.vpn_account_id === 'string') &&
-        key &&
-        /^web-order-[0-9a-f-]+$/i.test(key)
-      ) {
-        attempts.push({ body, key });
-      }
-    }
-    return attempts;
-  });
+  const prefix = attemptPrefix(storeId, accountId);
+  const attempts: PendingOrder[] = [];
+  for (const [storageKey, key] of await listStoredAttempts(prefix)) {
+    const body: Record<string, unknown> = JSON.parse(decodeURIComponent(storageKey.slice(prefix.length)));
+    if (!body || typeof body !== 'object' || Array.isArray(body) || !/^web-order-[0-9a-f-]+$/i.test(key))
+      throw new Error('invalid stored attempt');
+    if (body.kind !== kind || body.payment_method !== 'wallet') continue;
+    if (typeof body.product_id !== 'string' || (kind === 'renewal' && typeof body.vpn_account_id !== 'string'))
+      throw new Error('invalid stored attempt');
+    attempts.push({ body, key });
+  }
+  return attempts;
 }
 
 /** Preserve one request key until its result is known, including across reloads. */
@@ -62,13 +47,11 @@ export async function submitOrder({ coreFetch, storeId, accountId, body, expecte
   const storageKey = attemptPrefix(storeId, accountId) + encodeURIComponent(payload);
   let key: string | null;
   try {
-    key = await withAttemptLock(() => {
-      const saved = localStorage.getItem(storageKey);
-      if (expectedKey && saved !== expectedKey) return null;
+    key = await updateStoredAttempt(storageKey, (saved) => {
+      if (expectedKey && saved !== expectedKey) return { result: null };
       if (saved && !/^web-order-[0-9a-f-]+$/i.test(saved)) throw new Error('invalid stored key');
       const current = saved || 'web-order-' + crypto.randomUUID();
-      localStorage.setItem(storageKey, current);
-      return current;
+      return { value: current, result: current };
     });
   } catch {
     throw new Error('ذخیره امن وضعیت سفارش ممکن نیست؛ درخواست ارسال نشد.');
@@ -96,9 +79,9 @@ export async function submitOrder({ coreFetch, storeId, accountId, body, expecte
     throw new Error('نتیجه سفارش مشخص نیست. برای جلوگیری از خرید تکراری، همین سفارش را دوباره بررسی کنید.');
   }
   try {
-    await withAttemptLock(() => {
+    await updateStoredAttempt(storageKey, (saved) => {
       // A delayed response must never clear a newer attempt in another tab.
-      if (localStorage.getItem(storageKey) === key) localStorage.removeItem(storageKey);
+      return saved === key ? { value: null, result: undefined } : { result: undefined };
     });
   } catch {
     // Keeping a confirmed key is safer than accidentally repeating the order.

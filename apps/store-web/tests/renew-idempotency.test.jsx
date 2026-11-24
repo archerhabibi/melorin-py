@@ -3,9 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Vpn } from '../src/dashboard/DashboardAccounts.tsx';
 import { submitOrder } from '../src/orderRequest.ts';
-
-// Browser tests exercise IndexedDB locking; these tests isolate request and UI behavior.
-vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: async (operation) => operation() }));
+import { resetAttemptStorage } from './attemptStorage.js';
 
 const accountCard = vi.hoisted(() => ({ canRenew: true }));
 vi.mock('../src/AccountInquiry.tsx', () => ({
@@ -17,7 +15,7 @@ vi.mock('../src/AccountInquiry.tsx', () => ({
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 
 beforeEach(() => {
-  localStorage.clear();
+  resetAttemptStorage();
   accountCard.canRenew = true;
 });
 
@@ -35,7 +33,9 @@ it('reuses a renewal key when the customer closes and reopens an uncertain attem
   const notify = vi.fn();
   render(<Vpn coreFetch={coreFetch} storeId="s1" userId="u1" notify={notify} reload={() => {}} />);
   await userEvent.click(screen.getByRole('button', { name: 'تمدید' }));
-  await userEvent.click(await screen.findByRole('button', { name: 'پرداخت از کیف پول و تمدید' }));
+  const pay = await screen.findByRole('button', { name: 'پرداخت از کیف پول و تمدید' });
+  await waitFor(() => expect(pay).toBeEnabled());
+  await userEvent.click(pay);
   await waitFor(() => expect(notify).toHaveBeenCalledWith('نامعلوم'));
   await userEvent.click(screen.getByRole('button', { name: 'بستن' }));
   await userEvent.click(screen.getByRole('button', { name: 'تمدید' }));
@@ -62,7 +62,9 @@ it('recovers an uncertain renewal even after the account becomes ineligible', as
   const notify = vi.fn();
   const { unmount } = render(<Vpn coreFetch={coreFetch} storeId="s1" userId="u1" notify={notify} reload={() => {}} />);
   await userEvent.click(screen.getByRole('button', { name: 'تمدید' }));
-  await userEvent.click(await screen.findByRole('button', { name: 'پرداخت از کیف پول و تمدید' }));
+  const pay = await screen.findByRole('button', { name: 'پرداخت از کیف پول و تمدید' });
+  await waitFor(() => expect(pay).toBeEnabled());
+  await userEvent.click(pay);
   await waitFor(() => expect(notify).toHaveBeenCalledWith('نامعلوم'));
   unmount();
   accountCard.canRenew = false;

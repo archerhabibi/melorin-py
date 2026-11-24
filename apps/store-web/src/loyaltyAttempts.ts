@@ -1,4 +1,4 @@
-import { withAttemptLock } from './attemptLock.ts';
+import { listStoredAttempts, updateStoredAttempt } from './attemptLock.ts';
 
 export type PendingReward = { rewardId: string; name: string; key: string };
 type StoredAttempt = { name: string; key: string };
@@ -27,19 +27,15 @@ function readAttempt(raw: string | null): StoredAttempt | null {
 }
 
 export async function listPendingRewards(storeId: string, accountId: string): Promise<PendingReward[]> {
-  return withAttemptLock(() => {
-    const start = prefix(storeId, accountId);
-    const pending: PendingReward[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const storageKey = localStorage.key(i);
-      if (!storageKey?.startsWith(start)) continue;
-      const rewardId = decodeURIComponent(storageKey.slice(start.length));
-      const saved = readAttempt(localStorage.getItem(storageKey));
-      if (!rewardId || !saved) throw new Error('invalid stored redemption');
-      pending.push({ rewardId, ...saved });
-    }
-    return pending;
-  });
+  const start = prefix(storeId, accountId);
+  const pending: PendingReward[] = [];
+  for (const [storageKey, raw] of await listStoredAttempts(start)) {
+    const rewardId = decodeURIComponent(storageKey.slice(start.length));
+    const saved = readAttempt(raw);
+    if (!rewardId || !saved) throw new Error('invalid stored redemption');
+    pending.push({ rewardId, ...saved });
+  }
+  return pending;
 }
 
 export async function reserveReward(
@@ -49,19 +45,19 @@ export async function reserveReward(
   name: string,
   expectedKey?: string,
 ): Promise<string | null> {
-  return withAttemptLock(() => {
-    const storageKey = prefix(storeId, accountId) + encodeURIComponent(rewardId);
-    const saved = readAttempt(localStorage.getItem(storageKey));
-    if (expectedKey && saved?.key !== expectedKey) return null;
+  const storageKey = prefix(storeId, accountId) + encodeURIComponent(rewardId);
+  return updateStoredAttempt(storageKey, (raw) => {
+    const saved = readAttempt(raw);
+    if (expectedKey && saved?.key !== expectedKey) return { result: null };
     const attempt = saved || { name, key: crypto.randomUUID() };
-    localStorage.setItem(storageKey, JSON.stringify(attempt));
-    return attempt.key;
+    return { value: JSON.stringify(attempt), result: attempt.key };
   });
 }
 
 export async function completeReward(storeId: string, accountId: string, rewardId: string, expectedKey: string) {
-  return withAttemptLock(() => {
-    const storageKey = prefix(storeId, accountId) + encodeURIComponent(rewardId);
-    if (readAttempt(localStorage.getItem(storageKey))?.key === expectedKey) localStorage.removeItem(storageKey);
+  const storageKey = prefix(storeId, accountId) + encodeURIComponent(rewardId);
+  return updateStoredAttempt(storageKey, (raw) => {
+    if (readAttempt(raw)?.key !== expectedKey) return { result: undefined };
+    return { value: null, result: undefined };
   });
 }

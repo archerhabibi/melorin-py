@@ -11,6 +11,7 @@
 | 2026-11-23 | AI-05 uses audit/05-frontend-fe001 from the AI-04 head; the pre-existing audit/05-frontend placeholder is preserved. Later branches follow the actual AI-05 PR head. | AI-00 |
 | 2026-11-24 | A newly confirmed reseller wallet API issue is fixed in a follow-up stacked on the current AI-05 head; its PostgreSQL concurrency test is included with the API change. | AI-00 |
 | 2026-11-24 | The AI-05 follow-ups #166 and #167 forked before the current #165 head and are not ancestors of #173. PR #166 was reconciled with #165; #167 still fails the bundle budget and needs integration into the later stack. | AI-00 |
+| 2026-11-24 | PR #167 was reconciled, brought back under the bundle budget, and incorporated after PR #174 in a separate integration branch. Earlier PRs retain their existing bases. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -20,12 +21,13 @@
 | AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
 | AI-03 | 3 | DB-001..DB-003 fixed; order-creation concurrency now tested, ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
-| AI-05 | 3 | FE-001..FE-008 addressed in PR #165; #166 reconciled; #167 needs its bundle check fixed and integration; frontend audit continues |
+| AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
 | AI-08 | 3 | QA-001..QA-003 fixed; broader test strategy, integration and performance review continues |
 
 ## Scope / ownership exceptions
+- 2026-11-23 AI-05 added a storefront test dependency and changed the corresponding lockfile (AI-07), and extended browser regression tests (AI-08). AI-07 and AI-08 review these changes during their audits.
 - 2026-11-23 AI-02 changed `apps/api/melorin/core/config.py` (AI-01) and `.env.example` (AI-07), one default each, for SEC-001. Approved by AI-00; the owners review them in the AI-02 PR.
 - 2026-11-24 BE-002 updates the shared PostgreSQL concurrency test (AI-08) alongside the reseller API fix (AI-01).
 - 2026-11-24 BE-003 replaces the skipped order concurrency contract (AI-08) alongside the order service fix (AI-01).
