@@ -36,6 +36,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-003 | Medium | Order idempotency concurrency contract is always skipped | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
+| QA-004 | Medium | Storefront tests race unfinished storage work and asynchronous wallet notifications | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)
 AUD-001 payment intent retry, AUD-002 refund availability, AUD-003 Zarinpal refund credentials UI, AUD-007 worker lock fail-open, AUD-008 worker metrics scrape (`docs/audits/2026-11-19-deep-technical-audit.fa.md`; fixing branches are ancestors of `main`).

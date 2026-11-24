@@ -17,9 +17,9 @@ const club = (rewards = [reward]) => ({
   history: [],
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.restoreAllMocks();
-  resetAttemptStorage();
+  await resetAttemptStorage();
 });
 
 async function clickReadyReward(name) {

@@ -20,6 +20,7 @@
 | 2026-11-24 | BE-007 follows PR #180; loyalty adjustment retries verify the existing amount and operation kind. | AI-00 |
 | 2026-11-24 | BE-008 follows PR #181; both reward engines serialize with refunds and reject late completions of refunded orders. | AI-00 |
 | 2026-11-24 | BE-009 follows PR #182; a replayed first purchase cannot earn a second referral commission. | AI-00 |
+| 2026-11-24 | QA-004 follows PR #183; storefront tests wait for pending storage work and wallet notifications before continuing. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -32,7 +33,7 @@
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
-| AI-08 | 3 | QA-001..QA-003 fixed; broader test strategy, integration and performance review continues |
+| AI-08 | 3 | QA-001..QA-004 fixed; broader test strategy, integration and performance review continues |
 
 ## Scope / ownership exceptions
 - 2026-11-23 AI-05 added a storefront test dependency and changed the corresponding lockfile (AI-07), and extended browser regression tests (AI-08). AI-07 and AI-08 review these changes during their audits.
@@ -43,3 +44,4 @@
 - 2026-11-24 BE-007 adds a PostgreSQL concurrency regression (AI-08) alongside the loyalty API fix (AI-01).
 - 2026-11-24 BE-008 adds a PostgreSQL concurrency regression (AI-08) for reward and refund ordering (AI-01, AI-03, AI-06).
 - 2026-11-24 BE-009 adds PostgreSQL worker replay coverage (AI-08) for referral settlement (AI-01, AI-03, AI-06).
+- 2026-11-24 QA-004 updates shared storefront test setup and asynchronous wallet assertions (AI-08, AI-05).
