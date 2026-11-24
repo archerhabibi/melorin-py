@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. 2 findings confirmed and fixed (INT-001 and INT-002, both Medium). Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. 3 findings confirmed and fixed (INT-001..INT-003, all Medium). Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -40,6 +40,15 @@
 - Regression tests: `tests/service/test_webhooks_service_db.py::test_the_response_body_of_a_receiver_is_never_read` (before the fix the client pulled all 64 MiB: `assert 67108864 == 0`) and `::test_a_receiver_that_never_answers_fails_the_attempt_within_the_deadline` (before the fix the delivery never returned). The test double `FakeClient` now offers `stream()` instead of `post()`; every existing assertion is unchanged.
 - Dependencies: AI-06 owns `poll_tick` (section 7).
 
+### INT-003 — OCR endpoint validation and connection could use different addresses
+- Severity: Medium. Status: Fixed. Base: PR #185 at 30bafbb2702ef54125d2a13b888d442820eb98c3.
+- File / symbol: `modules/payments/receipt_ocr.py`, `assert_public_endpoint` and `post_vision`.
+- Evidence: the policy validated the DNS answer but the HTTP client subsequently received the hostname and performed its own lookup. Four new connection and TLS regressions failed on the parent; a mixed public/private DNS answer was already refused.
+- Impact: a DNS change between validation and connection could evade the outbound address policy. Requests include the OCR provider credential and receipt image; normal TLS certificate verification still applies.
+- Fix: validate every returned address, connect to a checked IPv4 or IPv6 address and preserve the provider hostname for HTTP Host, TLS SNI and certificate verification. Both the receipt reader and the admin connection test use this path.
+- Regression: `tests/unit/test_receipt_ocr_pinning.py` checks IPv4, IPv6, mixed DNS answers and a real local TLS listener. A matching certificate succeeds; a certificate for another name is refused before any request is sent.
+- Compatibility: if the selected validated address is unreachable, this OCR request fails instead of retrying another address; the existing manual-review fallback applies.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -51,6 +60,8 @@
 - `core/email.py` (INT-001); new `tests/unit/test_email_tls.py`.
 - `modules/webhooks/service.py` (INT-002); `tests/service/test_webhooks_service_db.py` (test double moved from `post` to `stream`, 2 new tests).
 
+- `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_pinning.py` (INT-003).
+
 ## 6. Test results
 | Command | Result | Notes |
 |---|---|---|
@@ -60,9 +71,12 @@
 | `pytest tests/service/test_webhooks_service_db.py -k 'never_read or never_answers'` before the INT-002 fix | FAIL | 2 failed: 64 MiB pulled from the body; the delivery never returned |
 | `pytest tests/service/test_webhooks_service_db.py tests/service/test_worker_runner_db.py tests/http -k 'webhook or deliver or runner'` after the fix | PASS | 51 passed |
 | `ruff check`, `mypy` (391 files) after INT-002 | PASS | |
+| INT-003 focused OCR, endpoint-policy and TLS regressions | PASS | 44 passed; 4 of the new cases failed before the fix |
+| INT-003 make lint and mypy | PASS | 8 import contracts; 391 source files type-checked |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
+- INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
 - Provider contracts (Zarinpal refund endpoint, Sanaei, Pasarguard, Telethon flow) are checked against the code only, never against a live or sandbox peer.
 - `ZarinpalAdapter.query_payment_status` returns the local status: a payment whose callback never arrives stays pending until someone acts. To be assessed in the next pass.
 - Receipt OCR runs `tesseract` under a time limit but with no memory or pixel-count limit.
@@ -73,3 +87,4 @@
 
 ## 9. Pull request
 - Branch `audit/04-integrations`, base `audit/03-database-finance`.
+- INT-003 follow-up: branch `audit/20-ocr-endpoint-089a80a5`; parent PR #185.

@@ -131,7 +131,7 @@ class OcrEndpointForbidden(Exception):
     """The OCR base URL resolves to an address the outbound policy refuses (V-021): receipts and the API key must not go there."""
 
 
-async def assert_public_endpoint(base_url: str) -> None:
+async def assert_public_endpoint(base_url: str) -> str:
     """Resolve the OCR host without blocking the loop and refuse internal/CGNAT/metadata addresses (shared ``netpolicy``)."""
     from melorin.domain import netpolicy, webhook
 
@@ -144,6 +144,7 @@ async def assert_public_endpoint(base_url: str) -> None:
     infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     if not infos or any(netpolicy.is_forbidden_ip(str(i[4][0])) for i in infos):
         raise OcrEndpointForbidden("resolves to a non-public address")
+    return str(infos[0][4][0])  # Connect to this checked address rather than resolve the host again.
 
 
 async def post_vision(
@@ -176,9 +177,17 @@ async def post_vision(
     if system:
         body["system"] = system
     headers = {"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    await assert_public_endpoint(c.base_url)  # never ship a receipt image + API key to an internal address
+    # Connect to the checked address; let TLS verify the original provider hostname.
+    address = await assert_public_endpoint(c.base_url)
+    endpoint = httpx.URL(f"{c.base_url.rstrip('/')}/v1/messages")
+    headers["Host"] = endpoint.netloc.decode("ascii")
     async with outbound_client("receipt_ocr", timeout=c.timeout) as client:
-        return await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
+        return await client.post(
+            endpoint.copy_with(host=address),
+            json=body,
+            headers=headers,
+            extensions={"sni_hostname": endpoint.raw_host.decode("ascii")},
+        )
 
 
 async def _vision(data: bytes, content_type: str, c: OcrConfig) -> ReceiptFacts:
