@@ -97,6 +97,8 @@ The order request helper alone creates and conditionally clears the stored key; 
 - FE-006: 104 storefront tests, lint, typecheck, format check and build passed. Three browser scenarios passed, including both recovery cases and overlapping tabs.
 - FE-007 and the FE-005 storage correction: all 118 storefront tests, lint, typecheck, build and changed-file Prettier checks passed. Fifteen Chromium runs passed across five repetitions of both two-tab paths and legacy migration with mocked APIs. The full Windows checkout needs line-ending autodetection because its unchanged CRLF files fail the repository's LF-only format check.
 - FE-008: 14 focused loyalty tests, lint and typecheck passed before the storage consolidation; two-tab browser coverage was added.
+- Reconciled FE-005..FE-008: all 134 storefront tests, lint, typecheck, format check and production build passed. The account dashboard now loads on demand and first-load storefront JavaScript is 222.2 kB against the existing 274 kB budget.
+- The complete Chromium suite on the reconciled frontend passed 32 tests; two scenarios requiring a seeded staging stack were skipped. It includes concurrent order, wallet and reward retries and recovery after reload.
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
 - Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 

@@ -18,7 +18,7 @@
 | AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
 | AI-03 | 3 | DB-001..DB-003 fixed; ledger reconciliation, CHECK constraints and the order-creation concurrency test follow |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
-| AI-05 | 3 | FE-001..FE-008 addressed; recovery and atomic retry follow-ups are being reconciled; frontend audit continues |
+| AI-05 | 3 | FE-001..FE-008 addressed; the recovery and atomic retry follow-ups are reconciled, and still need integration into the later stack; frontend audit continues |
 | AI-06..AI-08 | 1 | Not started (sequential, in chain order) |
 
 ## Scope / ownership exceptions
