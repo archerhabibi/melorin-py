@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event';
 import Dashboard, { Tickets, Wallet } from '../src/Dashboard.tsx';
 import { PasswordInput } from '../src/ui.tsx';
 
+// Cross-tab locking is exercised in browser tests; unit tests isolate the wallet UI.
+vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: async (operation) => operation() }));
+
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'screen.png', { type: 'image/png' });

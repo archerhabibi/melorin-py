@@ -29,6 +29,36 @@ const signedIn = (extra = {}) =>
     ...extra,
   });
 
+async function holdAttemptLock(page) {
+  await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open('melorin-attempt-lock', 1);
+        open.onerror = () => reject(open.error);
+        open.onupgradeneeded = () => open.result.createObjectStore('locks');
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('locks', 'readwrite');
+          const store = tx.objectStore('locks');
+          let released = false;
+          window.releaseAttemptTestLock = () => {
+            released = true;
+          };
+          const hold = () => {
+            if (!released) store.get('gate').onsuccess = hold;
+          };
+          const first = store.get('gate');
+          first.onsuccess = () => {
+            hold();
+            resolve();
+          };
+          tx.oncomplete = () => db.close();
+          tx.onabort = () => reject(tx.error);
+        };
+      }),
+  );
+}
+
 test('guest picking a package is asked to sign in, then email code login succeeds', async ({ page }) => {
   const assertNoErrors = failOnPageErrors(page);
   const seen = await mockCore(
@@ -214,33 +244,7 @@ test('overlapping tabs wait for storage coordination and share one order key', a
   }
 
   // Hold a real read/write transaction so both tabs must wait before choosing a key.
-  await page.evaluate(
-    () =>
-      new Promise((resolve, reject) => {
-        const open = indexedDB.open('melorin-attempt-lock', 1);
-        open.onerror = () => reject(open.error);
-        open.onupgradeneeded = () => open.result.createObjectStore('locks');
-        open.onsuccess = () => {
-          const db = open.result;
-          const tx = db.transaction('locks', 'readwrite');
-          const store = tx.objectStore('locks');
-          let released = false;
-          window.releaseAttemptTestLock = () => {
-            released = true;
-          };
-          const hold = () => {
-            if (!released) store.get('gate').onsuccess = hold;
-          };
-          const first = store.get('gate');
-          first.onsuccess = () => {
-            hold();
-            resolve();
-          };
-          tx.oncomplete = () => db.close();
-          tx.onabort = () => reject(tx.error);
-        };
-      }),
-  );
+  await holdAttemptLock(page);
   for (const p of pages) {
     await p.evaluate(() => {
       const original = indexedDB.open.bind(indexedDB);
@@ -259,6 +263,84 @@ test('overlapping tabs wait for storage coordination and share one order key', a
     ),
   );
   for (const p of pages) await expect.poll(() => p.evaluate(() => window.orderLockRequested)).toBe(true);
+  expect(keys).toHaveLength(0);
+  await page.evaluate(() => window.releaseAttemptTestLock());
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[0]).toBe(keys[1]);
+  releaseResponses.forEach((release) => release());
+});
+
+test('overlapping wallet topups wait for coordination and share one payment key', async ({ page, context }) => {
+  const pages = [page, await context.newPage()];
+  const keys = [];
+  const releaseResponses = [];
+  for (const p of pages) {
+    await mockCore(p, signedIn({ 'GET /api/v1/stores/store-main/wallet/transactions': [] }));
+    await p.route('**/api/v1/stores/store-main/wallet/topups', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      keys.push(route.request().headers()['idempotency-key']);
+      await new Promise((resolve) => releaseResponses.push(resolve));
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+    });
+    await p.goto('/#/dashboard');
+    await p.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'کیف پول' }).click();
+    await p.getByPlaceholder('مبلغ').fill('1000');
+  }
+  await holdAttemptLock(page);
+  for (const p of pages) {
+    await p.evaluate(() => {
+      const original = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (...args) => {
+        window.walletLockRequested = true;
+        return original(...args);
+      };
+    });
+  }
+  await Promise.all(pages.map((p) => p.getByRole('button', { name: 'ایجاد درخواست' }).click()));
+  for (const p of pages) await expect.poll(() => p.evaluate(() => window.walletLockRequested)).toBe(true);
+  expect(keys).toHaveLength(0);
+  await page.evaluate(() => window.releaseAttemptTestLock());
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[0]).toBe(keys[1]);
+  releaseResponses.forEach((release) => release());
+});
+
+test('overlapping loyalty redemptions wait for coordination and share one key', async ({ page, context }) => {
+  const pages = [page, await context.newPage()];
+  const keys = [];
+  const releaseResponses = [];
+  const club = {
+    enabled: true,
+    currency: 'IRT',
+    balance: 1000,
+    lifetime_earned: 1000,
+    debt: 0,
+    rewards: [{ id: 'r1', name: 'پاداش', cost_points: 100, value: 1000, available: true }],
+    history: [],
+  };
+  for (const p of pages) {
+    await mockCore(p, signedIn({ 'GET /api/v1/stores/store-main/loyalty': club }));
+    await p.route('**/api/v1/stores/store-main/loyalty/rewards/r1/redeem', async (route) => {
+      keys.push(route.request().headers()['idempotency-key']);
+      await new Promise((resolve) => releaseResponses.push(resolve));
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+    });
+    await p.goto('/#/dashboard');
+    await p.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'پروفایل و امنیت' }).click();
+    await expect(p.getByRole('button', { name: 'دریافت پاداش' })).toBeEnabled();
+  }
+  await holdAttemptLock(page);
+  for (const p of pages) {
+    await p.evaluate(() => {
+      const original = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (...args) => {
+        window.loyaltyLockRequested = true;
+        return original(...args);
+      };
+    });
+  }
+  await Promise.all(pages.map((p) => p.getByRole('button', { name: 'دریافت پاداش' }).click()));
+  for (const p of pages) await expect.poll(() => p.evaluate(() => window.loyaltyLockRequested)).toBe(true);
   expect(keys).toHaveLength(0);
   await page.evaluate(() => window.releaseAttemptTestLock());
   await expect.poll(() => keys.length).toBe(2);

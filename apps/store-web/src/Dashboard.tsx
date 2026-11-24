@@ -164,7 +164,13 @@ function Profile({
         </button>
       </div>
       <Suspense fallback={<Loading />}>
-        <Loyalty coreFetch={coreFetch} storeId={storeId} notify={notify} />
+        <Loyalty
+          key={String(storeId) + ':' + (account?.id ?? '')}
+          coreFetch={coreFetch}
+          storeId={storeId}
+          accountId={account?.id}
+          notify={notify}
+        />
       </Suspense>
       <Suspense fallback={<Loading />}>
         <Referral coreFetch={coreFetch} storeId={storeId} notify={notify} />

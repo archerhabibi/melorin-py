@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Loyalty from '../src/Loyalty.tsx';
 import { multiplierLabel, tierProgress } from '../src/loyaltyFormat.ts';
+
+// Browser tests cover IndexedDB coordination; these tests exercise the card.
+vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: async (operation) => operation() }));
+beforeEach(() => localStorage.clear());
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -60,7 +64,7 @@ describe('customer loyalty card (this store only)', () => {
       calls.push(path);
       return res(club());
     });
-    render(<Loyalty coreFetch={coreFetch} storeId="s1" notify={vi.fn()} />);
+    render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={vi.fn()} />);
     expect(await screen.findByTestId('loyalty-balance')).toHaveTextContent('۷۰۰');
     expect(calls).toEqual(['/api/v1/stores/s1/loyalty']);
     expect(screen.getByText('نقره‌ای')).toBeInTheDocument();
@@ -72,7 +76,7 @@ describe('customer loyalty card (this store only)', () => {
 
   it('renders nothing for a store without a club', async () => {
     const coreFetch = vi.fn(async () => res({ store_id: 's1', enabled: false }));
-    const { container } = render(<Loyalty coreFetch={coreFetch} storeId="s1" notify={vi.fn()} />);
+    const { container } = render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={vi.fn()} />);
     await waitFor(() => expect(coreFetch).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
@@ -89,7 +93,7 @@ describe('customer loyalty card (this store only)', () => {
       return res(club({ balance }));
     });
     const notify = vi.fn();
-    render(<Loyalty coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
     await userEvent.click(await screen.findByRole('button', { name: 'دریافت اعتبار ۵ هزار' }));
     await waitFor(() => expect(screen.getByTestId('loyalty-balance')).toHaveTextContent('۲۰۰'));
     expect(seen).toHaveLength(1);
@@ -103,14 +107,14 @@ describe('customer loyalty card (this store only)', () => {
       opts?.method === 'POST' ? res({ error: { message: 'سقف دریافت پر شده است.' } }, 400) : res(club()),
     );
     const notify = vi.fn();
-    render(<Loyalty coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
     await userEvent.click(await screen.findByRole('button', { name: 'دریافت اعتبار ۵ هزار' }));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('سقف دریافت پر شده است.'));
   });
 
   it('tells the customer about a points debt after a refund', async () => {
     const coreFetch = vi.fn(async () => res(club({ debt: 80 })));
-    render(<Loyalty coreFetch={coreFetch} storeId="s1" notify={vi.fn()} />);
+    render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={vi.fn()} />);
     expect(await screen.findByTestId('loyalty-debt')).toHaveTextContent('۸۰');
   });
 });
