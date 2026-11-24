@@ -105,7 +105,7 @@ async def password_login(body: PasswordLogin, session: Session, request: Request
             upgraded_hash = await hash_password(body.password)
         # The password, email or activity may have changed while the KDF was running. Re-read under the same row lock
         # that protects the TOTP counter and token issuance, and only accept the exact credential we verified.
-        user = await session.scalar(select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True))
+        user = await session.get(User, user.id, with_for_update=True, populate_existing=True)
         password_ok = bool(user and user.password_hash == verified_hash and user.email == email)
     if not user or not password_ok or not user.is_active:
         audit.security_event(session, "login_failed", user.id if user else None, {"email": email})
