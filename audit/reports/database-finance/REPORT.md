@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first fix package pushed (DB-001..DB-003, all Low, no reachable money loss found). Ledger reconciliation, CHECK constraints and a real same-key order-creation concurrency test follow in this PR.
+- Status: first fix package pushed (DB-001..DB-003, all Low, no reachable money loss found). A later follow-up adds real same-key order-creation concurrency tests (QA-003); ledger reconciliation and CHECK constraints remain to review.
 - Base: stacked on `audit/02-security` (`2ab7d15`). Date: 2026-11-23.
 
 ## 2. Reviewed

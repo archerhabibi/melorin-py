@@ -7,6 +7,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 |---|---|---|---|---|---|
 | BE-001 | Low | Unbounded client integers (query, path, body, list items) reach a DB bind or arithmetic and answer HTTP 500 | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-002 | High | Reseller wallet retries can be rejected after a successful debit or falsely acknowledge a different adjustment | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
+| BE-003 | Medium | Concurrent retries of a renewal can report an error after the original order succeeded | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | SEC-001 | Low | Per-key API rate limit is stored and shown to the reseller but not enforced by default | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | DB-001 | Low | Foreign keys the code filters on (`vpn_accounts.panel_id`, `orders.vpn_account_id`, `payments.receipt_file_id`) have no index | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-002 | Low | Ledger tables are "append-only" by convention only; the database accepts UPDATE/DELETE | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
@@ -25,6 +26,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
+| QA-003 | Medium | Order idempotency concurrency contract is always skipped | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)
 AUD-001 payment intent retry, AUD-002 refund availability, AUD-003 Zarinpal refund credentials UI, AUD-007 worker lock fail-open, AUD-008 worker metrics scrape (`docs/audits/2026-11-19-deep-technical-audit.fa.md`; fixing branches are ancestors of `main`).

@@ -15,15 +15,16 @@
 | Team | Phase | State |
 |---|---|---|
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
-| AI-01 | 3 | BE-001 fixed (PR #161); BE-002 fixed in a follow-up on the AI-05 head |
+| AI-01 | 3 | BE-001 fixed (PR #161); BE-002 and BE-003 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
-| AI-03 | 3 | DB-001..DB-003 fixed; ledger reconciliation, CHECK constraints and the order-creation concurrency test follow |
+| AI-03 | 3 | DB-001..DB-003 fixed; order-creation concurrency now tested, ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 fixed; frontend audit continues (PR #165) |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
-| AI-08 | 3 | QA-001 and QA-002 fixed; test strategy, order concurrency, integration and performance review continues |
+| AI-08 | 3 | QA-001..QA-003 fixed; broader test strategy, integration and performance review continues |
 
 ## Scope / ownership exceptions
 - 2026-11-23 AI-02 changed `apps/api/melorin/core/config.py` (AI-01) and `.env.example` (AI-07), one default each, for SEC-001. Approved by AI-00; the owners review them in the AI-02 PR.
 - 2026-11-24 BE-002 updates the shared PostgreSQL concurrency test (AI-08) alongside the reseller API fix (AI-01).
+- 2026-11-24 BE-003 replaces the skipped order concurrency contract (AI-08) alongside the order service fix (AI-01).

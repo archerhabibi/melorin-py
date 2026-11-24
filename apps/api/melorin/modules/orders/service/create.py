@@ -50,17 +50,22 @@ async def create_order(
     mode = plans.normalize_mode(renewal_mode)
     if mode == plans.QUEUE and kind != "renewal":
         raise AppError("BAD_RENEWAL_MODE", "تمدید پیش‌خرید فقط برای سفارش تمدید معنا دارد.", 400)
-    existing = await session.scalar(
-        select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
-    )
-    if existing:
-        if (
+
+    async def existing_order() -> Order | None:
+        existing = await session.scalar(
+            select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
+        )
+        if existing and (
             existing.product_id != product_id
             or existing.kind != kind
             or existing.vpn_account_id != vpn_account_id
             or existing.renewal_mode != mode
         ):
-            raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409)
+            raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409) from None
+        return existing
+
+    existing = await existing_order()
+    if existing:
         return existing
     if payment_method != "wallet":
         raise AppError("WALLET_ONLY", "خرید فقط از کیف پول همین فروشگاه انجام می‌شود؛ ابتدا کیف پول را شارژ کنید.", 400)
@@ -79,6 +84,10 @@ async def create_order(
         # It then reads as "not found" and check_renewable answers it like any non-renewable account (409). Built from the
         # plain ids above on purpose (see the note on rollback), not from ORM instances.
         account = await StoreScope(store_id=store_id, user_id=user_id).lock(session, VpnAccount, vpn_account_id) if vpn_account_id else None
+        # A same-key renewal may have committed while this request waited for the account lock.
+        existing = await existing_order()
+        if existing:
+            return existing
         await renewal.check_renewable(session, account, user_id=user_id, store_id=store_id)
         account = require(account, "vpn account")  # check_renewable refuses a missing account
         if product_id != account.product_id:
@@ -181,21 +190,8 @@ async def create_order(
             session.add(order)
             await session.flush()
     except IntegrityError:
-        existing = await session.scalar(
-            select(Order).where(
-                Order.user_id == user_id,
-                Order.store_id == store_id,
-                Order.idempotency_key == idempotency_key,
-            )
-        )
+        existing = await existing_order()
         if existing:
-            if (
-                existing.product_id != product_id
-                or existing.kind != kind
-                or existing.vpn_account_id != vpn_account_id
-                or existing.renewal_mode != mode
-            ):
-                raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409) from None
             return existing
         raise
     session.add(OrderStateTransition(order_id=order.id, from_status="-", to_status=S.PENDING, actor_id=user.id))
@@ -222,9 +218,7 @@ async def create_order(
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        existing = await session.scalar(
-            select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
-        )
+        existing = await existing_order()
         if existing:
             return existing
         raise

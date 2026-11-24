@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 and a later reseller wallet finding BE-002 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001, the reseller wallet finding BE-002 and concurrent renewal finding BE-003 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -36,6 +36,14 @@
 - Regression: HTTP tests for a spent-balance retry and key reuse; PostgreSQL tests for simultaneous same-key and different-key corrections. On PostgreSQL 16 both parallel cases passed, with one debit and no negative balance.
 - Limits: membership and configured amount-cap checks still precede replay, and the established API treats reason/reference as descriptive metadata rather than part of key identity.
 
+### BE-003 — Concurrent renewal replay is rejected after the first request commits
+- Severity: Medium. Status: Fixed.
+- Base: `audit/08-wallet-properties-ci-20261124` at `c764b09`; file: `modules/orders/service/create.py`.
+- Evidence: two PostgreSQL sessions pass the same-key precheck, then one waits on the account lock. After the first commits, the waiter reports `RENEWAL_IN_PROGRESS` instead of returning that same order. With the same key and another product or renewal mode it also reports the wrong error. Three regression cases failed on the base.
+- Cause: the precheck runs before the account lock, while renewal eligibility is checked after the lock without checking whether the waiting request's key has since been committed.
+- Fix: recheck the scoped idempotency key after acquiring the account lock and use the same request-identity validation for every replay recovery path, including a commit-time integrity failure. A different key still receives `RENEWAL_IN_PROGRESS`.
+- Regression: deterministic PostgreSQL races cover a same-key purchase and four renewal cases, with one order, one charge, a balanced ledger and one paid event. Related renewal and contract tests pass on PostgreSQL.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 
@@ -48,6 +56,8 @@
 | CI `quality`, `postgres-lane`, `web-e2e` on the PR | see PR | |
 | BE-002 focused HTTP tests | PASS | 2 failed on the base, 2 passed after the fix |
 | BE-002 PostgreSQL concurrency tests | PASS | 2 passed against an isolated PostgreSQL 16 container |
+| BE-003 order races and related renewal/contract tests | PASS | 35 passed on isolated PostgreSQL 16 |
+| BE-003 `make lint`, `mypy`, full `make test` | PASS | 2,927 passed, 25 skipped in the SQLite/default lane |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
