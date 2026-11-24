@@ -43,6 +43,10 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
     order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
     if not order or order.status != OrderStatus.COMPLETED or not is_revenue(order.kind) or order.total <= 0:
         return
+    # The order lock also serializes retries. A replay must not turn the first
+    # purchase's signup reward into a second, ordinary commission.
+    if await session.scalar(select(Commission.id).where(Commission.order_id == order.id)):
+        return
     # Store isolation (docs/17): the relationship is looked up INSIDE the order's own store. A referral made in another store
     # never pays here and never charges this store's referral-expense account; this store's own relationship (if any) is the one used.
     rel = await session.scalar(
@@ -79,7 +83,7 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
     kind = "signup_reward" if prior == 0 and not reward_granted else "commission"
     plan = await _plan(session, order, kind)
     gross = amount_for(plan, order.total)
-    if gross <= 0 or await session.scalar(select(Commission.id).where(Commission.order_id == order.id, Commission.kind == kind)):
+    if gross <= 0:
         return
     w = await wallet.get_wallet(session, rel.referrer_user_id, order.store_id, currency=order.currency)
     claw = await session.scalar(

@@ -13,6 +13,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | BE-006 | Medium | Concurrent loyalty redemption retries can fail or acknowledge a different reward | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-007 | Medium | A loyalty adjustment can acknowledge a different amount for an existing key | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-008 | High | A delayed completion event can award loyalty points and referral cash after an order refund | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
+| BE-009 | High | Replayed first-purchase events can pay both a signup reward and a commission for the same order | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | SEC-001 | Low | Per-key API rate limit is stored and shown to the reseller but not enforced by default | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-002 | Medium | Cancelled password operations can exceed the intended KDF concurrency bound | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-003 | High | Password login can succeed with credentials changed during verification | AI-02 | Fixed | audit/reports/security/REPORT.md |

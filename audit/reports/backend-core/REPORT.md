@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-008 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-009 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -89,6 +89,15 @@
 - Regression: tests/service/test_reward_event_order.py covers direct and worker-level out-of-order delivery; tests/postgres/test_reward_refund_race_postgres.py exercises both real row-lock orderings and checks points, cash and commission status.
 - Compatibility: delayed events no longer award rewards for orders that are not completed. No API or schema migration.
 
+### BE-009 — Replayed first purchases can pay two referral rewards
+- Severity: High (a duplicate worker event creates a second spendable cash payout). Status: Fixed. Base: PR #182 at 7b17d7d1b4ec50ecde420506ca85cea01506c43d.
+- File / symbol: modules/referral/commissions.py, on_order_completed.
+- Evidence: when the signup reward is 500 and the commission is 300, replaying the same first completed order pays both amounts. The service regression and a two-worker PostgreSQL regression both failed on the parent.
+- Root cause: the first delivery recorded a signup reward; a replay then selected the ordinary commission plan and the per-(order, kind) guard failed to recognize the original reward.
+- Fix: after taking the existing order row lock, return if any commission row already exists for that order. The first and subsequent purchases still receive their respective plan once, including when worker deliveries overlap.
+- Regression: tests/service/test_referral_replay.py covers repeated first and later purchases, their recorded rewards and wallet balances; tests/postgres/test_referral_replay_race_postgres.py runs competing deliveries against a real row lock.
+- Compatibility: duplicate completion events no longer pay a different reward on the same order. No API or schema migration.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
@@ -121,6 +130,8 @@
 | BE-007 focused regressions | PASS | PostgreSQL: 4 passed, including 2 races failing on the parent; SQLite: 42 loyalty service/HTTP tests passed; mypy and make lint passed |
 | BE-007 full make test | PASS | 2,952 passed, 43 skipped on the PR #181 code tree |
 | BE-008 focused regressions | PASS | 2 PostgreSQL race scenarios and 45 loyalty/referral service tests passed; 9 loyalty HTTP tests, mypy and make lint passed |
+| BE-008 full make test | PASS | 2,955 passed, 45 skipped on the PR #182 code tree |
+| BE-009 focused regressions | PASS | 14 service tests and 3 PostgreSQL races passed; the new replay and race tests failed on the parent. make lint and mypy passed |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
