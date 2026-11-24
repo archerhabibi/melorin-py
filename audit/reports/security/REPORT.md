@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over authentication, authorization, rate limiting and exposure controls done. SEC-001 through SEC-003 are fixed; broader security review continues. The authorization perimeter is covered by a permanent matrix test.
+- Status: first pass over authentication, authorization, rate limiting and exposure controls done. SEC-001 through SEC-004 are fixed; broader security review continues. The authorization perimeter is covered by a permanent matrix test.
 - Base: stacked on `audit/01-backend-core` (`b0f7fd8`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -44,6 +44,15 @@
 - Compatibility: a login overlapping an account change can be rejected; retry with the current credentials. No API or schema change.
 - Regression: HTTP tests cover normal and legacy password replacements, deactivation, an email change and successful hash upgrades, using separate database sessions.
 
+### SEC-004 — Password reauthentication accepts proof that has become stale
+- Severity: High. Status: Fixed. Base: `audit/12-login-race-883d25e9` at `9ef547878d0892f89440153094850b93ad0f0902`.
+- Files / symbols: `modules/identity/routes/account.py`, `change_admin_password`; `modules/identity/account_linking/reauth.py`, `require`.
+- Evidence: after another transaction changed the password during verification, an admin password change overwrote the newer password, and an identity unlink accepted the old password. The same admin route continued after deactivation, demotion or removal of two-factor authentication. Six regression cases failed on the parent.
+- Root cause: the password was verified against a user object read earlier, without locking and rechecking it before the protected action.
+- Fix: finish password work before locking, reload the user under a row lock and compare the verified hash. Admin changes also recheck active/admin/two-factor state, access restrictions and the password policy against the refreshed email. Password-based unlinking holds the lock until its change commits.
+- Compatibility: concurrent changes may now return 401 and require a retry with current credentials. No API or schema change.
+- Regression: HTTP tests cover the stale password and account-state changes on SQLite and PostgreSQL; PostgreSQL concurrency tests verify that only one simultaneous admin password change succeeds and that unlink holds the user lock until commit.
+
 ### Checked and not a defect
 - Public sign-in routes look unthrottled by decorator but the `auth` router carries `RateLimit("auth", 30, 60)` and password sign-in adds per-account budgets (10/900 s per email+IP, 100/900 s per email).
 - `/metrics` needs a bearer token (constant-time compare), production start-up rejects weak or empty tokens, `/docs` and `/openapi.json` are dev-only, and the Caddyfile blocks `/metrics`, `/docs`, `/redoc`, `/openapi.json` and `/api/v1/internal/*`.
@@ -54,6 +63,7 @@
 - New tests: `tests/http/test_authz_matrix.py` (5 tests). Regenerated `openapi.json` and `docs/STATUS.md`.
 - SEC-002 updates the KDF slot lifecycle and adds cancellation/worker-failure tests.
 - SEC-003 updates password login and adds credential-change race tests.
+- SEC-004 updates admin password changes and password-based unlink reauthentication, with concurrent PostgreSQL tests.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -69,7 +79,11 @@
 | SEC-003 focused SQLite authentication and KDF tests | PASS | 55 passed on `9b2ffd8f`; 6 final credential/lock tests passed on `b9ed717b` |
 | SEC-003 PostgreSQL authentication and account tests | PASS | 46 passed on `9b2ffd8f`; 6 final credential/lock tests passed on `b9ed717b` |
 | SEC-003 lint, formatting and mypy | PASS | 8 import contracts kept; 391 source files type-checked |
-| SEC-003 full backend suite | see PR | Final source revision tested in the background |
+| SEC-003 full backend suite | PASS | 2,944 passed, 32 skipped on `b9ed717b` |
+| SEC-004 targeted SQLite and PostgreSQL HTTP tests | PASS | 8 passed on each database |
+| SEC-004 PostgreSQL concurrency tests | PASS | 2 passed with independent transactions |
+| SEC-004 lint, formatting and mypy | PASS | 8 import contracts kept; 391 source files type-checked |
+| SEC-004 full backend suite | see PR | Final source revision tested in the background |
 
 ## 7. Residual risks
 - The public Telegram web-login flow (`/auth/telegram/web/sessions*`) and provider callbacks are verified by code reading only, not by a live Telegram or gateway.
