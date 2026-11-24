@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-009 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-011 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -98,6 +98,21 @@
 - Regression: tests/service/test_referral_replay.py covers repeated first and later purchases, their recorded rewards and wallet balances; tests/postgres/test_referral_replay_race_postgres.py runs competing deliveries against a real row lock.
 - Compatibility: duplicate completion events no longer pay a different reward on the same order. No API or schema migration.
 
+### BE-010 — Refunding an offset reward can erase referral debt
+- Severity: High (future commissions can be paid before an existing debt is recovered). Status: Fixed. Base: PR #184 at 5192c6ac525aa78fa621550f7dffb8294cc85fc0.
+- File / symbol: modules/referral/commissions.py, on_order_refunded.
+- Evidence: when a 500-unit reward offsets a 300-unit debt, refunding the order left the debt at zero; when the full 500 was offset, the commission remained credited. Both service regressions failed on the parent.
+- Root cause: reversal only handled a cash ledger transaction and never restored the prior debt settled by the refunded reward.
+- Fix: return the offset to the clawback, reverse any cash payout, mark even fully offset rewards reversed, and record restoration in the audit log. Repeated refund events do not restore the debt twice.
+- Regression: tests/service/test_referral_offset_refund.py covers full/partial offsets, repeated refunds and later commissions; tests/postgres/test_referral_offset_refund_postgres.py covers concurrent refunds. No schema migration.
+
+### BE-011 — Referral settlement and refund can deadlock
+- Severity: Medium. Status: Fixed. Base: PR #184 at 5192c6ac525aa78fa621550f7dffb8294cc85fc0.
+- File / symbol: modules/referral/commissions.py, on_order_completed and on_order_refunded.
+- Evidence: a PostgreSQL test forced settlement to hold the clawback while refund held the wallet; PostgreSQL detected a deadlock on the parent.
+- Root cause: settlement locked clawback before wallet, while refund locked wallet before clawback.
+- Fix: both paths lock the wallet before the clawback and refresh locked records. The PostgreSQL regression verifies both complete and checks resulting balances and debt.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
@@ -132,6 +147,8 @@
 | BE-008 focused regressions | PASS | 2 PostgreSQL race scenarios and 45 loyalty/referral service tests passed; 9 loyalty HTTP tests, mypy and make lint passed |
 | BE-008 full make test | PASS | 2,955 passed, 45 skipped on the PR #182 code tree |
 | BE-009 focused regressions | PASS | 14 service tests and 3 PostgreSQL races passed; the new replay and race tests failed on the parent. make lint and mypy passed |
+| BE-009 full make test | PASS | 2,957 passed, 46 skipped on the PR #183 code tree |
+| BE-010 / BE-011 focused regressions | PASS | 65 service/HTTP tests and 5 PostgreSQL race scenarios passed; 2 service and 2 PostgreSQL regressions failed on the parent; make lint and mypy passed |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
