@@ -30,6 +30,7 @@
 | 2026-11-25 | INT-005 follows PR #190; rejected receipt uploads clean up stored objects when no commit was attempted. | AI-00 |
 | 2026-11-25 | INT-006 follows PR #191; cancelled and timed-out OCR processes are terminated and reaped before their slot is released. | AI-00 |
 | 2026-11-25 | INT-007 follows PR #192; recheck pending and completed upstream-bot purchases under the chat lock before confirming. | AI-00 |
+| 2026-11-25 | INT-008 follows PR #193; chat locks fail closed on Redis errors and release only their own lease. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -38,7 +39,7 @@
 | AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-011 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 through SEC-005 fixed; authorization matrix test added; 9 `PENDING` bounds closed; broader security review continues |
 | AI-03 | 3 | DB-001..DB-006 fixed; order-creation and bank-SMS concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
-| AI-04 | 3 | INT-001..INT-007 fixed; panel adapters and the rest of bank SMS still to review |
+| AI-04 | 3 | INT-001..INT-008 fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
@@ -62,3 +63,4 @@
 - 2026-11-25 INT-005 changes receipt upload cleanup (AI-03) and adds storage and HTTP tests (AI-08).
 - 2026-11-25 INT-006 adds subprocess cancellation tests (AI-08) alongside the OCR integration fix (AI-04).
 - 2026-11-25 INT-007 changes purchase idempotency and recovery in the upstream-bot integration and adds concurrency tests (AI-08).
+- 2026-11-25 INT-008 adds upstream-bot lock failure and cancellation regressions (AI-08).

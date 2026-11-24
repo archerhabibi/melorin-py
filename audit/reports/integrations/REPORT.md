@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-007 fixed, including receipt cleanup, OCR cancellation and upstream-bot purchase retries. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-008 fixed, including receipt cleanup, OCR cancellation, upstream-bot purchase retries and lock handling. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -88,6 +88,16 @@
 - Regression: `tests/adapters/test_upstream_bot_adapter.py` covers concurrent attempts, a charged but unanswered purchase, eventual delivery, a waiting account read and a confirmation timeout. The existing fake-provider suite remains green.
 - Compatibility: an unconfirmed delivery blocks automatic repurchase until recovered or reconciled; no API or schema change. Redis failures and lock expiry remain separate risks to address.
 
+### INT-008 — Upstream-bot chat locks can be bypassed, leaked or released for another owner
+- Severity: High. Status: Fixed on this branch. Base: PR #193 at `c3c5abb0f61e224cd644a03a4e938a81b692179a`.
+- File / symbol: `modules/panel_integrations/adapters/upstream_bot/state.py: _redis, _ChatLock`.
+- Evidence: six tests failed before the fix: Redis-client or acquire failures allowed entry, cancellation leaked the local mutex, local contention raised an unclassified timeout, and GET/DEL could delete a replacement owner's lock.
+- Impact: separate workers can interleave a paid bot conversation, or a cancelled request can block that worker indefinitely.
+- Fix: Redis failures prevent entry when Redis is configured; acquisition and release clean up the local mutex on cancellation. A single Redis compare-and-delete script releases only the owner token. Busy local and Redis locks return retryable panel errors.
+- Regression: `tests/unit/test_upstream_bot_lock.py` and the existing upstream-bot suite pass; a real isolated Redis test checked contention, replacement ownership and normal release.
+- Compatibility: Redis outages now stop bot flows rather than silently falling back to an uncoordinated local lock. A development configuration with no Redis can still use a process-local mutex; hosted environments require Redis.
+- Remaining work: the lease can expire during a long flow, and mapping writes can still fall back to process memory; these need separate fixes.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -104,6 +114,7 @@
 - `core/storage.py`, `modules/payments/router.py`, receipt HTTP and storage tests (INT-005).
 - `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_process.py` (INT-006).
 - `modules/panel_integrations/adapters/upstream_bot/adapter.py` and adapter tests (INT-007).
+- `modules/panel_integrations/adapters/upstream_bot/state.py` and lock tests (INT-008).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -134,10 +145,13 @@
 | INT-006 full suite after base fix | RUNNING | see PR #192 |
 | INT-007 fake-provider adapter suite | PASS | 33 passed; four new concurrency and failure regressions were reproduced before their respective fixes |
 | INT-007 full suite | QUEUED | follows INT-006 full rerun |
+| INT-008 lock and upstream-bot tests | PASS | 39 passed; all 6 new lock tests failed before the fix |
+| INT-008 real Redis contention and release | PASS | isolated local Redis 7 container |
+| INT-008 full suite | QUEUED | follows INT-007 full run |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
-- Upstream-bot memory fallback, Redis write failures and an expired/non-atomic chat lock can still undermine cross-process or restart idempotency; these paths need a separate fix.
+- Upstream-bot mapping writes can still fall back to process memory, and a chat lease can expire during a long flow; these paths need separate fixes.
 - Cleanup failure is logged. Objects are retained when the database commit outcome is uncertain to avoid deleting a referenced file; a later orphan sweep remains useful.
 - INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
 - PasarGuard password sessions remain cached for up to 50 minutes. An external password change may need upstream token revocation or a process restart; upstream bearer-token validity depends on the panel.
@@ -156,3 +170,4 @@
 - INT-005 follow-up: branch `audit/25-receipt-cleanup-18ef6bf0`; parent PR #190.
 - INT-006 follow-up: branch `audit/26-ocr-cancellation-18ef6bf0`; parent PR #191.
 - INT-007 follow-up: branch `audit/27-upstream-purchase-18ef6bf0`; parent PR #192.
+- INT-008 follow-up: branch `audit/28-upstream-lock-18ef6bf0`; parent PR #193.
