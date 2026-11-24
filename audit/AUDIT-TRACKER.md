@@ -20,7 +20,8 @@
 | AI-03 | 3 | DB-001..DB-003 fixed; ledger reconciliation, CHECK constraints and the order-creation concurrency test follow |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 fixed; frontend audit continues (PR #165) |
-| AI-06..AI-08 | 1 | Not started (sequential, in chain order) |
+| AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
+| AI-07..AI-08 | 1 | Not started (sequential, in chain order) |
 
 ## Scope / ownership exceptions
 - 2026-11-23 AI-02 changed `apps/api/melorin/core/config.py` (AI-01) and `.env.example` (AI-07), one default each, for SEC-001. Approved by AI-00; the owners review them in the AI-02 PR.
