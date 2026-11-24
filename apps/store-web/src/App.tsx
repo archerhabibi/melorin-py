@@ -2,7 +2,6 @@ import type { Rec } from './types';
 // Subject + plan: Melorin storefront for VPN customers. A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
 // Design system v2: tokens live in styles.css (light + dark), shared primitives in ui.jsx.
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import Dashboard, { Faq } from './Dashboard.tsx';
 import { clearTokens, getAccessToken, setTokens } from './auth.ts';
 import { publicGetOrNull } from './coreApi.ts';
 import { useCoreFetch } from './useCoreFetch.ts';
@@ -16,14 +15,15 @@ import { NAME_RE, TG_ERRORS, TG_RETRY, errOf } from './landing.tsx';
 import { SiteHeader } from './SiteHeader.tsx';
 import { HeroSection } from './HeroSection.tsx';
 import { PlansSection } from './PlansSection.tsx';
-import { HowSection, WhySection } from './InfoSections.tsx';
+import { Faq, HowSection, WhySection } from './InfoSections.tsx';
 import { AccountBanner } from './AccountBanner.tsx';
 import { SiteFooter } from './SiteFooter.tsx';
 import { MobileNav } from './MobileNav.tsx';
 import { AccountDialog, CheckoutDialog, CodeDialog, GoogleLinkDialog, LoginDialog } from './StoreDialogs.tsx';
 import type { Json } from './types';
 
-// Reseller console is only needed by resellers: keep it out of the first-load bundle.
+// Account and reseller consoles are only needed after navigating away from the landing page.
+const Dashboard = lazy(() => import('./Dashboard.tsx'));
 const Reseller = lazy(() => import('./Reseller.tsx'));
 // Below-the-fold landing block: its own chunk keeps the first-load JS under budget.
 const LinkAccountsSection = lazy(() => import('./LinkAccountsSection.tsx'));
@@ -354,16 +354,24 @@ export default function App() {
             <Reseller coreFetch={coreFetch} notify={notify} />
           </Suspense>
         ) : onDash ? (
-          <Dashboard
-            coreFetch={coreFetch}
-            storeId={storeId}
-            account={account}
-            wallet={wallet}
-            orders={orders}
-            reload={loadAccount}
-            notify={notify}
-            onLogout={logout}
-          />
+          <Suspense
+            fallback={
+              <div className="py-24 text-center text-sm opacity-70" role="status" aria-live="polite">
+                در حال بارگذاری…
+              </div>
+            }
+          >
+            <Dashboard
+              coreFetch={coreFetch}
+              storeId={storeId}
+              account={account}
+              wallet={wallet}
+              orders={orders}
+              reload={loadAccount}
+              notify={notify}
+              onLogout={logout}
+            />
+          </Suspense>
         ) : (
           <>
             <HeroSection />

@@ -22,6 +22,12 @@ beforeEach(() => {
   resetAttemptStorage();
 });
 
+async function clickReadyReward(name) {
+  const button = await screen.findByRole('button', { name });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+}
+
 it('reuses the redemption key after an ambiguous server error', async () => {
   const keys = [];
   const coreFetch = vi.fn(async (_path, options) => {
@@ -33,11 +39,9 @@ it('reuses the redemption key after an ambiguous server error', async () => {
   });
   const notify = vi.fn();
   render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-  await userEvent.click(await screen.findByRole('button', { name: 'دریافت پاداش' }));
+  await clickReadyReward('دریافت پاداش');
   await waitFor(() => expect(notify).toHaveBeenCalledWith('نامعلوم'));
-  const retry =
-    screen.queryByRole('button', { name: 'پیگیری پاداش' }) || screen.getByRole('button', { name: 'دریافت پاداش' });
-  await userEvent.click(retry);
+  await clickReadyReward('پیگیری پاداش');
   await waitFor(() => expect(keys).toHaveLength(2));
   expect(keys[1]).toBe(keys[0]);
 });
@@ -53,11 +57,11 @@ it('recovers the same reward after reload even if it is no longer listed', async
   });
   const notify = vi.fn();
   const first = render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-  await userEvent.click(await screen.findByRole('button', { name: 'دریافت پاداش' }));
+  await clickReadyReward('دریافت پاداش');
   await waitFor(() => expect(notify).toHaveBeenCalledWith('نامعلوم'));
   first.unmount();
   render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-  await userEvent.click(await screen.findByRole('button', { name: 'پیگیری پاداش' }));
+  await clickReadyReward('پیگیری پاداش');
   await waitFor(() => expect(keys).toHaveLength(2));
   expect(keys[1]).toBe(keys[0]);
 });
@@ -76,12 +80,12 @@ it('migrates a pending reward and keeps its original key after reload', async ()
   });
   const open = () => render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={vi.fn()} />);
   const first = open();
-  await userEvent.click(await screen.findByRole('button', { name: 'پیگیری پاداش' }));
+  await clickReadyReward('پیگیری پاداش');
   await waitFor(() => expect(keys).toEqual([key]));
   first.unmount();
   localStorage.setItem(storageKey, JSON.stringify({ name: 'پاداش', key: 'stale-other-key' }));
   open();
-  await userEvent.click(await screen.findByRole('button', { name: 'پیگیری پاداش' }));
+  await clickReadyReward('پیگیری پاداش');
   await waitFor(() => expect(keys).toEqual([key, key]));
   expect(JSON.parse(await readAttempt(storageKey)).key).toBe(key);
 });
@@ -92,11 +96,11 @@ it('does not show one customer the unresolved rewards of another customer', asyn
   );
   const notify = vi.fn();
   const first = render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-  await userEvent.click(await screen.findByRole('button', { name: 'دریافت پاداش' }));
+  await clickReadyReward('دریافت پاداش');
   await waitFor(() => expect(notify).toHaveBeenCalledWith('نامعلوم'));
   first.unmount();
   render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u2" notify={notify} />);
-  expect(await screen.findByRole('button', { name: 'دریافت پاداش' })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'دریافت پاداش' })).toBeEnabled());
   expect(screen.queryByRole('button', { name: 'پیگیری پاداش' })).not.toBeInTheDocument();
 });
 
@@ -120,11 +124,12 @@ it('does not erase a newer redemption when an old response arrives late', async 
   const open = () => render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={vi.fn()} />);
   const first = open();
   const retry = open();
-  for (const view of [first, retry]) {
-    const button = await within(view.container).findByRole('button', { name: 'دریافت پاداش' });
-    await waitFor(() => expect(button).toBeEnabled());
-    await userEvent.click(button);
-  }
+  const firstButton = await within(first.container).findByRole('button', { name: 'دریافت پاداش' });
+  await waitFor(() => expect(firstButton).toBeEnabled());
+  await userEvent.click(firstButton);
+  const retryButton = await within(retry.container).findByRole('button', { name: 'پیگیری پاداش' });
+  await waitFor(() => expect(retryButton).toBeEnabled());
+  await userEvent.click(retryButton);
   await waitFor(() => expect(requests).toHaveLength(2));
   expect(requests[1].key).toBe(requests[0].key);
   const storageKey = 'melorin:loyalty-redemption:s1:u1:r1';
@@ -152,9 +157,9 @@ it('keeps a malformed success unresolved and reuses its key', async () => {
   });
   const notify = vi.fn();
   render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-  await userEvent.click(await screen.findByRole('button', { name: 'دریافت پاداش' }));
+  await clickReadyReward('دریافت پاداش');
   await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('نتیجه درخواست پاداش مشخص نیست')));
-  await userEvent.click(await screen.findByRole('button', { name: 'پیگیری پاداش' }));
+  await clickReadyReward('پیگیری پاداش');
   await waitFor(() => expect(keys).toHaveLength(2));
   expect(keys[1]).toBe(keys[0]);
 });

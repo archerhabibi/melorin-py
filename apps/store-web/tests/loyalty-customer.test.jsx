@@ -9,6 +9,12 @@ beforeEach(() => resetAttemptStorage());
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 
+async function clickReadyReward(name) {
+  const button = await screen.findByRole('button', { name });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+}
+
 const club = (over = {}) => ({
   store_id: 's1',
   enabled: true,
@@ -68,7 +74,7 @@ describe('customer loyalty card (this store only)', () => {
     expect(calls).toEqual(['/api/v1/stores/s1/loyalty']);
     expect(screen.getByText('نقره‌ای')).toBeInTheDocument();
     expect(screen.getByText(/تا سطح «طلایی»/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'دریافت اعتبار ۵ هزار' })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'دریافت اعتبار ۵ هزار' })).toBeEnabled());
     expect(screen.getByRole('button', { name: 'دریافت اعتبار ۵۰ هزار' })).toBeDisabled();
     expect(screen.getByText('امتیاز کافی نیست')).toBeInTheDocument();
   });
@@ -93,7 +99,7 @@ describe('customer loyalty card (this store only)', () => {
     });
     const notify = vi.fn();
     render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-    await userEvent.click(await screen.findByRole('button', { name: 'دریافت اعتبار ۵ هزار' }));
+    await clickReadyReward('دریافت اعتبار ۵ هزار');
     await waitFor(() => expect(screen.getByTestId('loyalty-balance')).toHaveTextContent('۲۰۰'));
     expect(seen).toHaveLength(1);
     expect(seen[0][0]).toBe('/api/v1/stores/s1/loyalty/rewards/r1/redeem');
@@ -107,7 +113,7 @@ describe('customer loyalty card (this store only)', () => {
     );
     const notify = vi.fn();
     render(<Loyalty coreFetch={coreFetch} storeId="s1" accountId="u1" notify={notify} />);
-    await userEvent.click(await screen.findByRole('button', { name: 'دریافت اعتبار ۵ هزار' }));
+    await clickReadyReward('دریافت اعتبار ۵ هزار');
     await waitFor(() => expect(notify).toHaveBeenCalledWith('سقف دریافت پر شده است.'));
   });
 
