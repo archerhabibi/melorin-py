@@ -121,7 +121,12 @@ async def require(
     method = await method_for(session, user)
     if method == "password":
         stored_hash = require_present(user.password_hash, "password hash")
-        if not password or not await verify_password(password, stored_hash):
+        verified = bool(password and await verify_password(password, stored_hash))
+        if verified:
+            # Keep this lock until unlink commits so the proof cannot go stale between verification and the change.
+            current = await session.get(User, user.id, with_for_update=True, populate_existing=True)
+            verified = bool(current and current.is_active and current.password_hash == stored_hash)
+        if not verified:
             platform_audit.security_event(session, "identity_unlink_reauth_failed", user.id)
             await session.commit()
             raise AppError("REAUTH_REQUIRED", "برای این تغییر رمز فعلی لازم است.", 401)
