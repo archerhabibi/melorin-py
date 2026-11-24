@@ -23,7 +23,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | FE-008 | High | Loyalty reward retries can spend points twice after an ambiguous response or reload | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
-| QA-001 | Medium | Flaky `tests/http/test_store_scoped_referral_program.py::test_earned_counts_every_commission_of_the_store_not_only_the_latest_page_the_screens_list` (IntegrityError on PostgreSQL, CI run 45077001718) | AI-08 | Open | (AI-08 report) |
+| QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)
 AUD-001 payment intent retry, AUD-002 refund availability, AUD-003 Zarinpal refund credentials UI, AUD-007 worker lock fail-open, AUD-008 worker metrics scrape (`docs/audits/2026-11-19-deep-technical-audit.fa.md`; fixing branches are ancestors of `main`).

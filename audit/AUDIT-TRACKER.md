@@ -22,7 +22,7 @@
 | AI-05 | 3 | FE-001..FE-008 fixed; frontend audit continues (PR #165) |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
-| AI-08 | 1 | Not started (sequential, in chain order) |
+| AI-08 | 3 | QA-001 fixed; test strategy, integration and performance review continues |
 
 ## Scope / ownership exceptions
 - 2026-11-23 AI-02 changed `apps/api/melorin/core/config.py` (AI-01) and `.env.example` (AI-07), one default each, for SEC-001. Approved by AI-00; the owners review them in the AI-02 PR.
