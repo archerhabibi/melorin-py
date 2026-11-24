@@ -100,7 +100,9 @@
 | INT-005 regressions on parent | FAIL (expected) | two orphaned uploads; deletion API missing |
 | INT-005 focused tests | PASS | 54 passed; 3 new regression cases passed |
 | INT-005 lint | PASS | import contracts, Ruff and format |
-| INT-005 full suite | RUNNING | see PR |
+| INT-005 full suite before cleanup-error fix | FAIL | 1 hygiene failure, 2,987 passed, 54 skipped: the new broad exception exceeded the limit |
+| INT-005 cleanup-error and hygiene regression | PASS | 5 passed; expected filesystem errors are logged and unexpected programming errors are not swallowed |
+| INT-005 full suite after cleanup-error fix | QUEUED | runs after the preceding OCR suite |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks

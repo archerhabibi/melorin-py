@@ -24,7 +24,7 @@ log = logging.getLogger("melorin.payments")
 async def _discard_uncommitted_receipt(storage: Storage, key: str) -> None:
     try:
         await storage.delete(key)
-    except Exception:
+    except (OSError, AppError):
         log.warning("Could not remove rejected receipt upload", exc_info=True)
 
 
