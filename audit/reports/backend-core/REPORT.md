@@ -70,7 +70,8 @@
 | BE-004 coupon, order and renewal regressions (PostgreSQL) | PASS | 40 passed; 3 of 4 coupon-race cases failed on the base |
 | BE-004 `make lint` | PASS | 8 import contracts kept; formatting and lint passed |
 | BE-004 `mypy --config-file pyproject.toml` | PASS | 391 source files |
-| BE-004 `PYTEST_ADDOPTS="-n 2" make test` | PASS | Earlier server run of the same code and regression file: 2,927 passed, 29 skipped; a separate full rerun is in progress |
+| BE-004 `PYTEST_ADDOPTS="-n 2" make test` | PASS | Earlier server run of the same code and regression file: 2,927 passed, 29 skipped |
+| BE-004 independent `make test` rerun | PASS | 2,927 passed, 29 skipped; the four coupon race cases also ran in the PostgreSQL lane |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
