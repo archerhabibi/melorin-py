@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over authentication, authorization, rate limiting and exposure controls done. SEC-001 and SEC-002 are fixed; broader security review continues. No confirmed access-control defect in the scope and method below; the authorization perimeter is covered by a permanent matrix test.
+- Status: first pass over authentication, authorization, rate limiting and exposure controls done. SEC-001 through SEC-003 are fixed; broader security review continues. The authorization perimeter is covered by a permanent matrix test.
 - Base: stacked on `audit/01-backend-core` (`b0f7fd8`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -35,6 +35,15 @@
 - Fix: hold the slot until the executor future actually finishes, shield the worker from caller cancellation, preserve context propagation and consume worker errors when a cancelled caller is no longer waiting. Normal exceptions still reach active callers.
 - Regression: deterministic thread-controlled tests cover cancellation and worker failures for both operations; existing authentication and authorization tests are also run. No API or schema change.
 
+### SEC-003 — Password login accepts credentials changed during verification
+- Severity: High. Status: Fixed. Base: `audit/11-security-883d25e9` at `47afc0b69e5fccf9dc390d54607664cd775e2782`.
+- File / symbol: `modules/identity/routes/sign_in.py`, `password_login`.
+- Evidence: when the password was changed in another transaction after verification, the old password still produced a session. A replacement hash with older parameters could also be overwritten by rehashing the old password. A changed email was likewise accepted; a concurrent deactivation reached a different failure path. Three original regression cases failed on the parent.
+- Root cause: after locking and refreshing the user, the route did not compare the current credential and email with the values it had verified.
+- Fix: calculate any hash upgrade before locking, then re-read the user under a row lock and reject a changed hash, changed email, inactive or deleted account before issuing tokens. The lock remains held through token issuance.
+- Compatibility: a login overlapping an account change can be rejected; retry with the current credentials. No API or schema change.
+- Regression: HTTP tests cover normal and legacy password replacements, deactivation, an email change and successful hash upgrades, using separate database sessions.
+
 ### Checked and not a defect
 - Public sign-in routes look unthrottled by decorator but the `auth` router carries `RateLimit("auth", 30, 60)` and password sign-in adds per-account budgets (10/900 s per email+IP, 100/900 s per email).
 - `/metrics` needs a bearer token (constant-time compare), production start-up rejects weak or empty tokens, `/docs` and `/openapi.json` are dev-only, and the Caddyfile blocks `/metrics`, `/docs`, `/redoc`, `/openapi.json` and `/api/v1/internal/*`.
@@ -44,6 +53,7 @@
 - Identity input bounds (continuation of BE-001): `TelegramProfile.telegram_id` (and the 6 request models that inherit it), `GET /internal/identity/telegram/status ?telegram_id`, `GET /identity/history ?limit/?offset`.
 - New tests: `tests/http/test_authz_matrix.py` (5 tests). Regenerated `openapi.json` and `docs/STATUS.md`.
 - SEC-002 updates the KDF slot lifecycle and adds cancellation/worker-failure tests.
+- SEC-003 updates password login and adds credential-change race tests.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -56,6 +66,10 @@
 | SEC-002 focused KDF, authentication and authorization tests | PASS | 33 passed; the two cancellation cases failed on the parent |
 | SEC-002 full backend suite | PASS | 2,939 passed, 32 skipped |
 | SEC-002 lint, formatting and mypy | PASS | 8 import contracts kept; 391 source files type-checked |
+| SEC-003 focused SQLite authentication and KDF tests | PASS | 55 passed on `9b2ffd8f`; 6 final credential/lock tests passed on `b9ed717b` |
+| SEC-003 PostgreSQL authentication and account tests | PASS | 46 passed on `9b2ffd8f`; 6 final credential/lock tests passed on `b9ed717b` |
+| SEC-003 lint, formatting and mypy | PASS | 8 import contracts kept; 391 source files type-checked |
+| SEC-003 full backend suite | see PR | Final source revision tested in the background |
 
 ## 7. Residual risks
 - The public Telegram web-login flow (`/auth/telegram/web/sessions*`) and provider callbacks are verified by code reading only, not by a live Telegram or gateway.
