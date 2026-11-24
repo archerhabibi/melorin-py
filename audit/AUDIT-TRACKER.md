@@ -12,12 +12,13 @@
 | 2026-11-24 | A newly confirmed reseller wallet API issue is fixed in a follow-up stacked on the current AI-05 head; its PostgreSQL concurrency test is included with the API change. | AI-00 |
 | 2026-11-24 | The AI-05 follow-ups #166 and #167 forked before the current #165 head and are not ancestors of #173. PR #166 was reconciled with #165; #167 still fails the bundle budget and needs integration into the later stack. | AI-00 |
 | 2026-11-24 | PR #167 was reconciled, brought back under the bundle budget, and incorporated after PR #174 in a separate integration branch. Earlier PRs retain their existing bases. | AI-00 |
+| 2026-11-24 | BE-005 follows the integrated PR #175 head; it records checkout request identity in the existing pricing snapshot and rejects unverifiable legacy retries. | AI-00 |
 
 ## Status
 | Team | Phase | State |
 |---|---|---|
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
-| AI-01 | 3 | BE-001 fixed (PR #161); BE-002, BE-003 and BE-004 fixed in follow-ups; broader business-logic review continues |
+| AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-005 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
 | AI-03 | 3 | DB-001..DB-003 fixed; order-creation concurrency now tested, ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
