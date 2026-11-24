@@ -67,15 +67,16 @@ export function Wallet({
       let idempotencyKey: string | null;
       try {
         idempotencyKey = await updateStoredAttempt(topupStorageKey, (raw) => {
-          const saved: TopupAttempt | null = raw ? JSON.parse(raw) : null;
+          const saved: TopupAttempt | null = raw === null ? null : JSON.parse(raw);
           if (
-            raw &&
+            raw !== null &&
             (!saved ||
               typeof saved !== 'object' ||
+              Array.isArray(saved) ||
               typeof saved.idempotencyKey !== 'string' ||
               !saved.idempotencyKey ||
               typeof saved.amount !== 'string' ||
-              (saved.state && saved.state !== 'unknown' && saved.state !== 'active'))
+              (saved.state !== undefined && saved.state !== 'unknown' && saved.state !== 'active'))
           )
             throw new Error('invalid stored attempt');
           if (saved?.idempotencyKey && saved.amount !== requestedAmount && saved.state !== 'active')
@@ -287,7 +288,7 @@ export function Wallet({
                   </button>
                 </>
               ) : (
-                <button onClick={resetReceipt} className={`${btn} mt-3 w-full`}>
+                <button onClick={() => void resetReceipt()} className={`${btn} mt-3 w-full`}>
                   بستن
                 </button>
               )}

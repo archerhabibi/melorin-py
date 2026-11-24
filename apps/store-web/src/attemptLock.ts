@@ -5,7 +5,7 @@ const storageGuard = 'melorin:attempt-storage-initialized';
 const changeEvent = 'melorin:attempt-storage-changed';
 const changeSignal = 'melorin:attempt-storage-signal';
 const channelName = 'melorin-attempt-storage';
-const legacyPrefixes = ['melorin:order-attempt:', 'melorin:wallet-topup:'];
+const legacyPrefixes = ['melorin:order-attempt:', 'melorin:wallet-topup:', 'melorin:loyalty-redemption:'];
 
 type Decision<T> = { result: T; value?: string | null };
 

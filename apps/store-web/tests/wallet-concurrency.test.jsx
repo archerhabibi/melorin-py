@@ -16,6 +16,22 @@ beforeEach(() => {
 
 describe('wallet topup retry safety', () => {
   it.each([
+    ['empty', ''],
+    ['array', '[]'],
+    ['invalid state', JSON.stringify({ amount: '1000', idempotencyKey: 'existing-key', state: '' })],
+  ])('does not send a topup with %s saved data', async (_name, raw) => {
+    await writeAttempt(storageKey, raw);
+    const notify = vi.fn();
+    const coreFetch = vi.fn(async () => json([]));
+    render(<Wallet accountId="u1" storeId="s1" coreFetch={coreFetch} notify={notify} reload={() => {}} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('درخواست ارسال نشد')));
+    expect(coreFetch.mock.calls.some(([path]) => path.endsWith('/wallet/topups'))).toBe(false);
+    expect(await readAttempt(storageKey)).toBe(raw);
+  });
+
+  it.each([
     ['a rejected request', () => json({ error: { code: 'BAD_INPUT', message: 'رد شد' } }, 400)],
     ['a cancelled payment', () => json({ id: 'old', status: 'cancelled', amount: 1000, instructions: {} })],
     ['a successful response', () => json({ id: 'old', status: 'pending', amount: 1000, instructions: {} })],
