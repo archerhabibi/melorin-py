@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-007 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-008 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -80,6 +80,15 @@
 - Regression: tests/http/test_loyalty_http.py checks real responses, balances and audit counts; tests/postgres/test_loyalty_adjustment_race_postgres.py exercises same-key, changed-amount, opposite-sign and different-key races.
 - Compatibility: changed amounts using an existing key now return IDEMPOTENCY_KEY_REUSED (409) rather than 200. No schema migration.
 
+### BE-008 — Delayed completion can award rewards after refund
+- Severity: High (a refunded order can produce spendable referral cash). Status: Fixed. Base: PR #181 at 02e3416dcfebc08a6c231565b4a12e1a94ad95f7.
+- Files / symbols: modules/loyalty/earning.py and modules/referral/commissions.py, on_order_completed; worker/runner.py dispatches outbox events concurrently.
+- Evidence: after a refund event was processed, a delayed completion event created three loyalty transactions and a cash commission on the already refunded order. Direct loyalty, referral and worker regressions all failed on the parent; both PostgreSQL refund/settlement orderings also failed.
+- Root cause: both reward engines read the order without checking its current status or synchronizing with the order row lock already used by the refund path. A refund event could therefore observe no rewards and complete before a delayed settlement committed them.
+- Fix: each reward engine reloads and locks the existing order row before awarding; it only settles a completed order. Refund and reward settlement now serialize. A refund that follows settlement still reverses both rewards in the existing order.
+- Regression: tests/service/test_reward_event_order.py covers direct and worker-level out-of-order delivery; tests/postgres/test_reward_refund_race_postgres.py exercises both real row-lock orderings and checks points, cash and commission status.
+- Compatibility: delayed events no longer award rewards for orders that are not completed. No API or schema migration.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
@@ -110,6 +119,8 @@
 | BE-006 loyalty concurrency regressions | PASS | PostgreSQL: 5 passed after the fix; 4 failed on the parent. SQLite: 33 loyalty service and 8 HTTP tests passed; mypy and make lint passed |
 | BE-006 full make test | PASS | 2,951 passed, 39 skipped on the PR #180 code tree |
 | BE-007 focused regressions | PASS | PostgreSQL: 4 passed, including 2 races failing on the parent; SQLite: 42 loyalty service/HTTP tests passed; mypy and make lint passed |
+| BE-007 full make test | PASS | 2,952 passed, 43 skipped on the PR #181 code tree |
+| BE-008 focused regressions | PASS | 2 PostgreSQL race scenarios and 45 loyalty/referral service tests passed; 9 loyalty HTTP tests, mypy and make lint passed |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
