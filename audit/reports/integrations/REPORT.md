@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-006 fixed, including receipt-storage cleanup and OCR subprocess cancellation. Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-007 fixed, including receipt cleanup, OCR cancellation and upstream-bot purchase retries. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -78,6 +78,16 @@
 - Regression: `tests/unit/test_receipt_ocr_process.py` exercises cancellation and timeout using real local child processes, without a provider or Tesseract installation.
 - Dependencies: AI-06 worker cancellation and AI-08 process tests; no API or schema change.
 
+### INT-007 — An unanswered or concurrent upstream-bot purchase can be paid twice
+- Severity: High. Status: Fixed on this branch. Base: PR #192 at `8eb1a4f5d0a33db1beee2c9bcacfe53b187b545a`.
+- File / symbol: `modules/panel_integrations/adapters/upstream_bot/adapter.py: create_account, get_account, _recover`.
+- Evidence: fake-provider regressions reproduce a second confirmation after a lost reply and after two overlapping attempts. Two more cases reproduce a missing account after waiting for a completed purchase and a charged confirmation timeout misclassified as transient.
+- Impact: the upstream wallet may be charged twice for one Melorin account; a timed-out purchase can be provisioned with missing plan limits or an incorrect failure outcome.
+- Root cause: a pending purchase with no delivery was treated as permission for a new purchase; the completed state was not rechecked after acquiring the chat lock. The pending record did not preserve plan metadata.
+- Fix: recheck the state under the lock, recover a pending delivery or return UNKNOWN without another purchase, and preserve expiry and traffic. A failure after confirmation is UNKNOWN; account reads recheck state after waiting for the lock.
+- Regression: `tests/adapters/test_upstream_bot_adapter.py` covers concurrent attempts, a charged but unanswered purchase, eventual delivery, a waiting account read and a confirmation timeout. The existing fake-provider suite remains green.
+- Compatibility: an unconfirmed delivery blocks automatic repurchase until recovered or reconciled; no API or schema change. Redis failures and lock expiry remain separate risks to address.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -93,6 +103,7 @@
 - `modules/panel_integrations/adapters/pasarguard/core.py` and `tests/adapters/test_pasarguard_adapter_contract.py` (INT-004).
 - `core/storage.py`, `modules/payments/router.py`, receipt HTTP and storage tests (INT-005).
 - `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_process.py` (INT-006).
+- `modules/panel_integrations/adapters/upstream_bot/adapter.py` and adapter tests (INT-007).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -114,16 +125,19 @@
 | INT-005 mypy | PASS | 391 source files |
 | INT-005 full suite before cleanup-error fix | FAIL | 1 hygiene failure, 2,987 passed, 54 skipped: the new broad exception exceeded the limit |
 | INT-005 cleanup-error and hygiene regression | PASS | 5 passed; expected filesystem errors are logged and unexpected programming errors are not swallowed |
-| INT-005 full suite after cleanup-error fix | QUEUED | runs after the preceding OCR suite |
+| INT-005 full suite after cleanup-error fix | PASS | 2,991 passed, 54 skipped |
 | INT-006 cancellation and timeout regressions | PASS | 2 failed on the parent and pass on the fix |
 | INT-006 `make lint` | PASS | import contracts, Ruff and format |
 | INT-006 focused suite | PASS | 28 passed |
 | INT-006 mypy | PASS | 391 source files |
-| INT-006 full suite before base fix | RUNNING | includes the known INT-005 hygiene failure |
-| INT-006 full suite after base fix | QUEUED | follows the INT-005 rerun |
+| INT-006 full suite before base fix | FAIL | 1 inherited hygiene failure, 2,989 passed, 54 skipped |
+| INT-006 full suite after base fix | RUNNING | see PR #192 |
+| INT-007 fake-provider adapter suite | PASS | 33 passed; four new concurrency and failure regressions were reproduced before their respective fixes |
+| INT-007 full suite | QUEUED | follows INT-006 full rerun |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
+- Upstream-bot memory fallback, Redis write failures and an expired/non-atomic chat lock can still undermine cross-process or restart idempotency; these paths need a separate fix.
 - Cleanup failure is logged. Objects are retained when the database commit outcome is uncertain to avoid deleting a referenced file; a later orphan sweep remains useful.
 - INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
 - PasarGuard password sessions remain cached for up to 50 minutes. An external password change may need upstream token revocation or a process restart; upstream bearer-token validity depends on the panel.
@@ -141,3 +155,4 @@
 - INT-004 follow-up: branch `audit/22-panel-integrations-089a80a5`; parent PR #187.
 - INT-005 follow-up: branch `audit/25-receipt-cleanup-18ef6bf0`; parent PR #190.
 - INT-006 follow-up: branch `audit/26-ocr-cancellation-18ef6bf0`; parent PR #191.
+- INT-007 follow-up: branch `audit/27-upstream-purchase-18ef6bf0`; parent PR #192.

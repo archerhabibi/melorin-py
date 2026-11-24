@@ -174,9 +174,15 @@ class UpstreamBotAdapter:
         if known and known.get("status") == "active":
             return self._account(spec.username, known)
         async with self._lock():
-            recovered = await self._recover(spec.username)
-            if recovered:
-                return recovered
+            # Another attempt may have finished while this one waited for the chat.
+            known = await self.store.get(spec.username)
+            if known and known.get("status") == "active":
+                return self._account(spec.username, known)
+            if known and known.get("status") == "pending":
+                recovered = await self._recover(spec.username)
+                if recovered:
+                    return recovered
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: a previous purchase may have succeeded; awaiting delivery")
             c = self._client()
             after = await self._top_id()
             after, _ = await self._menu(self.cfg["menu_buy"])
@@ -208,13 +214,26 @@ class UpstreamBotAdapter:
             ok = self._find_button(conf, self.cfg["confirm_button"])
             if not ok:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: confirm button '{self.cfg['confirm_button']}' not found")
-            await self.store.set(spec.username, {"status": "pending", "started": time.time(), "after_id": after, "price": plan.price})
-            await c.click(conf, ok)  # --- point of no return: from here a failure is UNKNOWN, never TRANSIENT ---
-            done = await self._wait(
-                lambda x: parsing.parse_purchase_result(x.text) is not None, after_id=after, timeout=float(self.cfg["delivery_timeout"])
+            await self.store.set(
+                spec.username,
+                {
+                    "status": "pending",
+                    "started": time.time(),
+                    "after_id": after,
+                    "price": plan.price,
+                    "expire_at": spec.expire_at.isoformat() if spec.expire_at else None,
+                    "traffic_limit_bytes": int(plan.traffic_gb * GB),
+                },
             )
+            try:
+                await c.click(conf, ok)  # From this point the purchase may have been charged.
+                done = await self._wait(
+                    lambda x: parsing.parse_purchase_result(x.text) is not None, after_id=after, timeout=float(self.cfg["delivery_timeout"])
+                )
+                low = await self._wait(lambda x: parsing.is_insufficient_balance(x.text), after_id=after, timeout=3) if not done else None
+            except PanelError as exc:
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: purchase confirmation outcome unknown; awaiting delivery") from exc
             if not done:
-                low = await self._wait(lambda x: parsing.is_insufficient_balance(x.text), after_id=after, timeout=3)
                 if low:
                     await self.store.delete(spec.username)
                     raise PanelError(ErrorKind.PERMANENT, "upstream_bot: parent bot wallet balance is too low, top it up")
@@ -282,7 +301,12 @@ class UpstreamBotAdapter:
         d = await self.store.get(username)
         if d and d.get("status") == "pending":
             async with self._lock():
-                return await self._recover(username)
+                d = await self.store.get(username)
+                if d and d.get("status") == "active":
+                    return self._account(username, d)
+                if d and d.get("status") == "pending":
+                    return await self._recover(username)
+                return None
         if not d or d.get("status") != "active":
             return None
         fresh_needed = bool(d.get("renew_pending"))

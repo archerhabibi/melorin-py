@@ -33,6 +33,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | INT-004 | Medium | PasarGuard can use a cached token for different or missing credentials | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-005 | Medium | Rejected receipt uploads can leave unreferenced stored files | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-006 | Medium | Cancelled receipt OCR can leave a Tesseract child running | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| INT-007 | High | Concurrent or unanswered upstream-bot purchase attempts can confirm a purchase twice | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-003 | High | Wallet topup retry state is shared between accounts using the same store and browser | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
