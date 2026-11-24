@@ -112,11 +112,15 @@
 | INT-005 focused tests | PASS | 54 passed; 3 new regression cases passed |
 | INT-005 lint | PASS | import contracts, Ruff and format |
 | INT-005 mypy | PASS | 391 source files |
-| INT-005 full suite | RUNNING | see PR |
+| INT-005 full suite before cleanup-error fix | FAIL | 1 hygiene failure, 2,987 passed, 54 skipped: the new broad exception exceeded the limit |
+| INT-005 cleanup-error and hygiene regression | PASS | 5 passed; expected filesystem errors are logged and unexpected programming errors are not swallowed |
+| INT-005 full suite after cleanup-error fix | QUEUED | runs after the preceding OCR suite |
 | INT-006 cancellation and timeout regressions | PASS | 2 failed on the parent and pass on the fix |
 | INT-006 `make lint` | PASS | import contracts, Ruff and format |
 | INT-006 focused suite | PASS | 28 passed |
-| INT-006 full suite | QUEUED | starts after the preceding full suite |
+| INT-006 mypy | PASS | 391 source files |
+| INT-006 full suite before base fix | RUNNING | includes the known INT-005 hygiene failure |
+| INT-006 full suite after base fix | QUEUED | follows the INT-005 rerun |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
