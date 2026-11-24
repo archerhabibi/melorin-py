@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; 1 finding confirmed and fixed (BE-001). No other confirmed finding in the scope and method below.
+- Status: audit of the contract surface done; BE-001 and a later reseller wallet finding BE-002 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -27,6 +27,15 @@
 - Regression tests: `tests/contracts/test_openapi_input_bounds.py` (fails on any unbounded request integer; `PENDING` can only shrink), `tests/http/test_input_bounds_http.py`.
 - Dependencies: `PENDING` still lists 9 items for AI-02 (telegram ids, identity history paging) and 10 for AI-03 (`payments/schemas.py`).
 
+### BE-002 — Reseller wallet adjustment retries can fail or acknowledge a different operation
+- Severity: High (financial operations may be reported successful for the wrong adjustment, or a committed correction may appear to fail). Status: Fixed.
+- Base: `audit/05-frontend-fe001` at `dd7a50fb9783a32ea5b457ee04cbbfcb151da936`; file: `modules/reseller/routes/customers.py`, `adjust_customer_wallet_core`.
+- Evidence: after a correction consumes the wallet balance, retrying the same idempotency key returned `INSUFFICIENT_FUNDS`; reusing a key for a different amount or customer returned HTTP 200 without applying that requested adjustment. Both HTTP regressions failed on the base.
+- Cause: the balance check preceded the replay lookup, and the existing ledger transaction was accepted without checking its wallet and amount.
+- Fix: lock the wallet before checking the balance and replay; permit an existing transaction through the balance check, and reject a reused key unless the ledger posting matches the requested wallet, amount and operation kind. A valid replay returns the existing transaction and current wallet balance.
+- Regression: HTTP tests for a spent-balance retry and key reuse; PostgreSQL tests for simultaneous same-key and different-key corrections. On PostgreSQL 16 both parallel cases passed, with one debit and no negative balance.
+- Limits: membership and configured amount-cap checks still precede replay, and the established API treats reason/reference as descriptive metadata rather than part of key identity.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 
@@ -37,6 +46,8 @@
 | `ruff check`, `ruff format --check`, `mypy` (391 files), `lint-imports` | PASS | |
 | `gen_api_client.py --check`, `gen_docs.py --check` | PASS | |
 | CI `quality`, `postgres-lane`, `web-e2e` on the PR | see PR | |
+| BE-002 focused HTTP tests | PASS | 2 failed on the base, 2 passed after the fix |
+| BE-002 PostgreSQL concurrency tests | PASS | 2 passed against an isolated PostgreSQL 16 container |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
