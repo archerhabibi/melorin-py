@@ -28,6 +28,7 @@
 | 2026-11-24 | DB-004 and DB-005 follow PR #188; bank SMS matching compares pending and provisional receipts together and serializes decisions with human actions. | AI-00 |
 | 2026-11-25 | DB-006 follows PR #189; receipt uploads recheck the payment under the same row lock as review decisions. | AI-00 |
 | 2026-11-25 | INT-005 follows PR #190; rejected receipt uploads clean up stored objects when no commit was attempted. | AI-00 |
+| 2026-11-25 | INT-006 follows PR #191; cancelled and timed-out OCR processes are terminated and reaped before their slot is released. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -36,7 +37,7 @@
 | AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-011 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 through SEC-005 fixed; authorization matrix test added; 9 `PENDING` bounds closed; broader security review continues |
 | AI-03 | 3 | DB-001..DB-006 fixed; order-creation and bank-SMS concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
-| AI-04 | 3 | INT-001..INT-005 fixed; panel adapters and the rest of bank SMS still to review |
+| AI-04 | 3 | INT-001..INT-006 fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
@@ -58,3 +59,4 @@
 - 2026-11-24 DB-004 and DB-005 update bank-SMS matching (AI-04) and add HTTP and PostgreSQL concurrency regressions (AI-08).
 - 2026-11-25 DB-006 adds PostgreSQL receipt upload and payment decision races (AI-08) alongside the payment service fix (AI-03).
 - 2026-11-25 INT-005 changes receipt upload cleanup (AI-03) and adds storage and HTTP tests (AI-08).
+- 2026-11-25 INT-006 adds subprocess cancellation tests (AI-08) alongside the OCR integration fix (AI-04).

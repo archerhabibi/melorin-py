@@ -106,7 +106,7 @@
 | DB-006 PostgreSQL regression on parent | FAIL (expected) | 5 failures; confirmed a succeeded payment reverted to awaiting review |
 | DB-006 PostgreSQL regression on fix | PASS | 5 passed on PostgreSQL |
 | DB-006 `make lint` | PASS | import contracts, Ruff and format |
-| DB-006 `make test` | RUNNING | see PR |
+| DB-006 `make test` | PASS | 2,985 passed, 54 skipped; five PostgreSQL race tests passed separately |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks

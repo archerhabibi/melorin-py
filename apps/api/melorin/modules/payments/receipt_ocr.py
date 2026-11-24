@@ -109,8 +109,14 @@ async def _tesseract(data: bytes, c: OcrConfig) -> ReceiptFacts:
         )
         try:
             out, _ = await asyncio.wait_for(proc.communicate(data), timeout=c.timeout)
-        except TimeoutError:
-            proc.kill()
+        except BaseException:
+            # A cancelled worker must not leave Tesseract running after its OCR slot is released.
+            if proc.returncode is None:
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass  # The child exited between the status check and kill.
+            await proc.communicate()  # Drain pipes and reap the child before propagating the original error.
             raise
         texts.append(out.decode("utf-8", "replace"))
     return parse_receipt_text("\n".join(texts))
