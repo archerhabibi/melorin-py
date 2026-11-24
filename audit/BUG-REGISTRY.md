@@ -10,6 +10,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | BE-003 | Medium | Concurrent retries of a renewal can report an error after the original order succeeded | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-004 | Medium | Concurrent checkout retries can report an exhausted coupon after the original order succeeded | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-005 | Medium | Reusing a checkout key with different order details can falsely acknowledge an earlier purchase | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
+| BE-006 | Medium | Concurrent loyalty redemption retries can fail or acknowledge a different reward | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | SEC-001 | Low | Per-key API rate limit is stored and shown to the reseller but not enforced by default | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-002 | Medium | Cancelled password operations can exceed the intended KDF concurrency bound | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-003 | High | Password login can succeed with credentials changed during verification | AI-02 | Fixed | audit/reports/security/REPORT.md |
