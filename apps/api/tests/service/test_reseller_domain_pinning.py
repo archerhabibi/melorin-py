@@ -147,8 +147,8 @@ async def test_domain_proof_preserves_tls_hostname_verification(tmp_path, monkey
 
 @pytest.mark.parametrize("domain", ["", "shop.example.com:8443", "user@shop.example.com", "shop.example.com/path", "shop.example.com?x=1"])
 async def test_domain_proof_rejects_non_hostnames_before_resolving(monkeypatch, domain):
-    async def unexpected_resolve(_):
+    async def unexpected_resolve(host, port, **kwargs):
         pytest.fail("invalid domains must not be resolved")
 
-    monkeypatch.setattr(auto_verify, "resolve_public_address", unexpected_resolve)
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", unexpected_resolve)
     assert await auto_verify.check_http(domain, "proof") is False
