@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. 3 findings confirmed and fixed (INT-001..INT-003, all Medium). Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. 4 findings confirmed and fixed (INT-001..INT-004, all Medium). Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -49,6 +49,15 @@
 - Regression: `tests/unit/test_receipt_ocr_pinning.py` checks IPv4, IPv6, mixed DNS answers and a real local TLS listener. A matching certificate succeeds; a certificate for another name is refused before any request is sent.
 - Compatibility: if the selected validated address is unreachable, this OCR request fails instead of retrying another address; the existing manual-review fallback applies.
 
+### INT-004 — PasarGuard reused sessions for different credentials
+- Severity: Medium. Status: Fixed. Base: PR #187 at 4fe2e67117a05cd813a80733b91ac463e72c0897.
+- File / symbol: `modules/panel_integrations/adapters/pasarguard/core.py`, password token cache.
+- Evidence: with a cached session, two regression cases using changed or missing passwords did not fail; a static access-token request used a different cached token. All three failed on the parent and passed after the fix.
+- Impact: a panel connection or a credential check could operate with a previous session's privileges rather than the supplied credentials.
+- Fix: cache hits require a process-keyed fingerprint of the normalized password. A static access token bypasses the password cache. Cache entries contain neither the password nor an unsalted password hash; there remains at most one cached session per panel and username.
+- Regression: `tests/adapters/test_pasarguard_adapter_contract.py` covers changed and missing passwords, the static-token collision and reuse of a matching password session across adapters.
+- Compatibility: no API or schema change; a changed password requires a new panel login.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -61,6 +70,7 @@
 - `modules/webhooks/service.py` (INT-002); `tests/service/test_webhooks_service_db.py` (test double moved from `post` to `stream`, 2 new tests).
 
 - `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_pinning.py` (INT-003).
+- `modules/panel_integrations/adapters/pasarguard/core.py` and `tests/adapters/test_pasarguard_adapter_contract.py` (INT-004).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -73,10 +83,14 @@
 | `ruff check`, `mypy` (391 files) after INT-002 | PASS | |
 | INT-003 focused OCR, endpoint-policy and TLS regressions | PASS | 44 passed; 4 of the new cases failed before the fix |
 | INT-003 make lint and mypy | PASS | 8 import contracts; 391 source files type-checked |
+| INT-004 focused adapter, capabilities, contract and service tests | PASS | 144 passed, 1 skipped; three new regression cases failed before the fix |
+| INT-004 `make lint` | PASS | 8 import contracts; formatting and lint passed |
+| INT-004 `make test` | PASS | 2,978 passed, 48 skipped |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
 - INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
+- PasarGuard password sessions remain cached for up to 50 minutes. An external password change may need upstream token revocation or a process restart; upstream bearer-token validity depends on the panel.
 - Provider contracts (Zarinpal refund endpoint, Sanaei, Pasarguard, Telethon flow) are checked against the code only, never against a live or sandbox peer.
 - `ZarinpalAdapter.query_payment_status` returns the local status: a payment whose callback never arrives stays pending until someone acts. To be assessed in the next pass.
 - Receipt OCR runs `tesseract` under a time limit but with no memory or pixel-count limit.
@@ -88,3 +102,4 @@
 ## 9. Pull request
 - Branch `audit/04-integrations`, base `audit/03-database-finance`.
 - INT-003 follow-up: branch `audit/20-ocr-endpoint-089a80a5`; parent PR #185.
+- INT-004 follow-up: branch `audit/22-panel-integrations-089a80a5`; parent PR #187.
