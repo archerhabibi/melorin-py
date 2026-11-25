@@ -103,13 +103,52 @@ if redis.call('get', KEYS[1]) == ARGV[1] then
 end
 return 0
 """
+_RENEW_LOCK = """
+if redis.call('get', KEYS[1]) == ARGV[1] then
+    return redis.call('expire', KEYS[1], ARGV[2])
+end
+return 0
+"""
 
 
 class _ChatLock:
     def __init__(self, ns: str, ttl: int, wait: float):
         self.key, self.ttl, self.wait, self.token = f"upstream_bot:{ns}:lock", ttl, wait, uuid.uuid4().hex
+        if ttl < 1:
+            raise PanelError(ErrorKind.PERMANENT, "upstream_bot: chat lock TTL must be at least one second")
         self._local = _LOCKS.setdefault(self.key, asyncio.Lock())
         self._redis_client = None
+        self._owner: asyncio.Task[object] | None = None
+        self._heartbeat: asyncio.Task[None] | None = None
+        self._lease_lost = False
+
+    async def ensure_owned(self) -> None:
+        if self._lease_lost:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock ownership lost")
+        client = self._redis_client
+        if client is None:  # Redis is explicitly disabled in development.
+            return
+        try:
+            renewed = await asyncio.wait_for(client.eval(_RENEW_LOCK, 1, self.key, self.token, self.ttl), timeout=self.ttl / 3)
+        except (RedisError, OSError, TimeoutError) as exc:
+            self._lease_lost = True
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock ownership could not be verified") from exc
+        if not renewed:
+            self._lease_lost = True
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock ownership lost")
+
+    async def _renew_lease(self):
+        try:
+            while True:
+                await asyncio.sleep(self.ttl / 3)
+                await self.ensure_owned()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.warning("upstream_bot: redis chat lease renewal failed", exc_info=True)
+        self._lease_lost = True
+        if self._owner is not None:
+            self._owner.cancel()
 
     async def __aenter__(self):
         deadline = time.monotonic() + self.wait
@@ -124,6 +163,8 @@ class _ChatLock:
                     while True:
                         if await r.set(self.key, self.token, nx=True, ex=self.ttl):
                             self._redis_client = r
+                            self._owner = asyncio.current_task()
+                            self._heartbeat = asyncio.create_task(self._renew_lease())
                             break
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
@@ -138,10 +179,17 @@ class _ChatLock:
 
     async def __aexit__(self, *exc):
         try:
+            if self._heartbeat is not None:
+                self._heartbeat.cancel()
+                await asyncio.gather(self._heartbeat, return_exceptions=True)
             if self._redis_client is not None:
                 try:
-                    await self._redis_client.eval(_RELEASE_LOCK, 1, self.key, self.token)
+                    if not await self._redis_client.eval(_RELEASE_LOCK, 1, self.key, self.token):
+                        self._lease_lost = True
                 except (RedisError, OSError):
+                    self._lease_lost = True
                     log.warning("upstream_bot: redis lock release failed", exc_info=True)
         finally:
             self._local.release()
+        if self._lease_lost:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock was lost; the operation outcome is unknown") from exc[1]
