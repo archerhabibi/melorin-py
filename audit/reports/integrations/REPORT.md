@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-011 fixed, including upstream-bot renewal retries; the full backend suite passed with skips. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-012 fixed, including upstream-bot renewal retries and state fencing. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -115,7 +115,7 @@
 - Fix: renew the owner token during the flow, cancel the flow on renewal failure, validate ownership before pending-state writes and paid confirmations, and report an unknown outcome if ownership cannot be confirmed on exit.
 - Regression: 53 upstream-bot adapter and lease tests pass. An isolated Redis 7 container confirmed a long lease remains exclusive and that a replacement owner's token is preserved when the old flow stops.
 - Compatibility: a lost or unverifiable lease now fails closed with an unknown outcome. No API or schema change.
-- Residual risk: the ownership check and a following state write are not atomic, and a Telegram click already sent cannot be fenced during a network partition. Redis durability and explicit reconciliation of unknown outcomes remain necessary.
+- Residual risk: INT-012 fences state changes, but a Telegram click already sent cannot be fenced during a network partition. Redis durability and explicit reconciliation of unknown outcomes remain necessary.
 
 ### INT-011 — Renewal retries can pay twice or falsely report success
 - Severity: High. Status: Fixed. Base: PR #200.
@@ -124,7 +124,15 @@
 - Fix: pass the order id to the adapter, serialize and retain completed renewal ids, require identifiable pending state, and reconcile only evidence tied to the same order. Unresolved confirmations do not expire into a second payment; exhausted upstream-bot renewal retries are held for review. Pending renewals block upstream refunds.
 - Compatibility: upstream-bot paid renewals require a stable operation id. Generic adjustments, bulk changes and rollback calls without one are refused rather than treated as paid renewals; legacy unidentified pending renewals require manual reconciliation. The former settle-window setting no longer authorizes retrying an unconfirmed charge.
 - Verification: 115 focused adapter, lock, provisioning and renewal tests passed; nine new cases failed before their fixes. No live Telegram peer was contacted.
-- Residual risk: operation history is stored in Redis and can be lost; writes are not atomically fenced against lease loss. An upstream screen change can also have an external cause, so without provider-side idempotency and durable reconciliation exactly-once charges are not guaranteed.
+- Residual risk: operation history is stored in Redis and can be lost. An upstream screen change can also have an external cause, so without provider-side idempotency and durable reconciliation exactly-once charges are not guaranteed.
+
+### INT-012 — A former chat owner can change its successor's purchase state
+- Severity: High. Status: Fixed. Base: PR #201.
+- Evidence: an adapter regression replaced the Redis lease and account state after the old worker's ownership check but before its state write. The old code overwrote the successor's active record with stale pending data.
+- Impact: an expired or partitioned worker could erase a newer purchase, renewal or refund state and make later reconciliation unreliable.
+- Fix: all purchase-state writes and deletes require the matching active chat lease. On Redis, a single script checks its owner token and applies the mutation atomically; failures are reported as unknown. The process-local development mode uses its held mutex.
+- Verification: the new race failed on the parent and passed with the fix. The 76 adapter, state and lock tests passed, as did three real Redis cases for successful writes/deletes and rejection of stale writes/deletes. Lint and mypy passed; the full backend suite is running.
+- Compatibility and limits: no API or schema change. Redis data loss and a Telegram click already sent before lease loss remain outside this fix; no real Telegram provider was contacted.
 
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
@@ -146,6 +154,7 @@
 - `modules/panel_integrations/adapters/upstream_bot/state.py` and shared-state tests (INT-009).
 
 - Upstream-bot adapter, renewal orchestration and adapter/service regressions (INT-011).
+- Upstream-bot state and adapter, with race and real Redis regressions (INT-012).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -185,10 +194,13 @@
 | INT-010 full suite | PASS | 3,034 passed, 56 skipped |
 | INT-011 focused adapter, lock and service tests | PASS | 115 passed; nine added cases failed before the corresponding fixes |
 | INT-011 full suite | PASS | 3,051 passed, 56 skipped; a semantics-preserving bool conversion occurred during the run, followed by 49 relevant tests on the final code |
+| INT-012 adapter, state and lock tests | PASS | 76 passed; the new stale-owner regression failed on the parent |
+| INT-012 real Redis tests | PASS | 3 passed; current owner and stale set/delete paths |
+| INT-012 full backend suite | RUNNING | exact code commit a17bced |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
-- Upstream-bot Redis persistence loss and state writes not atomically fenced against lease loss can undermine cross-process idempotency; these paths need separate fixes.
+- Upstream-bot Redis persistence loss can undermine cross-process idempotency; durable state and reconciliation need separate work.
 - Cleanup failure is logged. Objects are retained when the database commit outcome is uncertain to avoid deleting a referenced file; a later orphan sweep remains useful.
 - INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
 - PasarGuard password sessions remain cached for up to 50 minutes. An external password change may need upstream token revocation or a process restart; upstream bearer-token validity depends on the panel.
@@ -212,3 +224,4 @@
 
 - INT-010 follow-up: branch audit/35-upstream-lease-e6a4711e; parent PR #199.
 - INT-011 follow-up: branch audit/36-renew-idempotency-e6a4711e; parent PR #200.
+- INT-012 follow-up: branch audit/37-followup-d5cdff38; parent PR #201.
