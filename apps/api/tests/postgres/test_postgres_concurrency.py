@@ -5,6 +5,7 @@ sessions against one private schema, so row locks and unique constraints are rea
 """
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
@@ -12,8 +13,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_store, make_user, open_schema_engine, pg_url
 from melorin.core.errors import AppError
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.stores import Store, StoreMembership
 from melorin.modules.wallet import service as wallet
 from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
+from melorin.modules.reseller.routes.customers import adjust_customer_wallet_core
+from melorin.modules.reseller.schemas import CustomerWalletAdjustment
 
 pytestmark = [
     pytest.mark.concurrency,
@@ -103,3 +108,34 @@ async def test_same_idempotency_key_in_parallel_posts_exactly_once():
                 select(func.count()).select_from(LedgerTransaction).where(LedgerTransaction.idempotency_key == "same-key")
             )
             assert count == 1
+
+
+@pytest.mark.parametrize("same_key", [True, False])
+async def test_parallel_reseller_corrections_replay_once_without_overdrawing(same_key):
+    async with open_schema_engine() as engine:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        store_id, wallet_id = await _funded_wallet(factory, 1_000)
+        async with factory() as s:
+            customer_id = (await s.get(Wallet, wallet_id)).user_id
+            s.add(StoreMembership(store_id=store_id, user_id=customer_id, role="customer", status="active"))
+            await s.commit()
+
+        async def correct(key):
+            async with factory() as s:
+                ctx = SimpleNamespace(store=await s.get(Store, store_id), user=await s.get(User, customer_id))
+                body = CustomerWalletAdjustment(amount=-1000, reason="correction", idempotency_key=key)
+                try:
+                    return await adjust_customer_wallet_core(s, ctx, customer_id, body)
+                except AppError as exc:
+                    await s.rollback()
+                    return exc.code
+
+        keys = ["same-correction"] * 4 if same_key else [f"correction-{i}" for i in range(4)]
+        results = await asyncio.gather(*(correct(key) for key in keys))
+        successes = [result for result in results if isinstance(result, dict)]
+        assert len(successes) == (4 if same_key else 1)
+        assert len({result["transaction_id"] for result in successes}) == 1
+        assert all(result == "INSUFFICIENT_FUNDS" for result in results if isinstance(result, str))
+        async with factory() as s:
+            assert (await s.get(Wallet, wallet_id)).balance == 0
+            assert (await s.scalar(select(func.sum(LedgerEntry.amount)))) == 0

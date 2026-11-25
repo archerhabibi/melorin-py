@@ -158,6 +158,37 @@ async def test_manual_correction_can_never_drive_a_customer_wallet_negative():
         assert ok.status_code == 200 and ok.json()["balance"] == 0
 
 
+async def test_manual_correction_retry_returns_the_original_transaction_even_after_balance_is_spent():
+    async with api_client() as (c, maker, main):
+        w = await _world(c, maker, main)
+        cust = await _customer(maker, w.a, email="mine@example.com")
+        url = _panel(w.a, f"/customers/{cust.id}/wallet")
+        assert (await c.post(url, headers=w.h["a"], json=_adjust(1000))).status_code == 200
+        correction = _adjust(-1000, key="correction-0001")
+        first = await c.post(url, headers=w.h["a"], json=correction)
+        retry = await c.post(url, headers=w.h["a"], json=correction)
+        assert first.status_code == retry.status_code == 200
+        assert first.json()["transaction_id"] == retry.json()["transaction_id"]
+        assert first.json()["balance"] == retry.json()["balance"] == 0
+        assert (await _wallet(maker, cust.id, w.a.id)).balance == 0
+
+
+async def test_manual_adjustment_key_cannot_be_reused_for_a_different_amount_or_wallet():
+    async with api_client() as (c, maker, main):
+        w = await _world(c, maker, main)
+        first = await _customer(maker, w.a, email="first@example.com")
+        second = await _customer(maker, w.a, email="second@example.com")
+        url = _panel(w.a, f"/customers/{first.id}/wallet")
+        other_url = _panel(w.a, f"/customers/{second.id}/wallet")
+        assert (await c.post(url, headers=w.h["a"], json=_adjust(1000))).status_code == 200
+        for path, amount in ((url, 500), (other_url, 1000)):
+            result = await c.post(path, headers=w.h["a"], json=_adjust(amount))
+            assert (result.status_code, _err(result)) == (409, "IDEMPOTENCY_KEY_REUSE")
+        assert (await _wallet(maker, first.id, w.a.id)).balance == 1000
+        other_wallet = await _wallet(maker, second.id, w.a.id)
+        assert other_wallet is None or other_wallet.balance == 0
+
+
 async def test_manual_topup_validates_amount_cap_and_membership():
     async with api_client() as (c, maker, main):
         w = await _world(c, maker, main)
