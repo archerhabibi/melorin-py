@@ -1,6 +1,7 @@
 """Double-entry, append-only, idempotent ledger. Wallet.balance is a locked projection."""
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -193,10 +194,60 @@ async def find_reversal(session: AsyncSession, tx: LedgerTransaction) -> LedgerT
     return await session.scalar(select(LedgerTransaction).where(LedgerTransaction.reverses_id == tx.id))
 
 
+class _WalletRouteChanged(Exception):
+    pass
+
+
+async def _lock_reversal_wallets(session: AsyncSession, entries: Sequence[LedgerEntry]) -> dict[uuid.UUID, Wallet]:
+    """Lock current destinations, retrying if a consolidation changes a route while we wait."""
+    source_ids = {entry.wallet_id for entry in entries if entry.wallet_id is not None}
+    for _ in range(3):
+        try:
+            async with session.begin_nested():
+                routed: dict[uuid.UUID, Wallet] = {}
+                for source_id in sorted(source_ids, key=str):
+                    source = await session.get(Wallet, source_id, populate_existing=True)
+                    if source is None:
+                        raise AppError("WALLET_ROUTE_INVALID", "مسیر کیف پول معتبر نیست.", 409)
+                    current = source
+                    seen: set[uuid.UUID] = set()
+                    person_id: uuid.UUID | None = None
+                    while current.status == "consolidated":
+                        if current.id in seen or current.consolidated_into_id is None:
+                            raise AppError("WALLET_ROUTE_INVALID", "مسیر کیف پول معتبر نیست.", 409)
+                        seen.add(current.id)
+                        if person_id is None:
+                            owner = await session.get(User, source.user_id, populate_existing=True)
+                            if owner is None or owner.person_id is None:
+                                raise AppError("WALLET_ROUTE_INVALID", "مسیر کیف پول معتبر نیست.", 409)
+                            person_id = owner.person_id
+                        target = await session.get(Wallet, current.consolidated_into_id, populate_existing=True)
+                        if target is None or (target.store_id, target.currency, target.kind) != (
+                            source.store_id,
+                            source.currency,
+                            source.kind,
+                        ):
+                            raise AppError("WALLET_ROUTE_INVALID", "مسیر کیف پول معتبر نیست.", 409)
+                        target_owner = await session.get(User, target.user_id, populate_existing=True)
+                        if target_owner is None or target_owner.person_id != person_id:
+                            raise AppError("WALLET_ROUTE_INVALID", "مسیر کیف پول معتبر نیست.", 409)
+                        current = target
+                    if current.status != "active":
+                        raise AppError("WALLET_ROUTE_INVALID", "مسیر کیف پول معتبر نیست.", 409)
+                    routed[source_id] = current
+                await lock_wallets(session, list(routed.values()))
+                if any(target.status != "active" for target in routed.values()):
+                    raise _WalletRouteChanged
+                return routed
+        except _WalletRouteChanged:
+            continue
+    raise AppError("WALLET_ROUTE_CHANGED", "مسیر کیف پول تغییر کرده است؛ دوباره تلاش کنید.", 409)
+
+
 async def reverse(
     session: AsyncSession, tx: LedgerTransaction, *, key: str, kind: str = "reversal", actor_id=None, memo=None
 ) -> LedgerTransaction:
-    """Compensating transaction: negates every entry; history is never mutated.
+    """Compensating transaction: negate each amount, routing consolidated wallets to their active destination.
 
     A transaction is reversed at most once (DB-003): a second call under another key returns the first reversal instead of
     debiting the books twice, and ``uq_ledger_transactions_reverses_id`` keeps that true when two callers race.
@@ -205,9 +256,10 @@ async def reverse(
     if existing:
         return existing
     entries = (await session.scalars(select(LedgerEntry).where(LedgerEntry.transaction_id == tx.id))).all()
+    routed = await _lock_reversal_wallets(session, entries)
     postings = []
     for e in entries:
-        w = await session.get(Wallet, e.wallet_id) if e.wallet_id else None
+        w = routed[e.wallet_id] if e.wallet_id is not None else None
         postings.append(Posting(-e.amount, wallet=w, account=None if w else e.account, min_balance=None))
     try:
         new, _ = await post(

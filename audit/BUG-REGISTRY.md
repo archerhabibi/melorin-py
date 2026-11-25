@@ -28,6 +28,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | DB-004 | High | Bank SMS matching can choose a receipt without comparing open provisional credits and all eligible pending receipts | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-005 | High | A stale bank SMS matcher can reopen a linked message or override a human ignore decision | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-006 | High | A stale receipt upload can overwrite a completed payment decision | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
+| DB-007 | High | Reversals after account consolidation post to an inaccessible retired wallet | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | INT-001 | Medium | SMTP over TLS (`ssl` and `starttls`) accepts any certificate and any host name: `smtplib` falls back to an unverified context | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-002 | Medium | Outgoing webhook delivery buffers the receiver's whole response and bounds only each read: a tenant-controlled endpoint can exhaust worker memory or hold its delivery slots | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-003 | Medium | OCR endpoint validation did not bind the checked address to the connection | AI-04 | Fixed | audit/reports/integrations/REPORT.md |

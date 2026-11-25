@@ -33,6 +33,7 @@
 | 2026-11-25 | INT-008 follows PR #193; chat locks fail closed on Redis errors and release only their own lease. | AI-00 |
 | 2026-11-25 | INT-009 follows PR #194; shared purchase state failures stop paid bot flows before confirmation. | AI-00 |
 | 2026-11-25 | BE-012 preserves completed reseller wallet retries after the manual adjustment cap is lowered. | AI-00 |
+| 2026-11-25 | DB-007 follows PR #196; ledger reversals use the active wallet after account consolidation. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -40,7 +41,7 @@
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
 | AI-01 | 3 | BE-001 fixed (PR #161); BE-002 through BE-012 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 through SEC-005 fixed; authorization matrix test added; 9 `PENDING` bounds closed; broader security review continues |
-| AI-03 | 3 | DB-001..DB-006 fixed; order-creation and bank-SMS concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
+| AI-03 | 3 | DB-001..DB-007 fixed; order, bank-SMS and consolidation/refund concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001..INT-009 fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
@@ -68,3 +69,4 @@
 - 2026-11-25 INT-008 adds upstream-bot lock failure and cancellation regressions (AI-08).
 - 2026-11-25 INT-009 adds shared purchase state and fake-provider failure regressions (AI-08).
 - 2026-11-25 BE-012 adds a PostgreSQL concurrency regression (AI-08) alongside the reseller wallet change (AI-01).
+- 2026-11-25 DB-007 adds account-linking and PostgreSQL race tests (AI-02/AI-08) alongside the ledger change (AI-03).

@@ -103,6 +103,108 @@ async def test_consolidation_moves_balance_through_ledger_once():
         assert (await queries.person_detail(s, a.person_id))["consolidations"][0]["status"] == "completed"
 
 
+async def test_reversals_after_consolidation_use_the_active_wallet():
+    async with open_session() as s:
+        store = await make_store(s)
+        a, b, _ = await _linked_pair(s)
+        source = await wallets.get_wallet(s, b.id, store.id)
+        topup, _ = await wallets.post(
+            s,
+            kind="topup",
+            key="old-topup",
+            currency="IRT",
+            postings=[wallets.Posting(500, wallet=source), wallets.Posting(-500, account="gateway:clearing")],
+        )
+        purchase, _ = await wallets.post(
+            s,
+            kind="purchase",
+            key="old-purchase",
+            currency="IRT",
+            postings=[wallets.Posting(-200, wallet=source, min_balance=0), wallets.Posting(200, account="store:revenue")],
+        )
+        await s.commit()
+        op = await consolidation.request(s, a, key="reversal-consolidation")
+        await consolidation.execute(s, op, approver_id=None, actor_type="system")
+        central = await wallets.get_wallet(s, a.id, store.id, route=False)
+        assert source.status == "consolidated" and source.balance == 0 and central.balance == 300
+
+        refund = await wallets.reverse(s, purchase, key="old-purchase-refund", kind="refund")
+        await s.commit()
+        assert source.balance == 0 and central.balance == 500
+        assert (await wallets.reverse(s, purchase, key="old-purchase-refund", kind="refund")).id == refund.id
+        await wallets.reverse(s, topup, key="old-topup-refund", kind="refund")
+        await s.commit()
+        assert source.balance == 0 and central.balance == 0
+        entries = (await s.scalars(select(LedgerEntry))).all()
+        assert sum(entry.amount for entry in entries) == 0
+
+
+async def test_reversal_follows_multiple_consolidations():
+    async with open_session() as s:
+        store = await make_store(s)
+        users = [await make_user(s) for _ in range(3)]
+        for user in users[1:]:
+            user.person_id = users[0].person_id
+        source, middle, active = [await wallets.get_wallet(s, user.id, store.id) for user in users]
+        await wallets.post(
+            s,
+            kind="topup",
+            key="chain-topup",
+            currency="IRT",
+            postings=[wallets.Posting(500, wallet=source), wallets.Posting(-500, account="gateway:clearing")],
+        )
+        purchase, _ = await wallets.post(
+            s,
+            kind="purchase",
+            key="chain-purchase",
+            currency="IRT",
+            postings=[wallets.Posting(-200, wallet=source), wallets.Posting(200, account="store:revenue")],
+        )
+        for index, (old, new) in enumerate(((source, middle), (middle, active))):
+            await wallets.post(
+                s,
+                kind="consolidation_transfer",
+                key=f"chain-move-{index}",
+                currency="IRT",
+                postings=[wallets.Posting(-300, wallet=old), wallets.Posting(300, wallet=new)],
+            )
+            old.status, old.consolidated_into_id = "consolidated", new.id
+        await s.commit()
+        await wallets.reverse(s, purchase, key="chain-refund", kind="refund")
+        await s.commit()
+        assert (source.balance, middle.balance, active.balance) == (0, 0, 500)
+
+
+@pytest.mark.parametrize("bad_route", ["cycle", "other_store", "other_currency", "other_person", "missing"])
+async def test_reversal_rejects_an_invalid_consolidation_route(bad_route):
+    async with open_session() as s:
+        store, other_store = await make_store(s), await make_store(s)
+        user = await make_user(s)
+        source = await wallets.get_wallet(s, user.id, store.id)
+        topup, _ = await wallets.post(
+            s,
+            kind="topup",
+            key="bad-route-topup",
+            currency="IRT",
+            postings=[wallets.Posting(500, wallet=source), wallets.Posting(-500, account="gateway:clearing")],
+        )
+        other_user = await make_user(s) if bad_route == "other_person" else user
+        other = await wallets.get_wallet(
+            s,
+            other_user.id,
+            store.id if bad_route in ("other_currency", "other_person") else other_store.id,
+            currency="USD" if bad_route == "other_currency" else "IRT",
+        )
+        source.status = "consolidated"
+        source.consolidated_into_id = None if bad_route == "missing" else source.id if bad_route == "cycle" else other.id
+        await s.commit()
+        with pytest.raises(AppError) as error:
+            await wallets.reverse(s, topup, key="bad-route-refund", kind="refund")
+        assert error.value.code == "WALLET_ROUTE_INVALID"
+        assert source.balance == 500 and other.balance == 0
+        assert await wallets.find_reversal(s, topup) is None
+
+
 async def test_debt_blocks_consolidation_but_keeps_accounts_linked():
     async with open_session() as s:
         store = await make_store(s)
