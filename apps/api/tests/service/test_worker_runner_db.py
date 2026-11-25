@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import types
 import uuid
@@ -436,7 +437,8 @@ async def test_provisioning_failed_alert_for_unknown_order_still_alerts_without_
 
 class _PanelAdapter:
     def __init__(self):
-        self.revoked, self.extended = [], []
+        self.revoked, self.extended, self.cleared = [], [], []
+        self.closed = 0
 
     async def revoke_account(self, username):
         self.revoked.append(username)
@@ -444,6 +446,12 @@ class _PanelAdapter:
     async def extend_account(self, username, *, expire_at, traffic_bytes):
         self.extended.append((username, expire_at, traffic_bytes))
         return types.SimpleNamespace(expire_at=expire_at, traffic_limit_bytes=traffic_bytes)
+
+    async def clear_next_plan(self, username):
+        self.cleared.append(username)
+
+    async def close(self):
+        self.closed += 1
 
 
 async def _vpn(s, *, with_panel=True, username="acc1"):
@@ -468,6 +476,7 @@ async def test_revoke_account_calls_the_panel_and_marks_revoked(maker, monkeypat
         a = await _vpn(s)
         await runner.revoke_account(s, a.id)
         assert adapter.revoked == ["acc1"] and a.status == "revoked"
+        assert adapter.closed == 1
         await runner.revoke_account(s, uuid.uuid4())  # unknown account: nothing happens
         orphan = await _vpn(s, with_panel=False, username="orphan")
         await runner.revoke_account(s, orphan.id)
@@ -484,12 +493,72 @@ async def test_rollback_renewal_restores_expiry_and_traffic_from_the_snapshot(ma
             s, {"vpn_account_id": str(a.id), "before": {"expires_at": before_exp.isoformat(), "traffic_limit_bytes": 5}}
         )
         assert adapter.extended == [("acc1", before_exp, 5)]
+        assert adapter.closed == 1
         assert a.sold_traffic_bytes == 5 and a.sold_expires_at.replace(tzinfo=dt.UTC) == before_exp  # the sold entitlement goes back too
         # a snapshot without values rolls back to "no expiry / no limit"
         await runner.rollback_renewal(s, {"vpn_account_id": str(a.id)})
         assert adapter.extended[-1] == ("acc1", None, 0)
         await runner.rollback_renewal(s, {"vpn_account_id": str(uuid.uuid4())})
         assert len(adapter.extended) == 2
+        assert adapter.closed == 2
+
+
+async def _worker_panel_action(session, account, action):
+    if action == "revoke":
+        return await runner.revoke_account(session, account.id)
+    if action == "queue":
+        account.queued_plan = {"template_id": 7}
+        await session.flush()
+    return await runner.rollback_renewal(session, {"vpn_account_id": account.id, "before": {}, "mode": action})
+
+
+@pytest.mark.parametrize("action", ["revoke", "replace", "queue"])
+@pytest.mark.parametrize("failure", ["provider", "cancel", "seed"])
+async def test_worker_closes_panel_adapter_on_failure_or_cancellation(maker, monkeypatch, action, failure):
+    adapter = _PanelAdapter()
+    monkeypatch.setattr(runner, "build_adapter", lambda panel: adapter)
+    error = asyncio.CancelledError if failure == "cancel" else RuntimeError
+
+    async def fail(*args, **kwargs):
+        raise error("operation failed")
+
+    if failure == "seed":
+
+        def fail_seed(*args, **kwargs):
+            raise RuntimeError("seeding failed")
+
+        monkeypatch.setattr(runner, "seed_adapter", fail_seed)
+    else:
+        adapter.revoke_account = fail
+        adapter.extend_account = fail
+        adapter.clear_next_plan = fail
+    async with maker() as s:
+        account = await _vpn(s)
+        with pytest.raises(error):
+            await _worker_panel_action(s, account, action)
+        assert adapter.closed == 1
+
+
+@pytest.mark.parametrize("action", ["revoke", "replace", "queue"])
+async def test_worker_close_failure_does_not_repeat_a_successful_panel_action(maker, monkeypatch, action):
+    adapter = _PanelAdapter()
+
+    async def broken_close():
+        adapter.closed += 1
+        raise RuntimeError("close failed")
+
+    adapter.close = broken_close
+    monkeypatch.setattr(runner, "build_adapter", lambda panel: adapter)
+    async with maker() as s:
+        account = await _vpn(s)
+        await _worker_panel_action(s, account, action)
+        assert adapter.closed == 1
+        if action == "revoke":
+            assert adapter.revoked == ["acc1"] and account.status == "revoked"
+        elif action == "replace":
+            assert len(adapter.extended) == 1
+        else:
+            assert adapter.cleared == ["acc1"] and account.queued_plan is None
 
 
 # --- webhook queue -------------------------------------------------------------------------------------------------

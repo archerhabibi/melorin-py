@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-013 fixed, including upstream-bot state fencing and bounded vision responses. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-014 fixed, including upstream-bot state fencing, bounded vision responses and panel adapter cleanup. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -131,7 +131,7 @@
 - Evidence: an adapter regression replaced the Redis lease and account state after the old worker's ownership check but before its state write. The old code overwrote the successor's active record with stale pending data.
 - Impact: an expired or partitioned worker could erase a newer purchase, renewal or refund state and make later reconciliation unreliable.
 - Fix: all purchase-state writes and deletes require the matching active chat lease. On Redis, a single script checks its owner token and applies the mutation atomically; failures are reported as unknown. The process-local development mode uses its held mutex.
-- Verification: the new race failed on the parent and passed with the fix. The 76 adapter, state and lock tests passed, as did three real Redis cases for successful writes/deletes and rejection of stale writes/deletes. Lint and mypy passed; the full backend suite is running.
+- Verification: the new race failed on the parent and passed with the fix. The 76 adapter, state and lock tests passed, as did three real Redis cases for successful writes/deletes and rejection of stale writes/deletes. Lint and mypy passed; the full backend suite passed with 3,053 tests and 59 skips.
 - Compatibility and limits: no API or schema change. Redis data loss and a Telegram click already sent before lease loss remain outside this fix; no real Telegram provider was contacted.
 
 ### INT-013 — A vision OCR provider can exhaust memory or hold a worker indefinitely
@@ -139,8 +139,16 @@
 - Evidence: the parent read an entire multi-megabyte response before returning, exceeded a one-second configured timeout while a peer dripped bytes, and accepted compressed responses without a decompression bound. Three regressions reproduced these behaviors before the fix.
 - Impact: a misbehaving provider can exhaust memory or occupy the limited OCR worker slots, delaying receipt processing.
 - Fix: include DNS and the complete HTTP exchange in the configured deadline; request identity encoding, reject compressed bodies, and stream at most 256 KiB. The admin connection test explains rejected responses and timeouts; failed receipt reads remain available for human review.
-- Verification: 44 OCR, admin, TLS-pinning and contract tests passed; the three new tests failed on the parent. Lint, mypy and the secret scan passed. The full backend suite is running.
+- Verification: 44 OCR, admin, TLS-pinning and contract tests passed; the three new tests failed on the parent. Lint, mypy and the secret scan passed. The full backend suite passed with 3,058 tests and 59 skips.
 - Compatibility and limits: providers must honor identity encoding and keep responses within the cap. No real vision provider was contacted, and local Tesseract image resource limits remain separate work.
+
+### INT-014 — Account actions leave panel adapters open
+- Severity: Medium. Status: Fixed. Base: PR #204.
+- Evidence: 21 regression cases failed on the parent across provisioning, manual assignment, account revocation and renewal rollback. Successful, failed, cancelled and early-return paths could omit cleanup; queued rollback also treated a cleanup failure as a failed panel action.
+- Impact: Sanaei HTTP clients and upstream-bot Telegram connections can accumulate in a worker. A cleanup failure after a successful queued rollback can trigger an unnecessary retry of the remote action.
+- Fix: retain each adapter through its complete operation and reconciliation, and attempt to close it in `finally` on all exits. Cleanup errors are logged without masking the operation outcome.
+- Verification: 116 focused provisioning, manual-assignment, worker and adapter tests passed; `make lint` and targeted mypy passed. The full backend suite is running on the test server.
+- Limits: no API or schema change and no live panel was contacted. A provider whose own close fails can still leave its connection open; the failure is logged.
 
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
@@ -164,6 +172,7 @@
 - Upstream-bot adapter, renewal orchestration and adapter/service regressions (INT-011).
 - Upstream-bot state and adapter, with race and real Redis regressions (INT-012).
 - Vision OCR response limits, admin error handling and response regressions (INT-013).
+- Provisioning, manual assignment and worker adapter lifecycle with service regressions (INT-014).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -207,7 +216,10 @@
 | INT-012 real Redis tests | PASS | 3 passed; current owner and stale set/delete paths |
 | INT-012 full backend suite | PASS | 3,053 passed, 59 skipped on exact code commit a17bced; Redis integration passed separately |
 | INT-013 focused OCR and admin tests | PASS | 44 passed; three new response-limit cases failed on the parent |
-| INT-013 full backend suite | RUNNING | exact code commit a74722b |
+| INT-013 full backend suite | PASS | 3,058 passed, 59 skipped on code commit a74722b |
+| INT-014 focused service and adapter tests | PASS | 116 passed; 21 cases failed on the parent |
+| INT-014 lint and targeted mypy | PASS | eight import contracts and three changed source files |
+| INT-014 full backend suite | RUNNING | code commit b8a3edf |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks

@@ -16,6 +16,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
 from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.modules.panelops import panel_admins
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
@@ -227,6 +228,24 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
 
     # Only NEW accounts get the server target merged in; a renewal talks to the panel with its plain config.
     adapter = build_adapter(panel, None if account else server)
+    try:
+        return await _provision_with_adapter(session, order, product, account, group, panel, server, attempt, adapter)
+    finally:
+        await close_adapter(adapter)
+
+
+async def _provision_with_adapter(
+    session: AsyncSession,
+    order: Order,
+    product: Product,
+    account: VpnAccount | None,
+    group,
+    panel: Panel,
+    server: Server,
+    attempt: ProvisioningAttempt,
+    adapter,
+) -> str:
+    """Use one adapter for the complete attempt, including any uncertain-outcome reconciliation."""
     if account:
         seed_adapter(adapter, account)
     now = utcnow()

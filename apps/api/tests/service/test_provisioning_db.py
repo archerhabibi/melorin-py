@@ -3,6 +3,7 @@
 Covers success, transient failure -> retry scheduled, retries exhausted -> automatic refund, permanent allocation
 failure, timeout reconcile (no duplicate account), duplicate worker claim and renewal on the existing panel account."""
 
+import asyncio
 import datetime as dt
 import uuid
 
@@ -110,6 +111,83 @@ async def _world(s, *, order_status="paid", balance=2_000, with_server=True):
 
 async def _topics(s):
     return (await s.scalars(select(OutboxEvent.topic))).all()
+
+
+@pytest.mark.parametrize("outcome", ["success", "panel_error", "cancel", "close_error", "reconcile"])
+async def test_provisioning_releases_panel_connection(panel_factory, outcome):
+    class TrackedPanel(ScriptedPanel):
+        def __init__(self, script=(), remote=None):
+            super().__init__(script, remote)
+            self.closed = 0
+
+        async def close(self):
+            self.closed += 1
+            if outcome == "close_error":
+                raise RuntimeError("close failed")
+
+    script = []
+    if outcome == "panel_error":
+        script = [PanelError(ErrorKind.TRANSIENT, "panel unavailable")]
+    elif outcome == "cancel":
+        script = [asyncio.CancelledError()]
+    elif outcome == "reconcile":
+        script = [PanelError(ErrorKind.UNKNOWN, "response lost")]
+    panel = TrackedPanel(script)
+    if outcome == "reconcile":
+        panel.remote = panel._account("existing_remote")
+    panel_factory(panel)
+    async with open_session() as s:
+        w = await _world(s)
+        if outcome == "cancel":
+            with pytest.raises(asyncio.CancelledError):
+                await vpn.provision_order(s, w["order"].id)
+        else:
+            result = await vpn.provision_order(s, w["order"].id)
+            expected = (
+                "retry_scheduled" if outcome == "panel_error" else "completed_after_reconcile" if outcome == "reconcile" else "completed"
+            )
+            assert result == expected
+        assert panel.closed == 1
+
+
+@pytest.mark.parametrize("reconcile", [False, True])
+async def test_provisioning_queues_one_delivery_without_generic_notice(panel_factory, reconcile):
+    script = [PanelError(ErrorKind.UNKNOWN, "response lost")] if reconcile else []
+    panel = ScriptedPanel(script)
+    if reconcile:
+        panel.remote = panel._account("existing_remote")
+    panel_factory(panel)
+    async with open_session() as s:
+        w = await _world(s)
+        order = w["order"]
+        assert await vpn.provision_order(s, order.id) == ("completed_after_reconcile" if reconcile else "completed")
+        assert await vpn.provision_order(s, order.id) == "ignored"
+        deliveries = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == "order.delivery"))).all()
+        assert len(deliveries) == 1
+        assert deliveries[0].dedup_key == f"order_delivery:{order.id}"
+        assert deliveries[0].payload == {"order_id": str(order.id), "store_id": str(order.store_id)}
+        assert not (await s.scalars(select(OutboxEvent).where(OutboxEvent.dedup_key.like("notify:account%")))).all()
+
+
+async def test_provisioning_releases_panel_on_invalid_queued_renewal(panel_factory):
+    class TrackedPanel(ScriptedPanel):
+        def __init__(self):
+            super().__init__()
+            self.closed = 0
+
+        async def close(self):
+            self.closed += 1
+
+    panel = panel_factory(TrackedPanel())
+    async with open_session() as s:
+        w = await _world(s)
+        assert await vpn.provision_order(s, w["order"].id) == "completed"
+        account = await s.get(VpnAccount, w["order"].vpn_account_id)
+        renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="NOQUE1")
+        renewal.kind, renewal.vpn_account_id, renewal.renewal_mode, renewal.pricing_snapshot = "renewal", account.id, "queue", {}
+        await s.commit()
+        assert await vpn.provision_order(s, renewal.id) == "needs_review"
+        assert panel.closed == 2
 
 
 async def test_successful_provisioning_completes_the_order_and_activates_the_account(panel_factory):
