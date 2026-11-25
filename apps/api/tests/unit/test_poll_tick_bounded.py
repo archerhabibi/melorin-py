@@ -158,7 +158,7 @@ async def test_failed_row_does_not_leave_other_rows_running_after_tick_exits(mon
 @pytest.mark.asyncio
 async def test_cancelled_tick_does_not_construct_coroutines_for_waiting_rows(monkeypatch):
     constructed = active = 0
-    full, release = asyncio.Event(), asyncio.Event()
+    full, release, cleanup_started, cleanup_release = (asyncio.Event() for _ in range(4))
 
     def work(_row):
         nonlocal constructed
@@ -171,6 +171,10 @@ async def test_cancelled_tick_does_not_construct_coroutines_for_waiting_rows(mon
                 full.set()
             try:
                 await release.wait()
+            except asyncio.CancelledError:
+                cleanup_started.set()
+                await cleanup_release.wait()
+                raise
             finally:
                 active -= 1
 
@@ -196,10 +200,32 @@ async def test_cancelled_tick_does_not_construct_coroutines_for_waiting_rows(mon
         await asyncio.wait_for(full.wait(), timeout=2)
         assert constructed == arq_app.TICK_CONCURRENCY
         tick.cancel()
+        await asyncio.wait_for(cleanup_started.wait(), timeout=2)
+        assert ctx["poll_tick_lock"].locked()
+        assert await arq_app.poll_tick(dict(ctx)) == {"events": 0, "deliveries": 0, "skipped": True}
+        cleanup_release.set()
         with pytest.raises(asyncio.CancelledError):
             await tick
         assert active == 0
         assert not ctx["poll_tick_lock"].locked()
     finally:
         release.set()
+        cleanup_release.set()
         await asyncio.gather(tick, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_startup_adds_the_lock_shared_by_arq_job_contexts(monkeypatch):
+    from melorin.core import logging as core_logging
+    from melorin.worker import metrics_server
+
+    async def start_metrics(_ctx):
+        pass
+
+    monkeypatch.setattr(arq_app, "assert_lock_backend_configured", lambda: None)
+    monkeypatch.setattr(core_logging, "quiet_worker_heartbeat", lambda: None)
+    monkeypatch.setattr(metrics_server, "start_metrics_server", start_metrics)
+    ctx = {}
+    await arq_app.startup(ctx)
+    assert isinstance(ctx["poll_tick_lock"], asyncio.Lock)
+    assert dict(ctx)["poll_tick_lock"] is ctx["poll_tick_lock"]
