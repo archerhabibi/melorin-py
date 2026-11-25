@@ -173,7 +173,7 @@ class UpstreamBotAdapter:
         known = await self.store.get(spec.username)
         if known and known.get("status") == "active":
             return self._account(spec.username, known)
-        async with self._lock():
+        async with self._lock() as lease:
             # Another attempt may have finished while this one waited for the chat.
             known = await self.store.get(spec.username)
             if known and known.get("status") == "active":
@@ -214,6 +214,7 @@ class UpstreamBotAdapter:
             ok = self._find_button(conf, self.cfg["confirm_button"])
             if not ok:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: confirm button '{self.cfg['confirm_button']}' not found")
+            await lease.ensure_owned()
             await self.store.set(
                 spec.username,
                 {
@@ -226,6 +227,7 @@ class UpstreamBotAdapter:
                 },
             )
             try:
+                await lease.ensure_owned()
                 await c.click(conf, ok)  # From this point the purchase may have been charged.
                 done = await self._wait(
                     lambda x: parsing.parse_purchase_result(x.text) is not None, after_id=after, timeout=float(self.cfg["delivery_timeout"])
@@ -380,7 +382,7 @@ class UpstreamBotAdapter:
         if cap <= 0:
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: config.max_price must be set before automatic renewals")
         ref = d["ref"]
-        async with self._lock():
+        async with self._lock() as lease:
             c = self._client()
             _, det_msg, before = await self._open_detail(ref)
             if d.get("renew_started"):
@@ -440,6 +442,7 @@ class UpstreamBotAdapter:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal confirmation shows {amount}, expected {opt.price}; cancelled")
             if not ok:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: confirm button '{r['confirm_button']}' not found")
+            await lease.ensure_owned()
             d.update(
                 renew_pending=True,  # get_account must now read fresh, never from cache
                 renew_started=time.time(),
@@ -449,6 +452,7 @@ class UpstreamBotAdapter:
             )
             await self.store.set(username, d)
             mark3 = await self._top_id()
+            await lease.ensure_owned()
             await c.click(conf, ok)  # --- point of no return: from here a failure is UNKNOWN, never TRANSIENT ---
             done = await self._wait(
                 lambda x: any(w in x.text for w in r["success_words"]) and parsing.parse_renew_success(x.text, ref),
@@ -517,7 +521,7 @@ class UpstreamBotAdapter:
             d["status"] = "revoked"
             await self.store.set(username, d)
             return
-        async with self._lock():
+        async with self._lock() as lease:
             c = self._client()
             try:
                 _, det_msg, _ = await self._open_detail(d["ref"])
@@ -540,8 +544,10 @@ class UpstreamBotAdapter:
             ok = self._find_button(conf, self.cfg["refund_confirm_button"])
             if not ok:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: button '{self.cfg['refund_confirm_button']}' not found")
+            await lease.ensure_owned()
             d["refund_started"] = time.time()
             await self.store.set(username, d)
+            await lease.ensure_owned()
             await c.click(conf, ok)
             done = await self._wait(
                 lambda x: parsing.parse_refund_success(x.text), after_id=mark, watch={conf.id}, timeout=float(self.cfg["delivery_timeout"])

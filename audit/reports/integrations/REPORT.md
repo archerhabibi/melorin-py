@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-009 fixed, including receipt cleanup, OCR cancellation, upstream-bot purchase retries, lock handling and shared-state failures. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-010 fixed, including receipt cleanup, OCR cancellation, upstream-bot purchase retries, lock handling, shared-state failures and lease expiry. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -96,7 +96,7 @@
 - Fix: Redis failures prevent entry when Redis is configured; acquisition and release clean up the local mutex on cancellation. A single Redis compare-and-delete script releases only the owner token. Busy local and Redis locks return retryable panel errors.
 - Regression: `tests/unit/test_upstream_bot_lock.py` and the existing upstream-bot suite pass; a real isolated Redis test checked contention, replacement ownership and normal release.
 - Compatibility: Redis outages now stop bot flows rather than silently falling back to an uncoordinated local lock. A development configuration with no Redis can still use a process-local mutex; hosted environments require Redis.
-- Remaining work: the lease can expire during a long flow, and mapping writes can still fall back to process memory; these need separate fixes.
+- Remaining work: INT-010 addresses long-running leases; atomic fencing of shared-state writes and Redis durability remain separate risks.
 
 ### INT-009 — A bot purchase can proceed when its shared state cannot be saved or read
 - Severity: High. Status: Fixed on this branch. Base: PR #194 at `91883dfabfa13e65a3737f3dcdf2621121043d51`.
@@ -106,7 +106,16 @@
 - Fix: configured Redis read, write, delete and scan failures return UNKNOWN rather than falling back. The local copy changes only after a successful shared write or delete. Malformed mappings are rejected; no confirmation follows a failed pending write.
 - Regression: shared-state tests, fake bot tests and an isolated real Redis instance cover write failure, malformed state, cross-client reads and recovery.
 - Compatibility: Redis errors now stop automatic bot actions; no API or database schema change. With Redis intentionally absent in development the local-only mode remains.
-- Remaining work: Redis persistence loss and chat lease expiry are not solved by this change.
+- Remaining work: Redis persistence loss is not solved by this change; INT-010 addresses chat lease expiry.
+
+### INT-010 — Chat leases expire while a paid bot flow is still active
+- Severity: High. Status: Fixed. Base: PR #199.
+- Evidence: six fake-provider regressions showed a second process could enter after the lease expired or a lost lease could still confirm a buy, renewal or refund. Three more cases showed an already-lost lease could overwrite another owner's state before confirmation.
+- Impact: long-running or disconnected workers could interleave paid conversations, act on stale state, or overwrite a newer mapping.
+- Fix: renew the owner token during the flow, cancel the flow on renewal failure, validate ownership before pending-state writes and paid confirmations, and report an unknown outcome if ownership cannot be confirmed on exit.
+- Regression: 53 upstream-bot adapter and lease tests pass. An isolated Redis 7 container confirmed a long lease remains exclusive and that a replacement owner's token is preserved when the old flow stops.
+- Compatibility: a lost or unverifiable lease now fails closed with an unknown outcome. No API or schema change.
+- Residual risk: the ownership check and a following state write are not atomic, and a Telegram click already sent cannot be fenced during a network partition. Redis durability and explicit reconciliation of unknown outcomes remain necessary.
 
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
