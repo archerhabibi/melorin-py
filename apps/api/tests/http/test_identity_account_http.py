@@ -237,12 +237,16 @@ async def test_totp_setup_then_enable_requires_a_real_code_and_arms_the_second_f
 
         bad = await c.post(f"{ME}/2fa/enable", json={"code": "000000"}, headers=a["headers"])
         assert bad.status_code == 400 and _err(bad) == "TOTP_INVALID"
-        code = _totp(secret, int(time.time()) // 30)
+        counter = int(time.time()) // 30
+        code = _totp(secret, counter)
         ok = await c.post(f"{ME}/2fa/enable", json={"code": code}, headers=a["headers"])
         assert ok.status_code == 200 and ok.json() == {"ok": True}
         async with maker() as s:
             row = await s.get(User, a["user"].id)
-            assert row.totp_enabled is True and row.totp_last_counter == int(time.time()) // 30
+            # the server accepts a code within ±1 TOTP window of its own clock, so
+            # the recorded counter may differ from ours when the 30 s boundary is
+            # crossed mid-test; asserting an exact fresh time() read is flaky.
+            assert row.totp_enabled is True and abs(row.totp_last_counter - counter) <= 1
 
         # from now on the password alone is not enough
         c.cookies.clear()
