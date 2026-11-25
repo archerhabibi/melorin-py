@@ -35,6 +35,7 @@
 | 2026-11-25 | BE-012 preserves completed reseller wallet retries after the manual adjustment cap is lowered. | AI-00 |
 | 2026-11-25 | DB-007 follows PR #196; ledger reversals use the active wallet after account consolidation. | AI-00 |
 | 2026-11-25 | OPS-002 follows PR #197; restore drills isolate temporary resources and only drop databases they created. | AI-00 |
+| 2026-11-25 | OPS-003 follows PR #198; backup retention is limited to each job's own top-level encrypted archives and checksums. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -46,7 +47,7 @@
 | AI-04 | 3 | INT-001..INT-009 fixed; panel adapters and the rest of bank SMS still to review |
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
-| AI-07 | 3 | OPS-001 and OPS-002 fixed; CI and operations review continues |
+| AI-07 | 3 | OPS-001 through OPS-003 fixed; CI and operations review continues |
 | AI-08 | 3 | QA-001..QA-004 fixed; broader test strategy, integration and performance review continues |
 
 ## Scope / ownership exceptions
