@@ -35,6 +35,7 @@ from melorin.kernel.models.stores import Store, StoreMembership
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, Server, VpnAccount
 from melorin.modules.vpn_accounts import inquiry, sync
 from melorin.modules.panel_integrations.adapters.base import PanelError
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.manual_assign")
@@ -108,10 +109,14 @@ async def assign_orphan(
     server = await _server_for(session, panel.id, server_id)
 
     # A strict, fresh reading: the entitlement is rebased on what the panel says NOW. No answer = no assignment.
+    adapter = None
     try:
-        remote = await build_adapter(panel).get_account(orphan.username)
+        adapter = build_adapter(panel)
+        remote = await adapter.get_account(orphan.username)
     except PanelError as e:
         raise inquiry.PanelUnavailable() from e
+    finally:
+        await close_adapter(adapter)
     if remote is None:
         raise AppError("ORPHAN_GONE", "این کاربر دیگر در پنل نیست.", 409)
 
