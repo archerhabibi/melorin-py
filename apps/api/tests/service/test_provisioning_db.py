@@ -183,7 +183,7 @@ async def test_provisioning_releases_panel_on_invalid_queued_renewal(panel_facto
         w = await _world(s)
         assert await vpn.provision_order(s, w["order"].id) == "completed"
         account = await s.get(VpnAccount, w["order"].vpn_account_id)
-        renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="NOQUEUE1")
+        renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="NOQUE1")
         renewal.kind, renewal.vpn_account_id, renewal.renewal_mode, renewal.pricing_snapshot = "renewal", account.id, "queue", {}
         await s.commit()
         assert await vpn.provision_order(s, renewal.id) == "needs_review"
