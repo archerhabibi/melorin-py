@@ -9,9 +9,9 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), { status
 const storageKey = 'melorin:wallet-topup:s1:u1';
 const newer = { amount: '2000', idempotencyKey: 'topup-22222222-2222-4222-8222-222222222222', state: 'unknown' };
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.restoreAllMocks();
-  resetAttemptStorage();
+  await resetAttemptStorage();
 });
 
 describe('wallet topup retry safety', () => {

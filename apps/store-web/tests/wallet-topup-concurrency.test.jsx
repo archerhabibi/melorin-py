@@ -40,9 +40,9 @@ async function start(view, amount) {
   await userEvent.click(ui.getByRole('button', { name: 'ایجاد درخواست' }));
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.restoreAllMocks();
-  resetAttemptStorage();
+  await resetAttemptStorage();
 });
 
 describe('wallet topup coordination', () => {
