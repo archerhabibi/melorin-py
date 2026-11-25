@@ -41,7 +41,7 @@ async def _seed(factory):
         }
 
 
-async def _request(factory, ids, *, key, product, kind, renewal_mode="replace"):
+async def _request(factory, ids, *, key, product, kind, renewal_mode="replace", account_name=None):
     async with factory() as session:
         ctx = StoreContext(
             store=await session.get(Store, ids["store"]),
@@ -58,6 +58,7 @@ async def _request(factory, ids, *, key, product, kind, renewal_mode="replace"):
                 vpn_account_id=ids["account"] if kind == "renewal" else None,
                 bundle_id=ids["bundle"] if kind == "purchase" else None,
                 renewal_mode=renewal_mode,
+                account_name=account_name,
             )
             return ("ok", order.id, order.status)
         except AppError as exc:
@@ -98,7 +99,29 @@ async def test_parallel_purchase_replays_the_same_order(monkeypatch):
         await _assert_one_charge(factory, ids, "purchase")
 
 
-@pytest.mark.parametrize("scenario", ["same_key", "different_key", "different_product", "different_mode"])
+async def test_parallel_purchase_with_same_key_and_different_details_conflicts(monkeypatch):
+    async with open_schema_engine() as engine:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        ids = await _seed(factory)
+        barrier = asyncio.Barrier(2)
+        next_code = codes.next_code
+
+        async def synchronize_insert(session, sequence):
+            await asyncio.wait_for(barrier.wait(), timeout=30)
+            return await next_code(session, sequence)
+
+        monkeypatch.setattr(codes, "next_code", synchronize_insert)
+        calls = [
+            _request(factory, ids, key="purchase-race", product=ids["product"], kind="purchase", account_name=name)
+            for name in ("first-name", "second-name")
+        ]
+        results = await asyncio.wait_for(asyncio.gather(*calls), timeout=45)
+        assert sorted(result[0] for result in results) == ["error", "ok"]
+        assert next(result for result in results if result[0] == "error") == ("error", "IDEMPOTENCY_KEY_REUSE")
+        await _assert_one_charge(factory, ids, "purchase")
+
+
+@pytest.mark.parametrize("scenario", ["same_key", "different_key", "different_product", "different_mode", "different_name"])
 async def test_parallel_renewal_rechecks_the_key_after_the_account_lock(monkeypatch, scenario):
     async with open_schema_engine() as engine:
         factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -131,6 +154,7 @@ async def test_parallel_renewal_rechecks_the_key_after_the_account_lock(monkeypa
                 product=ids["other_product"] if scenario == "different_product" else ids["product"],
                 kind="renewal",
                 renewal_mode="queue" if scenario == "different_mode" else "replace",
+                account_name="other-name" if scenario == "different_name" else None,
             ),
             name="second-renewal",
         )

@@ -51,16 +51,26 @@ async def create_order(
     if mode == plans.QUEUE and kind != "renewal":
         raise AppError("BAD_RENEWAL_MODE", "تمدید پیش‌خرید فقط برای سفارش تمدید معنا دارد.", 400)
 
+    # Keep the requested values: allocation may replace an omitted bundle or clean a name before it stores the order.
+    # Coupon lookup itself is case-insensitive and ignores surrounding whitespace.
+    request_identity = {
+        "product_id": str(product_id),
+        "payment_method": payment_method,
+        "coupon_code": (coupon_code or "").strip().upper() or None,
+        "kind": kind,
+        "vpn_account_id": str(vpn_account_id) if vpn_account_id else None,
+        "bundle_id": str(bundle_id) if bundle_id else None,
+        "selected_panel_id": str(selected_panel_id) if selected_panel_id else None,
+        "account_name": account_name,
+        "renewal_mode": mode,
+    }
+
     async def existing_order() -> Order | None:
         existing = await session.scalar(
             select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
         )
-        if existing and (
-            existing.product_id != product_id
-            or existing.kind != kind
-            or existing.vpn_account_id != vpn_account_id
-            or existing.renewal_mode != mode
-        ):
+        # An older order without the request identity cannot safely prove that it is the same request.
+        if existing and (existing.pricing_snapshot or {}).get("checkout_request_v1") != request_identity:
             raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409) from None
         return existing
 
@@ -144,6 +154,7 @@ async def create_order(
         customer_price=plan.unit_price if store.kind == "reseller" else None,
     )
     snapshot = q.snapshot()
+    snapshot["checkout_request_v1"] = request_identity
     if bundle is not None:
         snapshot["bundle"] = {"id": str(bundle.id), "name": bundle.name, "kind_label": bundle.kind_label}
     if kind == "renewal" and account:

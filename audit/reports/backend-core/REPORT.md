@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-004 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-005 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -52,9 +52,20 @@
 - Fix: if coupon validation raises an application error, recheck the scoped order and its existing identity validation. Return the committed order for a valid replay, reject a conflicting identity, and preserve the original coupon error when no order exists.
 - Regression: `tests/postgres/test_order_coupon_race_postgres.py` covers total and per-customer limits, a different key and a different product, and checks one order, one redemption, a balanced ledger and one paid event.
 
+### BE-005 — Different checkout details can be acknowledged as an earlier order
+- Severity: Medium. Status: Fixed. Base: integration branch `audit/09-integrate-frontend-20261124` at `eba1442f70d6efe5475f66da493580478e4ba966`.
+- File / symbol: `modules/orders/service/create.py`, `create_order` replay lookup. The key is scoped to a customer and store.
+- Evidence on the base: changing the coupon, bundle, selected panel, account name or payment method while reusing a key returned the original order instead of a conflict; the HTTP checkout returned 201. Two simultaneous PostgreSQL requests with different account names both returned success for one order. Seven SQLite/HTTP regression cases and the PostgreSQL race failed before the fix.
+- Effect: a client can be told that a different purchase succeeded even though its requested discount, destination or name was not used. The reproduced cases did not create a second charge.
+- Root cause: replay validation compared only product, kind, account and renewal mode, while allocation can resolve or normalize other requested fields before storing the order.
+- Fix: save the original request identity in the immutable pricing snapshot, normalize coupon codes as coupon lookup does, and compare it on every replay path. A different request or a legacy order without an identity is rejected with `IDEMPOTENCY_KEY_REUSE`. No schema migration is needed.
+- Compatibility: existing orders created before this change lack an identity and cannot be replayed with their old key; retrieve the existing order instead. Otherwise clients must retry the same checkout details; coupon case and surrounding whitespace remain equivalent.
+- Tests: service and HTTP coverage for matching and changed requests, default bundle resolution, coupon normalization and legacy orders; PostgreSQL coverage for concurrent insertion, renewal locking and exhausted-coupon recovery. Full results are recorded below after verification.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
+- BE-005 records the checkout request identity in the existing order snapshot and verifies it for all replay paths; the API response and database schema are unchanged.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -72,6 +83,12 @@
 | BE-004 `mypy --config-file pyproject.toml` | PASS | 391 source files |
 | BE-004 `PYTEST_ADDOPTS="-n 2" make test` | PASS | Earlier server run of the same code and regression file: 2,927 passed, 29 skipped |
 | BE-004 independent `make test` rerun | PASS | 2,927 passed, 29 skipped; the four coupon race cases also ran in the PostgreSQL lane |
+| BE-005 focused SQLite/HTTP, renewal and adapter tests | PASS | 64 passed; 7 relevant cases failed on the parent before the fix |
+| BE-005 PostgreSQL checkout, renewal and coupon races, service and HTTP tests | PASS | 21 passed; the conflicting concurrent checkout failed on the parent before the fix |
+| BE-005 `make lint` | PASS | 8 import contracts kept; lint and formatting passed |
+| BE-005 `PYTEST_ADDOPTS="-n 2" make test` | PASS | 2,935 passed, 32 skipped on `e1dee522`; subsequent changes were documentation, formatting and an additional completed-order replay assertion |
+| BE-005 final service and HTTP checks | PASS | 9 passed, including replay after provisioning |
+| `gen_api_client.py --check`, `gen_docs.py --check` | PASS | API snapshot and generated docs unchanged |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.

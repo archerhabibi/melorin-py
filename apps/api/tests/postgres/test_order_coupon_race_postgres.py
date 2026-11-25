@@ -28,7 +28,13 @@ pytestmark = [
 
 @pytest.mark.parametrize(
     ("limit", "scenario"),
-    [("total", "same_key"), ("customer", "same_key"), ("total", "different_key"), ("total", "different_product")],
+    [
+        ("total", "same_key"),
+        ("customer", "same_key"),
+        ("total", "different_key"),
+        ("total", "different_product"),
+        ("total", "different_name"),
+    ],
 )
 async def test_concurrent_coupon_checkout_replays_or_reports_the_real_conflict(monkeypatch, limit, scenario):
     async with open_schema_engine() as engine:
@@ -67,7 +73,7 @@ async def test_concurrent_coupon_checkout_replays_or_reports_the_real_conflict(m
 
         monkeypatch.setattr(catalog, "find_coupon", synchronized_find)
 
-        async def request(key, product):
+        async def request(key, product, account_name=None):
             async with factory() as session:
                 ctx = StoreContext(
                     store=await session.get(Store, ids["store"]),
@@ -82,6 +88,7 @@ async def test_concurrent_coupon_checkout_replays_or_reports_the_real_conflict(m
                         bundle_id=ids["bundle"],
                         idempotency_key=key,
                         coupon_code="ONCE",
+                        account_name=account_name,
                     )
                     return ("ok", order.id, order.status)
                 except AppError as exc:
@@ -93,6 +100,7 @@ async def test_concurrent_coupon_checkout_replays_or_reports_the_real_conflict(m
             request(
                 "another-coupon-key" if scenario == "different_key" else "coupon-race",
                 ids["other_product"] if scenario == "different_product" else ids["product"],
+                "other-name" if scenario == "different_name" else None,
             ),
             name="second-coupon",
         )

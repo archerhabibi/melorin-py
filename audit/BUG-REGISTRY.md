@@ -9,6 +9,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | BE-002 | High | Reseller wallet retries can be rejected after a successful debit or falsely acknowledge a different adjustment | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-003 | Medium | Concurrent retries of a renewal can report an error after the original order succeeded | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-004 | Medium | Concurrent checkout retries can report an exhausted coupon after the original order succeeded | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
+| BE-005 | Medium | Reusing a checkout key with different order details can falsely acknowledge an earlier purchase | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | SEC-001 | Low | Per-key API rate limit is stored and shown to the reseller but not enforced by default | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | DB-001 | Low | Foreign keys the code filters on (`vpn_accounts.panel_id`, `orders.vpn_account_id`, `payments.receipt_file_id`) have no index | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-002 | Low | Ledger tables are "append-only" by convention only; the database accepts UPDATE/DELETE | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
