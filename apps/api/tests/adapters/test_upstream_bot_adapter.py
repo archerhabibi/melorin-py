@@ -567,3 +567,24 @@ async def test_confirmation_timeout_is_reported_as_unknown():
         await adapter.create_account(spec())
     assert exc.value.kind == ErrorKind.UNKNOWN
     assert bot.purchases == 1
+
+
+async def test_failed_pending_write_never_confirms_purchase(monkeypatch):
+    class FailingStateRedis:
+        async def get(self, key):
+            return None
+
+        async def set(self, key, value, **kwargs):
+            if key.endswith(":lock"):
+                return True
+            raise ConnectionError("cannot persist pending purchase")
+
+        async def eval(self, *args):
+            return 1
+
+    monkeypatch.setattr(state, "_redis", lambda: FailingStateRedis())
+    bot = FakeParentBot()
+    with pytest.raises(PanelError) as exc:
+        await make(bot).create_account(spec())
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    assert bot.purchases == 0

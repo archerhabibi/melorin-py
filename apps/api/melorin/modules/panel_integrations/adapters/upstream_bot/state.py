@@ -1,6 +1,6 @@
 """Shared state of the upstream-bot adapter: username -> upstream account mapping and the one-chat-one-flow lock.
 
-Redis is used when available; a process-local copy keeps the adapter working (and testable) without it.
+Redis errors stop shared-state operations. A process-local copy is available when Redis is explicitly absent.
 """
 
 import asyncio
@@ -25,8 +25,18 @@ def _redis():
     return get_redis()
 
 
+def _decode_mapping(raw: str) -> dict:
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: stored purchase state is invalid") from exc
+    if not isinstance(data, dict):
+        raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: stored purchase state is invalid")
+    return data
+
+
 class _Store:
-    """username -> upstream account metadata. Redis when available, process memory otherwise."""
+    """username -> upstream account metadata. Shared state must be readable and writable when configured."""
 
     def __init__(self, ns: str):
         self.ns = ns
@@ -35,47 +45,48 @@ class _Store:
         return f"upstream_bot:{self.ns}:acc:{username}"
 
     async def get(self, username: str) -> dict | None:
-        r = _redis()
-        raw = None
-        if r is not None:
-            try:
-                raw = await r.get(self._k(username))
-            except Exception:
-                raw = None
-        raw = raw or _MEM.get(self._k(username))
-        return json.loads(raw) if raw else None
+        try:
+            r = _redis()
+            raw = await r.get(self._k(username)) if r is not None else None
+        except (RedisError, OSError) as exc:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
+        if raw is None:
+            raw = _MEM.get(self._k(username))
+        return _decode_mapping(raw) if raw is not None else None
 
     async def set(self, username: str, data: dict) -> None:
         raw = json.dumps(data, ensure_ascii=False)
+        try:
+            r = _redis()
+            if r is not None and not await r.set(self._k(username), raw):
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state was not stored")
+        except (RedisError, OSError) as exc:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
         _MEM[self._k(username)] = raw
-        r = _redis()
-        if r is not None:
-            try:
-                await r.set(self._k(username), raw)
-            except Exception:
-                log.warning("upstream_bot: redis write failed for mapping", exc_info=True)
 
     async def delete(self, username: str) -> None:
-        _MEM.pop(self._k(username), None)
-        r = _redis()
-        if r is not None:
-            try:
+        try:
+            r = _redis()
+            if r is not None:
                 await r.delete(self._k(username))
-            except Exception:
-                log.warning("upstream_bot: redis delete failed", exc_info=True)
+        except (RedisError, OSError) as exc:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
+        _MEM.pop(self._k(username), None)
 
     async def name_taken(self, upstream_name: str) -> bool:
         """Is this upstream account name already mapped to a Melorin username?"""
-        r = _redis()
-        if r is None:
-            return any(json.loads(v).get("ref") == upstream_name for k, v in _MEM.items() if k.startswith(f"upstream_bot:{self.ns}:acc:"))
         try:
+            r = _redis()
+            if r is None:
+                return any(
+                    _decode_mapping(v).get("ref") == upstream_name for k, v in _MEM.items() if k.startswith(f"upstream_bot:{self.ns}:acc:")
+                )
             async for k in r.scan_iter(f"upstream_bot:{self.ns}:acc:*"):
                 raw = await r.get(k)
-                if raw and json.loads(raw).get("ref") == upstream_name:
+                if raw is not None and _decode_mapping(raw).get("ref") == upstream_name:
                     return True
-        except Exception:
-            return False
+        except (RedisError, OSError) as exc:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
         return False
 
     def seed(self, username: str, ref: str | None, subscription_url: str | None = None) -> None:
