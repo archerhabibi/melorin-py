@@ -150,6 +150,25 @@ async def test_provisioning_releases_panel_connection(panel_factory, outcome):
         assert panel.closed == 1
 
 
+@pytest.mark.parametrize("reconcile", [False, True])
+async def test_provisioning_queues_one_delivery_without_generic_notice(panel_factory, reconcile):
+    script = [PanelError(ErrorKind.UNKNOWN, "response lost")] if reconcile else []
+    panel = ScriptedPanel(script)
+    if reconcile:
+        panel.remote = panel._account("existing_remote")
+    panel_factory(panel)
+    async with open_session() as s:
+        w = await _world(s)
+        order = w["order"]
+        assert await vpn.provision_order(s, order.id) == ("completed_after_reconcile" if reconcile else "completed")
+        assert await vpn.provision_order(s, order.id) == "ignored"
+        deliveries = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == "order.delivery"))).all()
+        assert len(deliveries) == 1
+        assert deliveries[0].dedup_key == f"order_delivery:{order.id}"
+        assert deliveries[0].payload == {"order_id": str(order.id), "store_id": str(order.store_id)}
+        assert not (await s.scalars(select(OutboxEvent).where(OutboxEvent.dedup_key.like("notify:account%")))).all()
+
+
 async def test_provisioning_releases_panel_on_invalid_queued_renewal(panel_factory):
     class TrackedPanel(ScriptedPanel):
         def __init__(self):
