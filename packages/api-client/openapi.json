@@ -8352,6 +8352,8 @@
             "title": "Store Id"
           },
           "telegram_id": {
+            "maximum": 4503599627370496,
+            "minimum": 1,
             "title": "Telegram Id",
             "type": "integer"
           },
@@ -8483,6 +8485,8 @@
             "title": "Store Id"
           },
           "telegram_id": {
+            "maximum": 4503599627370496,
+            "minimum": 1,
             "title": "Telegram Id",
             "type": "integer"
           },
@@ -8637,6 +8641,8 @@
             "type": "string"
           },
           "telegram_id": {
+            "maximum": 4503599627370496,
+            "minimum": 1,
             "title": "Telegram Id",
             "type": "integer"
           },
@@ -8800,6 +8806,8 @@
             "type": "string"
           },
           "telegram_id": {
+            "maximum": 4503599627370496,
+            "minimum": 1,
             "title": "Telegram Id",
             "type": "integer"
           },
@@ -8903,6 +8911,8 @@
             "type": "string"
           },
           "telegram_id": {
+            "maximum": 4503599627370496,
+            "minimum": 1,
             "title": "Telegram Id",
             "type": "integer"
           },
@@ -9129,6 +9139,8 @@
             "type": "string"
           },
           "telegram_id": {
+            "maximum": 4503599627370496,
+            "minimum": 1,
             "title": "Telegram Id",
             "type": "integer"
           },
@@ -23564,6 +23576,8 @@
             "required": false,
             "schema": {
               "default": 50,
+              "maximum": 100,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -23574,6 +23588,8 @@
             "required": false,
             "schema": {
               "default": 0,
+              "maximum": 2147483647,
+              "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
@@ -24056,6 +24072,8 @@
             "name": "telegram_id",
             "required": true,
             "schema": {
+              "maximum": 4503599627370496,
+              "minimum": 1,
               "title": "Telegram Id",
               "type": "integer"
             }

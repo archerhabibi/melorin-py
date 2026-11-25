@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
+from melorin.core.limits import MAX_TELEGRAM_ID
+
 
 class TokenPair(BaseModel):
     access_token: str
@@ -90,7 +92,7 @@ class GoogleLink(BaseModel):
 
 
 class TelegramProfile(BaseModel):
-    telegram_id: int
+    telegram_id: int = Field(ge=1, le=MAX_TELEGRAM_ID)
     first_name: str | None = None
     last_name: str | None = None
     username: str | None = None
