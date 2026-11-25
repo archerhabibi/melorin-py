@@ -21,6 +21,11 @@ from melorin.core.http import outbound_client
 
 log = logging.getLogger("melorin.webhooks")
 
+# Deadline for the whole exchange with a receiver. ``timeout=10`` on the client bounds each single read, not the total: a peer that
+# sends a byte every few seconds would hold a worker slot, and the 2 s poll tick that waits for it, until the 120 s job timeout
+# (audit INT-002).
+DELIVERY_DEADLINE_SECONDS = 20
+
 
 def endpoint_out(e):
     return {
@@ -271,19 +276,29 @@ async def deliver_one(session: AsyncSession, delivery_id):
     }
     started = time.monotonic()
     try:
-        async with outbound_client("webhook_delivery", timeout=10, follow_redirects=False) as c:
-            r = await c.post(
-                pinned_url,
-                content=body,
-                headers={**headers, "Host": parts.netloc.rsplit("@", 1)[-1]},
-                extensions={"sni_hostname": host},  # TLS name + certificate check stay those of the real host
-            )
-        d.last_status_code, d.last_response_ms = r.status_code, int((time.monotonic() - started) * 1000)
-        if 200 <= r.status_code < 300:
+        try:
+            # The receiver is a tenant's own server. Only the status matters, so the body is streamed and never read: the worker
+            # cannot be made to buffer an endless answer (audit INT-002).
+            async with (
+                asyncio.timeout(DELIVERY_DEADLINE_SECONDS),
+                outbound_client("webhook_delivery", timeout=10, follow_redirects=False) as c,
+                c.stream(
+                    "POST",
+                    pinned_url,
+                    content=body,
+                    headers={**headers, "Host": parts.netloc.rsplit("@", 1)[-1]},
+                    extensions={"sni_hostname": host},  # TLS name + certificate check stay those of the real host
+                ) as r,
+            ):
+                status = r.status_code
+        except TimeoutError as exc:
+            raise RuntimeError(f"no complete response within {DELIVERY_DEADLINE_SECONDS}s") from exc
+        d.last_status_code, d.last_response_ms = status, int((time.monotonic() - started) * 1000)
+        if 200 <= status < 300:
             d.status, d.delivered_at, d.last_error = "delivered", utcnow(), None
             e.consecutive_failures = 0
         else:
-            raise RuntimeError(f"HTTP {r.status_code}")
+            raise RuntimeError(f"HTTP {status}")
     except Exception as exc:
         log.warning("webhook delivery failed delivery=%s error=%s", d.id, type(exc).__name__)
         d.last_error = str(exc)[:500]

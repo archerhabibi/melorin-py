@@ -7,6 +7,7 @@ Resolution order: Admin-panel SMTP (enabled) -> env ``MELORIN_EMAIL_BACKEND=smtp
 import asyncio
 import logging
 import smtplib
+import ssl
 from email.message import EmailMessage
 
 from melorin.core import integrations
@@ -51,14 +52,18 @@ def _smtp_send(cfg: dict, to: str, subject: str, body: str) -> None:
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = cfg["from_addr"], to, subject
     msg.set_content(body)
+    # ``smtplib`` falls back to ``ssl._create_stdlib_context()`` when it is given no context, and that one checks neither the
+    # certificate chain nor the host name: the SMTP password and the message would go to whoever answers on the wire
+    # (audit INT-001). Both TLS modes get a verifying context; a private CA belongs in the system trust store (SSL_CERT_FILE).
+    tls = ssl.create_default_context()
     client: smtplib.SMTP
     if cfg["security"] == "ssl":
-        client = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=15)
+        client = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=15, context=tls)
     else:
         client = smtplib.SMTP(cfg["host"], cfg["port"], timeout=15)
     with client as smtp:
         if cfg["security"] == "starttls":
-            smtp.starttls()
+            smtp.starttls(context=tls)
         if cfg["username"]:
             smtp.login(cfg["username"], cfg["password"])
         smtp.send_message(msg)
