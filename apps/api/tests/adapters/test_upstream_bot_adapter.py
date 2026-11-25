@@ -471,7 +471,8 @@ async def test_renew_confirmed_but_not_applied_blocks_a_second_payment_inside_th
     assert bot.renew_confirms == 1  # second attempt did not confirm again
     d = await a.store.get("Mel_10G1")
     d["renew_started"] = time.time() - 3600  # elapsed time does not prove that a delayed confirmation failed
-    await a.store.set("Mel_10G1", d)
+    async with a._lock() as lease:
+        await a.store.set("Mel_10G1", d, lease=lease)
     bot.renew_applies = True
     with pytest.raises(PanelError) as e:
         await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
@@ -586,7 +587,9 @@ async def test_failed_pending_write_never_confirms_purchase(monkeypatch):
                 return True
             raise ConnectionError("cannot persist pending purchase")
 
-        async def eval(self, *args):
+        async def eval(self, script, count, *args):
+            if count == 2:
+                raise ConnectionError("cannot persist pending purchase")
             return 1
 
     monkeypatch.setattr(state, "_redis", lambda: FailingStateRedis())
@@ -630,7 +633,17 @@ async def test_lost_lease_does_not_confirm_a_paid_action(monkeypatch, operation)
                 self.steal_on = None
             return True
 
-        async def eval(self, script, count, key, token, *args):
+        async def eval(self, script, count, *args):
+            if count == 2:
+                key, account_key, token, *values = args
+                if self.values.get(key) != token:
+                    return 0
+                if values:
+                    await self.set(account_key, values[0])
+                else:
+                    self.values.pop(account_key, None)
+                return 1
+            key, token, *args = args
             if self.values.get(key) != token:
                 return 0
             if not args:
@@ -673,7 +686,17 @@ async def test_lost_lease_before_pending_write_preserves_new_owner_state(monkeyp
             self.values[key] = value
             return True
 
-        async def eval(self, script, count, key, token, *args):
+        async def eval(self, script, count, *args):
+            if count == 2:
+                key, account_key, token, *values = args
+                if self.values.get(key) != token:
+                    return 0
+                if values:
+                    self.values[account_key] = values[0]
+                else:
+                    self.values.pop(account_key, None)
+                return 1
+            key, token, *args = args
             if self.values.get(key) != token:
                 return 0
             if not args:
@@ -720,6 +743,60 @@ async def test_lost_lease_before_pending_write_preserves_new_owner_state(monkeyp
     assert json.loads(redis.values[account_key]) == {"status": "active", "ref": "new-owner"}
     assert bot.purchases == (0 if operation == "buy" else 1)
     assert bot.renew_confirms == 0 and bot.refunds == 0
+
+
+async def test_replaced_owner_between_lease_check_and_write_keeps_its_state(monkeypatch):
+    import json
+
+    class RedisRace:
+        def __init__(self):
+            self.values = {}
+            self.replace_on_write = True
+
+        def replace_owner(self, lock_key, account_key):
+            if self.replace_on_write:
+                self.values[lock_key] = "replacement-owner"
+                self.values[account_key] = json.dumps({"status": "active", "ref": "new-owner"})
+                self.replace_on_write = False
+
+        async def get(self, key):
+            return self.values.get(key)
+
+        async def set(self, key, value, **kwargs):
+            if kwargs.get("nx") and key in self.values:
+                return False
+            if ":acc:" in key:
+                self.replace_owner(key.split(":acc:")[0] + ":lock", key)
+            self.values[key] = value
+            return True
+
+        async def eval(self, script, key_count, *args):
+            if key_count == 2:
+                lock_key, account_key, token, *values = args
+                self.replace_owner(lock_key, account_key)
+                if self.values.get(lock_key) != token:
+                    return 0
+                if values:
+                    self.values[account_key] = values[0]
+                else:
+                    self.values.pop(account_key, None)
+                return 1
+            key, token, *values = args
+            if self.values.get(key) != token:
+                return 0
+            if not values:
+                self.values.pop(key, None)
+            return 1
+
+    redis = RedisRace()
+    monkeypatch.setattr(state, "_redis", lambda: redis)
+    bot = FakeParentBot()
+    with pytest.raises(PanelError) as exc:
+        await make(bot).create_account(spec())
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    account_key = next(key for key in redis.values if key.endswith(":acc:Mel_10G1"))
+    assert json.loads(redis.values[account_key]) == {"status": "active", "ref": "new-owner"}
+    assert bot.purchases == 0
 
 
 async def test_repeated_renewal_with_same_operation_does_not_pay_twice():
@@ -810,7 +887,7 @@ async def test_waiting_flow_rechecks_account_state_under_the_chat_lock(monkeypat
         return result
 
     monkeypatch.setattr(adapter.store, "get", observed_get)
-    async with adapter._lock():
+    async with adapter._lock() as lease:
         pending = asyncio.create_task(adapter.get_account("Mel_10G1") if operation == "read" else adapter.revoke_account("Mel_10G1"))
         await asyncio.wait_for(loaded.wait(), timeout=2)
         current = await original_get("Mel_10G1")
@@ -818,7 +895,7 @@ async def test_waiting_flow_rechecks_account_state_under_the_chat_lock(monkeypat
             current["renew_completed"] = {"op:order-1": 10 * GB}
         else:
             current.update(status="revoked", upstream_refunded=True)
-        await adapter.store.set("Mel_10G1", current)
+        await adapter.store.set("Mel_10G1", current, lease=lease)
     await pending
     current = await original_get("Mel_10G1")
     if operation == "read":
@@ -848,7 +925,8 @@ async def test_unobserved_renewal_is_never_reconfirmed_after_the_wait_window():
     assert exc.value.kind == ErrorKind.UNKNOWN and bot.renew_confirms == 1
     pending = await adapter.store.get("Mel_10G1")
     pending["renew_started"] = time.time() - 3600
-    await adapter.store.set("Mel_10G1", pending)
+    async with adapter._lock() as lease:
+        await adapter.store.set("Mel_10G1", pending, lease=lease)
     bot.renew_applies = True
     with pytest.raises(PanelError) as exc:
         await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
@@ -900,7 +978,8 @@ async def test_incomplete_pending_renewal_identity_cannot_be_settled_or_repaid()
         await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
     pending = await adapter.store.get("Mel_10G1")
     pending.pop("renew_operation_traffic")
-    await adapter.store.set("Mel_10G1", pending)
+    async with adapter._lock() as lease:
+        await adapter.store.set("Mel_10G1", pending, lease=lease)
     with pytest.raises(PanelError) as exc:
         await adapter.reconcile_renewal("Mel_10G1", "order-1")
     assert exc.value.kind == ErrorKind.UNKNOWN
