@@ -15,6 +15,7 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 class Storage(Protocol):
     async def put(self, data: bytes, content_type: str) -> str: ...
     async def get(self, key: str) -> bytes: ...
+    async def delete(self, key: str) -> None: ...
 
 
 class LocalStorage:
@@ -30,11 +31,17 @@ class LocalStorage:
         os.chmod(p, 0o600)
         return key
 
-    async def get(self, key: str) -> bytes:
+    def _path(self, key: str) -> Path:
         p = (self.root / key).resolve()
         if self.root.resolve() not in p.parents:
             raise AppError("NOT_FOUND", "فایل یافت نشد.", 404)
-        return p.read_bytes()
+        return p
+
+    async def get(self, key: str) -> bytes:
+        return self._path(key).read_bytes()
+
+    async def delete(self, key: str) -> None:
+        self._path(key).unlink(missing_ok=True)
 
 
 _storage: Storage | None = None

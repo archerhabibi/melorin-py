@@ -183,7 +183,7 @@ async def test_an_expired_token_triggers_exactly_one_transparent_relogin():
     panel = FakePanel()
     a = make(panel)
     await a.health_check()
-    pasarguard._TOKENS[a._key] = ("stale", pasarguard.time.monotonic() + 1000)
+    pasarguard._TOKENS[a._key] = (a._credential_fingerprint, "stale", pasarguard.time.monotonic() + 1000)
     assert await a.get_account("nobody") is None
     assert panel.logins == 2
 
@@ -541,3 +541,37 @@ async def test_health_check_probes_system_then_admin_and_reports_failure():
     both.fail[("GET", "/api/system")] = (404, {})
     both.fail[("GET", "/api/admin")] = (404, {})
     assert await make(both).health_check() is False
+
+
+@pytest.mark.parametrize("replacement", [{"username": "admin"}, {"username": "admin", "password": "wrong"}])
+async def test_replacing_credentials_does_not_reuse_another_passwords_session(replacement):
+    panel = FakePanel()
+    assert await make(panel).get_account("nobody") is None
+    with pytest.raises(PanelError) as exc:
+        await make(panel, creds=replacement).get_account("nobody")
+    assert exc.value.kind == ErrorKind.PERMANENT
+
+
+async def test_static_token_is_not_replaced_by_a_cached_password_login():
+    auth_headers = []
+
+    def handler(request):
+        if request.url.path == "/api/admin/token":
+            return httpx.Response(200, json={"access_token": "password-token"})
+        auth_headers.append(request.headers.get("Authorization"))
+        return httpx.Response(200, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    base = "https://panel.example.com"
+    a = PasarGuardAdapter(base, {"username": "token", "password": "secret"}, transport=transport)
+    b = PasarGuardAdapter(base, {"access_token": "static-token"}, transport=transport)
+    assert await a.health_check()
+    assert await b.health_check()
+    assert auth_headers == ["Bearer password-token", "Bearer static-token"]
+
+
+async def test_same_password_session_is_reused_across_adapters():
+    panel = FakePanel()
+    assert await make(panel).get_account("nobody") is None
+    assert await make(panel).get_account("nobody") is None
+    assert panel.logins == 1

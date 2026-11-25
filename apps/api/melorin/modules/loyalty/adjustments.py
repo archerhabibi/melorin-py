@@ -37,15 +37,18 @@ async def adjust(
     if not member and store.owner_user_id != user_id:
         raise NotFound("کاربر")
     acc = await get_account(session, store.id, user_id, lock=True)
+    kind = "admin_grant" if delta > 0 else "admin_deduct"
     tx, created = await _post(
         session,
         acc,
-        kind="admin_grant" if delta > 0 else "admin_deduct",
+        kind=kind,
         amount=delta,
         key=f"loyalty:adjust:{store.id}:{user_id}:{idempotency_key or uuid.uuid4().hex}",
         memo=reason.strip()[:255],
         actor_id=actor_id,
     )
+    if not created and (tx.account_id != acc.id or tx.kind != kind or tx.amount != delta):
+        raise AppError("IDEMPOTENCY_KEY_REUSED", "این کلید برای تعدیل دیگری استفاده شده است.", 409)
     if created:
         if delta > 0:
             acc.lifetime_earned += delta

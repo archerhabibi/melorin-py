@@ -60,7 +60,7 @@ class Panel_:
         if can_reset:
             self.reset_traffic = self._reset
 
-    async def extend_account(self, username, *, expire_at, traffic_bytes):
+    async def extend_account(self, username, *, expire_at, traffic_bytes, operation_id=None):
         if self.script:
             raise self.script.pop(0)
         self.calls.append(("extend", expire_at, traffic_bytes))
@@ -488,3 +488,12 @@ async def test_reseller_renews_his_own_account_without_an_owner_audit_entry():
         await s.commit()
         o = await rr.store_account_renew(own.id, rr.OwnerRenewIn(), _owner_ctx(t), s, idempotency_key="own-renew-1")
         assert o.user_id == t.owner.id and o.kind == "renewal" and o.vpn_account_id == own.id
+
+
+async def test_paid_bot_renewal_does_not_charge_again_for_recent_usage():
+    panel = Panel_(used=1, can_reset=False)
+    panel.kind = "upstream_bot"
+    account = types.SimpleNamespace(username="x")
+    product = types.SimpleNamespace(duration_days=30, traffic_gb=10)
+    await renewal.apply_to_panel(panel, account, product)
+    assert len(panel.calls) == 1

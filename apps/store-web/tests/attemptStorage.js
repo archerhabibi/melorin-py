@@ -1,7 +1,10 @@
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { listStoredAttempts, updateStoredAttempt } from '../src/attemptLock.ts';
 
-export function resetAttemptStorage() {
+export async function resetAttemptStorage() {
+  // Let reads from an unmounted component finish against their original
+  // database before a new test clears the shared localStorage guard.
+  if (globalThis.indexedDB instanceof IDBFactory) await deleteAttemptDatabase();
   localStorage.clear();
   globalThis.indexedDB = new IDBFactory();
   globalThis.IDBKeyRange = IDBKeyRange;

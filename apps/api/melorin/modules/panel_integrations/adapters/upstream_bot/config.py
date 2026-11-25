@@ -28,6 +28,5 @@ DEFAULTS = {
         "confirm_button": "تایید تمدید",
         "cancel_button": "برگشت",
         "success_words": ["با موفقیت تمدید"],
-        "settle_window": 600,  # seconds a confirmed-but-unanswered renewal blocks a second payment (retry reads the account instead)
     },
 }

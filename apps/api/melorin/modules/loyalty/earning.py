@@ -54,8 +54,10 @@ async def _is_first_order(session: AsyncSession, order: Order) -> bool:
 
 async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
     """Points for a completed order of THIS store's own club: the order points, the first-order bonus and the referrer's bonus."""
-    order = await session.get(Order, order_id)
-    if not order or not is_revenue(order.kind) or order.total <= 0:
+    # Refunds lock this same row before changing the status. Re-read it under
+    # the lock so a delayed completion cannot award rewards after a refund.
+    order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
+    if not order or order.status != OrderStatus.COMPLETED or not is_revenue(order.kind) or order.total <= 0:
         return
     row = await get_program(session, order.store_id)
     if not row or not row.is_enabled:

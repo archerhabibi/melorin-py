@@ -383,3 +383,48 @@ async def test_same_network_cannot_open_many_provisional_credits_or_reuse_after_
     assert await provisional._block_reason(None, me, cfg, two_open) == "origin_open_limit"
     assert await provisional._block_reason(None, me, cfg, [pay(3, "revoked"), me]) == "origin_revoked_before"
     assert await provisional._block_reason(None, me, cfg, [pay(1, "open"), pay(4, "open", origin="other"), me]) is None
+
+
+async def test_rejected_receipt_upload_does_not_leave_an_unreferenced_file(tmp_path, monkeypatch):
+    """A completed payment cannot accept a receipt or consume additional storage."""
+    from melorin.core import config
+
+    monkeypatch.setenv("MELORIN_RECEIPT_OCR_ENGINE", "off")
+    config.get_settings.cache_clear()
+    try:
+        async with api_client() as (c, maker, main):
+            h, sid = await _login(c, maker)
+            token = await _setup_source(maker, main.id)
+            when = _minute()
+            pid = await _topup_plain(c, h, sid)
+            assert (await _upload(c, h, sid, pid, paid_at=dom.utc_to_jalali_text(when))).status_code == 200
+            assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "matched"
+            before = {p.relative_to(tmp_path) for p in tmp_path.rglob("*") if p.is_file()}
+            assert before
+            rejected = await _upload(c, h, sid, pid)
+            assert rejected.status_code == 409
+            assert {p.relative_to(tmp_path) for p in tmp_path.rglob("*") if p.is_file()} == before
+    finally:
+        config.get_settings.cache_clear()
+
+
+async def test_receipt_storage_is_cleaned_up_when_fingerprint_persistence_fails(tmp_path, monkeypatch):
+    from melorin.core import config
+    from melorin.core.errors import AppError
+    from melorin.modules.payments import receipt_fingerprints
+
+    async def fail_to_store(*args, **kwargs):
+        raise AppError("PERSIST_FAILED", "test failure", 409)
+
+    monkeypatch.setenv("MELORIN_RECEIPT_OCR_ENGINE", "off")
+    monkeypatch.setattr(receipt_fingerprints, "store_fingerprint", fail_to_store)
+    config.get_settings.cache_clear()
+    try:
+        async with api_client() as (c, maker, main):
+            h, sid = await _login(c, maker)
+            await _setup_source(maker, main.id)
+            pid = await _topup_plain(c, h, sid)
+            assert (await _upload(c, h, sid, pid)).status_code == 409
+            assert not any(p.is_file() for p in tmp_path.rglob("*"))
+    finally:
+        config.get_settings.cache_clear()

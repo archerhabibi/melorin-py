@@ -3,7 +3,9 @@
 Everything here is panel-generic; the feature mixins (users, admins, nodes, ...) only call ``_req``."""
 
 import datetime as dt
+import hmac
 import json
+import secrets
 import time
 from urllib.parse import urlsplit
 
@@ -14,7 +16,9 @@ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelErr
 from melorin.core.http import outbound_client
 
 _TOKEN_TTL = 50 * 60
-_TOKENS: dict[tuple[str, str], tuple[str, float]] = {}  # (base, username) -> (token, expires)
+_TOKEN_CACHE_SECRET = secrets.token_bytes(32)
+# One entry per panel and username. A keyed fingerprint binds it to the password that obtained it.
+_TOKENS: dict[tuple[str, str], tuple[bytes, str, float]] = {}  # (base, username) -> (password fingerprint, token, expires)
 
 
 def _error_detail(text: str) -> str:
@@ -92,12 +96,14 @@ class PasarGuardCore:
         if parts.path.rstrip("/").endswith("/dashboard"):
             base = base[: -len("/dashboard")]
         self.base = base
-        self.creds = credentials or {}
+        self.creds = dict(credentials or {})
         self.cfg = config or {}
         self.timeout = float(timeout or self.cfg.get("timeout") or 20)
         self.transport = transport
         self.legacy = self.cfg.get("api_style") == "legacy"
-        self._key = (self.base, str(self.creds.get("username") or "token"))
+        self._key = (self.base, str(self.creds.get("username") or "").strip())
+        password = (self.creds.get("password") or "").replace("\r", "").strip()
+        self._credential_fingerprint = hmac.digest(_TOKEN_CACHE_SECRET, password.encode(), "sha256")
 
     # ------------------------------------------------------------------ transport
     def _client(self) -> httpx.AsyncClient:
@@ -123,7 +129,7 @@ class PasarGuardCore:
                 token = (last.json() or {}).get("access_token")
                 if not token:
                     raise PanelError(ErrorKind.PERMANENT, "pasarguard: login response missing access_token")
-                _TOKENS[self._key] = (token, time.monotonic() + _TOKEN_TTL)
+                _TOKENS[self._key] = (self._credential_fingerprint, token, time.monotonic() + _TOKEN_TTL)
                 return token
             if last.status_code in (401, 403):
                 raise PanelError(ErrorKind.PERMANENT, f"pasarguard: login failed ({last.status_code})")
@@ -142,9 +148,12 @@ class PasarGuardCore:
         return {"Authorization": f"Bearer {token}"}
 
     async def _token(self, c: httpx.AsyncClient, *, fresh: bool = False) -> str:
+        # A supplied access token is already the credential: never substitute a cached password login.
+        if self.creds.get("access_token") and not self.creds.get("username"):
+            return self.creds["access_token"]
         cached = _TOKENS.get(self._key)
-        if cached and not fresh and cached[1] > time.monotonic():
-            return cached[0]
+        if cached and not fresh and cached[2] > time.monotonic() and hmac.compare_digest(cached[0], self._credential_fingerprint):
+            return cached[1]
         return await self._login(c)
 
     async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw):

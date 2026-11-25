@@ -1,7 +1,7 @@
 # Audit report — AI-08 QA & Performance
 
 ## 1. Executive summary
-- Status: in progress. QA-001..QA-003 are fixed; broader integration coverage and performance review remain open.
+- Status: in progress. QA-001..QA-004 are fixed; broader integration coverage and performance review remain open.
 - Base: `audit/07-migration-ci-20261124` at `ed4b2ae`.
 - QA-002 follow-up base: `audit/08-fix-flaky-order-fixture-20261124` at `e0fb336`.
 
@@ -37,10 +37,19 @@
 - Fix: remove the placeholder and run actual independent-session purchase and renewal races in the existing PostgreSQL CI lane. Deterministic barriers force both requests past the initial lookup before they contend; the assertions check the returned order, one charge, balanced entries and one paid event.
 - The new tests exposed BE-003; three renewal replay cases failed on the base and passed after the fix. A different key still correctly receives `RENEWAL_IN_PROGRESS`.
 
+### QA-004 — Storefront tests race asynchronous storage and wallet results
+- Severity: Medium. Status: Fixed. Base: PR #183 at 607f29c594de9e538b7de03094a61a189f2ad91a.
+- Evidence: CI run 45407076116 failed a loyalty test because its storage appeared unavailable; the same commit passed other runs. A deterministic regression reproduced the error by resetting the fake IndexedDB while an earlier read was unfinished. A separate full-suite run under load exposed a wallet test asserting the next notification before the first request had finished.
+- Cause: the test helper replaced the fake IndexedDB immediately while an earlier operation could still write the shared localStorage migration guard; the wallet test waited only for the POST to start, not for its result.
+- Fix: the helper waits for the previous fake database to finish before resetting it, and callers await the reset. The wallet test waits for the first response and enabled button before the next submission, then waits for the resulting notification.
+- Regression: tests/attempt-storage-isolation.test.js fails on the parent and passes with the fix; the storefront tests exercise the original UI flows. No production code or schema change.
+
 ## 5. Changes
 - `tests/_db.py` and `tests/service/test_order_fixture.py`; no production code or schema change.
 - `requirements-dev.in`, the generated `requirements-dev.txt` and `tests/service/test_wallet_properties_db.py`; test dependencies only.
 - `tests/contracts/test_order_idempotency_contract.py` and `tests/postgres/test_order_idempotency_postgres.py`; the order service fix is recorded under BE-003.
+
+- QA-004 updates the shared storefront storage setup, its callers and asynchronous wallet assertions; adds a deterministic storage isolation regression.
 
 ## 6. Test results
 - Forced collision: failed before the fix and passed afterwards on SQLite.
@@ -48,6 +57,7 @@
 - Full `make test` with Hypothesis installed: 2,927 passed, 25 skipped (including the PostgreSQL-only race cases).
 - PostgreSQL wallet property test: 1 passed (`max_examples=25`); lock check and `make lint` passed.
 - Order concurrency and related renewal/contract tests: 35 passed on PostgreSQL 16.
+- QA-004: the deterministic storage isolation test failed on the parent and passed after the fix; the full storefront suite passed (135 tests), as did lint, formatting and typecheck.
 
 ## 7. Residual risks
 - Wallet property coverage runs in the PostgreSQL lane; the live integration and staging-only browser skips need separate review.
@@ -60,3 +70,4 @@
 - Branch `audit/08-fix-flaky-order-fixture-20261124`; parent `audit/07-migration-ci-20261124`.
 - QA-002 follow-up: branch `audit/08-wallet-properties-ci-20261124`; parent `audit/08-fix-flaky-order-fixture-20261124`.
 - QA-003 / BE-003 follow-up: branch `audit/01-order-idempotency-races-20261124`; parent `audit/08-wallet-properties-ci-20261124`.
+- QA-004 follow-up: branch audit/18-attempt-test-isolation-f17188d7; parent audit/17-referral-replay-f17188d7.

@@ -14,8 +14,8 @@ vi.mock('../src/AccountInquiry.tsx', () => ({
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 
-beforeEach(() => {
-  resetAttemptStorage();
+beforeEach(async () => {
+  await resetAttemptStorage();
   accountCard.canRenew = true;
 });
 

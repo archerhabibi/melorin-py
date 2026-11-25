@@ -15,10 +15,28 @@ command -v createdb >/dev/null
 command -v dropdb >/dev/null
 mkdir -p "$RESTORE_DRILL_DIR"
 
-stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-raw="$RESTORE_DRILL_DIR/restore-$stamp.dump"
-db_name="melorin_restore_drill_${stamp//[^0-9A-Za-z]/}"
-trap 'rm -f "$raw"; dropdb --if-exists "$db_name" >/dev/null 2>&1 || true' EXIT
+work_dir="$(mktemp -d "$RESTORE_DRILL_DIR/restore-XXXXXXXXXXXX")"
+suffix="${work_dir##*/}"
+db_name="melorin_restore_drill_${suffix#restore-}"
+raw="$work_dir/backup.dump"
+db_created=0
+cleanup() {
+  local failed=0
+  if [[ "$db_created" == 1 ]] && ! dropdb --if-exists "$db_name" >/dev/null; then
+    echo "restore drill: failed to drop temporary database $db_name" >&2
+    failed=1
+  fi
+  if ! rm -f -- "$raw"; then
+    echo "restore drill: failed to remove temporary dump $raw" >&2
+    failed=1
+  fi
+  if ! rmdir -- "$work_dir"; then
+    echo "restore drill: failed to remove temporary directory $work_dir" >&2
+    failed=1
+  fi
+  return "$failed"
+}
+trap 'cleanup || true' EXIT
 
 # V-027: checksum files carry the archive BASENAME, so verify from the archive's own directory (works off the original host).
 _ck="${BACKUP_CHECKSUM_FILE:-$BACKUP_ARCHIVE.sha256}"
@@ -36,6 +54,7 @@ PY
 )
 export PGHOST="${DB_PARTS[0]}" PGPORT="${DB_PARTS[1]}" PGUSER="${DB_PARTS[2]}" PGPASSWORD="${DB_PARTS[3]}"
 createdb "$db_name"
+db_created=1
 PGDATABASE="$db_name" pg_restore --no-owner --exit-on-error --dbname="$db_name" "$raw"
 tables="$(psql --dbname="$db_name" -Atc "select count(*) from pg_catalog.pg_tables where schemaname='public'")"
 [[ "$tables" -gt 0 ]] || { echo "restore drill produced no public tables" >&2; exit 1; }
@@ -55,4 +74,6 @@ live_rev="$(PGDATABASE="$live_db" psql -Atc "select version_num from alembic_ver
 if [[ -n "$live_rev" && "$live_rev" != "$rev" ]]; then
   echo "restore drill: backup schema revision $rev differs from live $live_rev" >&2; exit 1
 fi
+trap - EXIT
+cleanup
 echo "I41 restore drill passed: database=$db_name tables=$tables users=$users alembic=$rev rpo_hours=$MELORIN_RPO_HOURS rto_hours=$MELORIN_RTO_HOURS"

@@ -9,8 +9,8 @@ const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'screen.png', { type: 'image/png' });
 
-beforeEach(() => {
-  resetAttemptStorage();
+beforeEach(async () => {
+  await resetAttemptStorage();
   URL.createObjectURL = vi.fn(() => 'blob:ticket-image');
   URL.revokeObjectURL = vi.fn();
   Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout, so no scrolling
@@ -96,14 +96,15 @@ describe('Wallet shows the Telegram ID', () => {
     const amount = screen.getByPlaceholderText('مبلغ');
     await userEvent.type(amount, '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
-    await waitFor(() => expect(posts).toBe(1));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('نتیجه نامعلوم'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ایجاد درخواست' })).toBeEnabled());
 
     await userEvent.clear(amount);
     await userEvent.type(amount, '2000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
 
+    await waitFor(() => expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('درخواست شارژ قبلی')));
     expect(posts).toBe(1);
-    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('درخواست شارژ قبلی'));
   });
 
   it('isolates unresolved topups when different customers use the same browser', async () => {
