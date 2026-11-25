@@ -5,6 +5,8 @@ nothing in the orders topic. The panel is only read, never written; a panel that
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -81,6 +83,45 @@ async def assign(maker, ids, **kw):
         return await manual_assign.assign_orphan(
             s, admin=admin, orphan_id=ids["orphan"], store_id=ids["store"], user_id=ids["customer"], product_id=ids["product"], **kw
         )
+
+
+@pytest.mark.parametrize("outcome", ["success", "missing", "panel_error", "cancel", "close_error"])
+async def test_manual_assignment_releases_panel_connection(maker, monkeypatch, outcome):
+    class TrackedPanel(FakePanel):
+        def __init__(self):
+            super().__init__([remote("hand_made")])
+            self.closed = 0
+
+        async def get_account(self, username):
+            if outcome == "panel_error":
+                raise PanelError(ErrorKind.TRANSIENT, "panel down")
+            if outcome == "cancel":
+                raise asyncio.CancelledError()
+            if outcome == "missing":
+                return None
+            return await super().get_account(username)
+
+        async def close(self):
+            self.closed += 1
+            if outcome == "close_error":
+                raise RuntimeError("close failed")
+
+    ids = await seed(maker)
+    panel = TrackedPanel()
+    use(monkeypatch, panel)
+    if outcome == "panel_error":
+        with pytest.raises(inquiry.PanelUnavailable):
+            await assign(maker, ids)
+    elif outcome == "cancel":
+        with pytest.raises(asyncio.CancelledError):
+            await assign(maker, ids)
+    elif outcome == "missing":
+        with pytest.raises(AppError, match="پنل"):
+            await assign(maker, ids)
+    else:
+        result = await assign(maker, ids)
+        assert result.order.status == "completed"
+    assert panel.closed == 1
 
 
 # ------------------------------------------------------------------------------------------------------------- the rule itself
