@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-005 fixed, including receipt-storage cleanup. Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-006 fixed, including receipt-storage cleanup and OCR subprocess cancellation. Panel adapters and the remaining bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -68,6 +68,16 @@
 - Regression: HTTP tests exercise completed payments and fingerprint persistence errors; a storage test checks missing-file and path-traversal handling.
 - Compatibility: storage implementations must provide `delete(key)`; no public API or schema change.
 
+### INT-006 — Cancelled receipt OCR can leave a child process running
+- Severity: Medium. Status: Fixed. Base: PR #191 at `6cf10635e165be2428b98172f68f2594da5fe526`.
+- File / symbol: `modules/payments/receipt_ocr.py: _tesseract`.
+- Evidence: with a real sleeping child, cancelling the OCR task left the process alive; the timeout path killed it but returned before it had been reaped. Both regression cases fail on the parent.
+- Impact: cancellation releases the OCR concurrency slot while the Tesseract process can continue consuming resources; repeated cancellations can accumulate children.
+- Root cause: only timeout was handled and the child was not awaited after termination.
+- Fix: on cancellation, timeout or another error, terminate a still-running child, drain its pipes and await its exit before propagating the original error.
+- Regression: `tests/unit/test_receipt_ocr_process.py` exercises cancellation and timeout using real local child processes, without a provider or Tesseract installation.
+- Dependencies: AI-06 worker cancellation and AI-08 process tests; no API or schema change.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -82,6 +92,7 @@
 - `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_pinning.py` (INT-003).
 - `modules/panel_integrations/adapters/pasarguard/core.py` and `tests/adapters/test_pasarguard_adapter_contract.py` (INT-004).
 - `core/storage.py`, `modules/payments/router.py`, receipt HTTP and storage tests (INT-005).
+- `modules/payments/receipt_ocr.py` and `tests/unit/test_receipt_ocr_process.py` (INT-006).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -100,9 +111,16 @@
 | INT-005 regressions on parent | FAIL (expected) | two orphaned uploads; deletion API missing |
 | INT-005 focused tests | PASS | 54 passed; 3 new regression cases passed |
 | INT-005 lint | PASS | import contracts, Ruff and format |
+| INT-005 mypy | PASS | 391 source files |
 | INT-005 full suite before cleanup-error fix | FAIL | 1 hygiene failure, 2,987 passed, 54 skipped: the new broad exception exceeded the limit |
 | INT-005 cleanup-error and hygiene regression | PASS | 5 passed; expected filesystem errors are logged and unexpected programming errors are not swallowed |
 | INT-005 full suite after cleanup-error fix | QUEUED | runs after the preceding OCR suite |
+| INT-006 cancellation and timeout regressions | PASS | 2 failed on the parent and pass on the fix |
+| INT-006 `make lint` | PASS | import contracts, Ruff and format |
+| INT-006 focused suite | PASS | 28 passed |
+| INT-006 mypy | PASS | 391 source files |
+| INT-006 full suite before base fix | RUNNING | includes the known INT-005 hygiene failure |
+| INT-006 full suite after base fix | QUEUED | follows the INT-005 rerun |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
@@ -122,3 +140,4 @@
 - INT-003 follow-up: branch `audit/20-ocr-endpoint-089a80a5`; parent PR #185.
 - INT-004 follow-up: branch `audit/22-panel-integrations-089a80a5`; parent PR #187.
 - INT-005 follow-up: branch `audit/25-receipt-cleanup-18ef6bf0`; parent PR #190.
+- INT-006 follow-up: branch `audit/26-ocr-cancellation-18ef6bf0`; parent PR #191.
