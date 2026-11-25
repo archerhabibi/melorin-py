@@ -38,8 +38,10 @@ async def _plan(session: AsyncSession, order: Order, kind: str) -> Plan | None:
 
 
 async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
-    order = await session.get(Order, order_id)
-    if not order or not is_revenue(order.kind) or order.total <= 0:
+    # Refunds lock this same row before changing the status. Re-read it under
+    # the lock so a delayed completion cannot award rewards after a refund.
+    order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
+    if not order or order.status != OrderStatus.COMPLETED or not is_revenue(order.kind) or order.total <= 0:
         return
     # Store isolation (docs/17): the relationship is looked up INSIDE the order's own store. A referral made in another store
     # never pays here and never charges this store's referral-expense account; this store's own relationship (if any) is the one used.
