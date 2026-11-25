@@ -38,6 +38,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | INT-007 | High | Concurrent or unanswered upstream-bot purchase attempts can confirm a purchase twice | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-008 | High | Upstream-bot chat locks can be bypassed, leaked or delete another owner | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-009 | High | Upstream-bot purchases can proceed after shared state fails or is unreadable | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| INT-010 | High | An expired upstream-bot chat lease can allow overlapping paid flows | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-003 | High | Wallet topup retry state is shared between accounts using the same store and browser | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
@@ -49,6 +50,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | OPS-002 | High | A failed or overlapping restore drill can delete another database or overwrite its dump | AI-07 | Fixed | audit/reports/devops/REPORT.md |
+| OPS-003 | High | Backup retention can delete unrelated files and other backup types | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-003 | Medium | Order idempotency concurrency contract is always skipped | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |

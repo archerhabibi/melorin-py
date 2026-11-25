@@ -588,3 +588,128 @@ async def test_failed_pending_write_never_confirms_purchase(monkeypatch):
         await make(bot).create_account(spec())
     assert exc.value.kind == ErrorKind.UNKNOWN
     assert bot.purchases == 0
+
+
+@pytest.mark.parametrize("operation", ["buy", "renew", "refund"])
+async def test_lost_lease_does_not_confirm_a_paid_action(monkeypatch, operation):
+    import json
+
+    class LeaseStealingRedis:
+        def __init__(self):
+            self.values = {}
+            self.steal_on = None
+
+        async def get(self, key):
+            return self.values.get(key)
+
+        async def set(self, key, value, **kwargs):
+            if key.endswith(":lock"):
+                if kwargs.get("nx") and key in self.values:
+                    return False
+                self.values[key] = value
+                return True
+            self.values[key] = value
+            data = json.loads(value)
+            steal = (
+                self.steal_on == "buy"
+                and data.get("status") == "pending"
+                or self.steal_on == "renew"
+                and data.get("renew_pending")
+                or self.steal_on == "refund"
+                and data.get("refund_started")
+            )
+            if steal:
+                self.values[key.split(":acc:")[0] + ":lock"] = "replacement-owner"
+                self.steal_on = None
+            return True
+
+        async def eval(self, script, count, key, token, *args):
+            if self.values.get(key) != token:
+                return 0
+            if not args:
+                self.values.pop(key, None)
+            return 1
+
+    redis = LeaseStealingRedis()
+    monkeypatch.setattr(state, "_redis", lambda: redis)
+    bot = FakeParentBot()
+    adapter = make(bot)
+    if operation != "buy":
+        await adapter.create_account(spec())
+    redis.steal_on = operation
+    with pytest.raises(PanelError) as exc:
+        if operation == "buy":
+            await adapter.create_account(spec())
+        elif operation == "renew":
+            await adapter.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        else:
+            await adapter.revoke_account("Mel_10G1")
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    assert bot.purchases == (0 if operation == "buy" else 1)
+    assert bot.renew_confirms == 0 and bot.refunds == 0
+
+
+@pytest.mark.parametrize("operation", ["buy", "renew", "refund"])
+async def test_lost_lease_before_pending_write_preserves_new_owner_state(monkeypatch, operation):
+    import json
+
+    class Redis:
+        def __init__(self):
+            self.values = {}
+
+        async def get(self, key):
+            return self.values.get(key)
+
+        async def set(self, key, value, **kwargs):
+            if kwargs.get("nx") and key in self.values:
+                return False
+            self.values[key] = value
+            return True
+
+        async def eval(self, script, count, key, token, *args):
+            if self.values.get(key) != token:
+                return 0
+            if not args:
+                self.values.pop(key, None)
+            return 1
+
+    redis = Redis()
+    monkeypatch.setattr(state, "_redis", lambda: redis)
+
+    class StealingBot(FakeParentBot):
+        steal_on = None
+
+        async def click(self, msg, button):
+            await super().click(msg, button)
+            trigger = (
+                self.steal_on == "buy"
+                and "10 گیگ" in button.text
+                or self.steal_on == "renew"
+                and button.text.startswith("تمدید با حجم اولیه")
+                or self.steal_on == "refund"
+                and "مرجوعی اکانت" in button.text
+            )
+            if trigger:
+                lock_key = next(key for key in redis.values if key.endswith(":lock"))
+                account_key = lock_key.removesuffix(":lock") + ":acc:Mel_10G1"
+                redis.values[lock_key] = "replacement-owner"
+                redis.values[account_key] = json.dumps({"status": "active", "ref": "new-owner"})
+                self.steal_on = None
+
+    bot = StealingBot()
+    adapter = make(bot)
+    if operation != "buy":
+        await adapter.create_account(spec())
+    bot.steal_on = operation
+    with pytest.raises(PanelError) as exc:
+        if operation == "buy":
+            await adapter.create_account(spec())
+        elif operation == "renew":
+            await adapter.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        else:
+            await adapter.revoke_account("Mel_10G1")
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    account_key = next(key for key in redis.values if key.endswith(":acc:Mel_10G1"))
+    assert json.loads(redis.values[account_key]) == {"status": "active", "ref": "new-owner"}
+    assert bot.purchases == (0 if operation == "buy" else 1)
+    assert bot.renew_confirms == 0 and bot.refunds == 0
