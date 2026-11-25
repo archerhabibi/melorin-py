@@ -2,9 +2,8 @@ import { act, render, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Wallet } from '../src/dashboard/DashboardWallet.tsx';
-import { withAttemptLock } from '../src/attemptLock.ts';
-
-vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: vi.fn(async (operation) => operation()) }));
+import * as attemptStorage from '../src/attemptLock.ts';
+import { readAttempt, resetAttemptStorage } from './attemptStorage.js';
 
 const storageKey = 'melorin:wallet-topup:s1:u1';
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -41,11 +40,9 @@ async function start(view, amount) {
   await userEvent.click(ui.getByRole('button', { name: 'ایجاد درخواست' }));
 }
 
-beforeEach(() => {
-  localStorage.clear();
-  vi.mocked(withAttemptLock)
-    .mockReset()
-    .mockImplementation(async (operation) => operation());
+beforeEach(async () => {
+  vi.restoreAllMocks();
+  await resetAttemptStorage();
 });
 
 describe('wallet topup coordination', () => {
@@ -59,7 +56,7 @@ describe('wallet topup coordination', () => {
     expect(requests[1].key).toBe(requests[0].key);
 
     await act(async () => requests[0].resolve(payment('p1')));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(storageKey)).state).toBe('active'));
+    await waitFor(async () => expect(JSON.parse(await readAttempt(storageKey)).state).toBe('active'));
     const newer = open();
     await start(newer, '2000');
     await waitFor(() => expect(requests).toHaveLength(3));
@@ -68,7 +65,7 @@ describe('wallet topup coordination', () => {
     await act(async () =>
       requests[1].resolve(outcome === 'success' ? payment('p1') : json({ error: { message: 'rejected' } }, 400)),
     );
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(storageKey))?.idempotencyKey).toBe(requests[2].key));
+    await waitFor(async () => expect(JSON.parse(await readAttempt(storageKey))?.idempotencyKey).toBe(requests[2].key));
   });
 
   it('does not clear a newer attempt when an older receipt is confirmed', async () => {
@@ -87,12 +84,12 @@ describe('wallet topup coordination', () => {
     await userEvent.upload(input, new File(['receipt'], 'receipt.png', { type: 'image/png' }));
     await userEvent.click(firstUi.getByRole('button', { name: 'ارسال رسید' }));
     await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('تأیید شد')));
-    expect(JSON.parse(localStorage.getItem(storageKey))?.idempotencyKey).toBe(requests[1].key);
+    expect(JSON.parse(await readAttempt(storageKey))?.idempotencyKey).toBe(requests[1].key);
   });
 
   it('does not send a topup when cross-tab coordination is unavailable', async () => {
     const { open, requests, notify } = setup();
-    vi.mocked(withAttemptLock).mockRejectedValueOnce(new Error('storage unavailable'));
+    vi.spyOn(attemptStorage, 'updateStoredAttempt').mockRejectedValueOnce(new Error('storage unavailable'));
     await start(open(), '1000');
     await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('ذخیره امن')));
     expect(requests).toHaveLength(0);
@@ -104,8 +101,8 @@ describe('wallet topup coordination', () => {
     await start(view, '1000');
     await waitFor(() => expect(requests).toHaveLength(1));
     await act(async () => requests[0].resolve(json({})));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('نتیجه درخواست شارژ مشخص نیست')));
-    expect(JSON.parse(localStorage.getItem(storageKey)).state).toBe('unknown');
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('درخواست شارژ مشخص نیست')));
+    expect(JSON.parse(await readAttempt(storageKey)).state).toBe('unknown');
 
     const amount = within(view.container).getByPlaceholderText('مبلغ');
     await userEvent.clear(amount);

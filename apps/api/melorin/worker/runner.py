@@ -5,6 +5,7 @@ import logging
 import uuid
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.core import events
@@ -20,7 +21,9 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn_accounts import sync
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.worker")
@@ -210,10 +213,19 @@ async def process_event(e: OutboxEvent):
             await session.commit()
             inc("melorin_outbox_events_total", topic=e.topic, result="processed")
         except Exception as ex:
-            log.exception("outbox failed %s", event_id)
+            if isinstance(ex, SQLAlchemyError):
+                # SQL errors can contain query parameters and leave PostgreSQL's transaction unusable.
+                log.error("outbox database failure %s (%s)", event_id, type(ex).__name__)
+                await session.rollback()
+                error = f"Database error: {type(ex).__name__}"
+            else:
+                log.exception("outbox failed %s", event_id)
+                if not session.is_active:
+                    await session.rollback()
+                error = str(ex)
             failed = await session.get(OutboxEvent, event_id, with_for_update=True)
             if failed is not None and failed.status == "processing":
-                failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, str(ex)
+                failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, error
                 failed.available_at = utcnow() + dt.timedelta(seconds=_retry_delay(failed.attempts, ex))
                 from melorin.modules.eventcenter import rules as event_center_rules
 
@@ -313,7 +325,12 @@ async def revoke_account(session, account_id):
     if not a or not a.panel_id:
         return
     panel = await session.get(Panel, a.panel_id)
-    await seed_adapter(build_adapter(panel), a).revoke_account(a.username)
+    adapter = build_adapter(panel)
+    try:
+        seed_adapter(adapter, a)
+        await adapter.revoke_account(a.username)
+    finally:
+        await close_adapter(adapter)
     set_vpn_status(a, VpnStatus.REVOKED, source=VpnSource.RETURN)
     await session.commit()
 
@@ -328,19 +345,25 @@ async def rollback_renewal(session, payload):
         # PG-09: a refunded PREPAID renewal never touched the running package, so only the queued one is taken back. When the
         # queued package already started (the slot is empty) there is nothing to undo on the panel: money back is a support case.
         if account.queued_plan:
-            adapter = seed_adapter(build_adapter(panel), account)
+            adapter = build_adapter(panel)
             try:
-                await adapter.clear_next_plan(account.username)
+                seed_adapter(adapter, account)
+                await optional_ops(adapter).clear_next_plan(account.username)
             finally:
-                await adapter.close()
+                await close_adapter(adapter)
             account.queued_plan = None
             await session.commit()
         return
-    pa = await seed_adapter(build_adapter(panel), account).extend_account(
-        account.username,
-        expire_at=dt.datetime.fromisoformat(before["expires_at"]) if before.get("expires_at") else None,
-        traffic_bytes=int(before.get("traffic_limit_bytes") or 0),
-    )
+    adapter = build_adapter(panel)
+    try:
+        seed_adapter(adapter, account)
+        pa = await adapter.extend_account(
+            account.username,
+            expire_at=dt.datetime.fromisoformat(before["expires_at"]) if before.get("expires_at") else None,
+            traffic_bytes=int(before.get("traffic_limit_bytes") or 0),
+        )
+    finally:
+        await close_adapter(adapter)
     sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: back to what was applied before the refunded renewal
     await session.commit()
 

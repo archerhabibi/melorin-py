@@ -18,7 +18,7 @@ restore-drill:
 restore-drill-latest:
 	@bash scripts/restore_drill_latest.sh
 deploy-test:
-	@bash scripts/test_deploy.sh && bash scripts/test_restore_drill.sh
+	@bash scripts/test_deploy.sh && bash scripts/test_restore_drill.sh && bash scripts/test_backup_retention.sh
 test-matrix:
 	@python scripts/test_matrix.py all
 up:; cp -n .env.example .env || true; docker compose up -d --build

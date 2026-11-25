@@ -13,7 +13,7 @@ from melorin.domain import bank_sms as dom
 from melorin.kernel.models.payments import BankSmsMessage, Payment
 from melorin.kernel.models.stores import Store
 from melorin.domain.timeutil import aware as _aware
-from melorin.modules.payments.bank_sms.matching import P, _link
+from melorin.modules.payments.bank_sms.matching import P, _confirm_provisional, _link
 
 
 def message_out(m: BankSmsMessage) -> dict:
@@ -62,9 +62,14 @@ async def manual_link(
         raise AppError("BANK_SMS_ALREADY_MATCHED", "این پیامک قبلاً به یک پرداخت وصل شده است.", 409)
     if sms.direction != "deposit" or sms.amount_rial != dom.to_rial(p.amount, p.currency):
         raise AppError("BANK_SMS_AMOUNT_MISMATCH", "مبلغ پیامک با مبلغ پرداخت برابر نیست.", 409)
-    if p.provider != "manual_card" or p.status != P.AWAITING_REVIEW:
+    provisional = p.status == P.SUCCEEDED and ((p.meta or {}).get("provisional") or {}).get("state") == "open"
+    if p.provider != "manual_card" or p.purpose != "wallet_topup" or (p.status != P.AWAITING_REVIEW and not provisional):
         raise AppError("INVALID_PAYMENT_STATE", "این پرداخت در انتظار بررسی نیست.", 409)
-    if not await _link(session, sms.id, p.id, by="admin", actor_id=actor_id):
+    if provisional:
+        linked = await _confirm_provisional(session, sms.id, p.id, by="admin", actor_id=actor_id, actor_type=actor_type)
+    else:
+        linked = await _link(session, sms.id, p.id, by="admin", actor_id=actor_id)
+    if not linked:
         raise AppError("BANK_SMS_CONFLICT", "پیامک یا پرداخت هم‌زمان تغییر کرد؛ دوباره تلاش کنید.", 409)
     await session.refresh(sms)
     return sms
@@ -73,7 +78,7 @@ async def manual_link(
 async def set_ignored(
     session: AsyncSession, store: Store, sms_id: uuid.UUID, *, ignored: bool, actor_id: uuid.UUID, actor_type: str
 ) -> BankSmsMessage:
-    sms = await session.get(BankSmsMessage, sms_id)
+    sms = await session.get(BankSmsMessage, sms_id, with_for_update=True, populate_existing=True)
     if not sms or sms.store_id != store.id:
         raise NotFound("پیامک")
     if sms.status == "matched":

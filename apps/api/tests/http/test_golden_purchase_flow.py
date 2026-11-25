@@ -135,6 +135,10 @@ async def test_signup_topup_purchase_and_provisioning_end_to_end(world):
         assert order.status_code == 201, order.text
         replay = await c.post(f"/api/v1/stores/{sid}/orders", json=body, headers={**auth, "Idempotency-Key": "golden-order-1"})
         assert replay.status_code in (200, 201) and replay.json()["id"] == order.json()["id"]
+        clash = await c.post(
+            f"/api/v1/stores/{sid}/orders", json={**body, "coupon_code": "OTHER"}, headers={**auth, "Idempotency-Key": "golden-order-1"}
+        )
+        assert clash.status_code == 409 and clash.json()["error"]["code"] == "IDEMPOTENCY_KEY_REUSE"
         assert (await c.get(f"/api/v1/stores/{sid}/wallet", headers=auth)).json()["balance"] == 0
 
         # provisioning (the worker's job) delivers exactly one account
@@ -143,4 +147,7 @@ async def test_signup_topup_purchase_and_provisioning_end_to_end(world):
             await s.commit()
         final = await c.get(f"/api/v1/stores/{sid}/orders/{order.json()['id']}", headers=auth)
         assert final.status_code == 200 and final.json()["status"] == "completed"
+        completed_replay = await c.post(f"/api/v1/stores/{sid}/orders", json=body, headers={**auth, "Idempotency-Key": "golden-order-1"})
+        assert completed_replay.status_code == 201 and completed_replay.json()["id"] == order.json()["id"]
+        assert completed_replay.json()["status"] == "completed"
         assert len(world.created) == 1

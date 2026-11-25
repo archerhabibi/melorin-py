@@ -32,6 +32,7 @@ log = logging.getLogger("melorin.payments.receipt_ocr")
 
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 _LIMIT = asyncio.Semaphore(2)  # OCR is CPU/network heavy; never let a burst of uploads starve the API
+MAX_VISION_RESPONSE_BYTES = 256 * 1024  # A 300-token JSON answer is much smaller; leave room for provider errors.
 
 VISION_SYSTEM = (
     "You extract printed facts from a screenshot of an Iranian bank card-to-card transfer receipt. "
@@ -109,8 +110,14 @@ async def _tesseract(data: bytes, c: OcrConfig) -> ReceiptFacts:
         )
         try:
             out, _ = await asyncio.wait_for(proc.communicate(data), timeout=c.timeout)
-        except TimeoutError:
-            proc.kill()
+        except BaseException:
+            # A cancelled worker must not leave Tesseract running after its OCR slot is released.
+            if proc.returncode is None:
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass  # The child exited between the status check and kill.
+            await proc.communicate()  # Drain pipes and reap the child before propagating the original error.
             raise
         texts.append(out.decode("utf-8", "replace"))
     return parse_receipt_text("\n".join(texts))
@@ -131,7 +138,11 @@ class OcrEndpointForbidden(Exception):
     """The OCR base URL resolves to an address the outbound policy refuses (V-021): receipts and the API key must not go there."""
 
 
-async def assert_public_endpoint(base_url: str) -> None:
+class OcrResponseRejected(ValueError):
+    """The provider response could not be safely read within the configured limits."""
+
+
+async def assert_public_endpoint(base_url: str) -> str:
     """Resolve the OCR host without blocking the loop and refuse internal/CGNAT/metadata addresses (shared ``netpolicy``)."""
     from melorin.domain import netpolicy, webhook
 
@@ -144,6 +155,7 @@ async def assert_public_endpoint(base_url: str) -> None:
     infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     if not infos or any(netpolicy.is_forbidden_ip(str(i[4][0])) for i in infos):
         raise OcrEndpointForbidden("resolves to a non-public address")
+    return str(infos[0][4][0])  # Connect to this checked address rather than resolve the host again.
 
 
 async def post_vision(
@@ -175,10 +187,41 @@ async def post_vision(
         body["temperature"] = temperature
     if system:
         body["system"] = system
-    headers = {"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    await assert_public_endpoint(c.base_url)  # never ship a receipt image + API key to an internal address
-    async with outbound_client("receipt_ocr", timeout=c.timeout) as client:
-        return await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
+    headers = {
+        "x-api-key": c.api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+        "accept-encoding": "identity",  # Do not let a compressed answer expand before the size check.
+    }
+    # Bound DNS, connection, headers and the entire body, not just the time between individual reads.
+    async with asyncio.timeout(c.timeout):
+        address = await assert_public_endpoint(c.base_url)
+        endpoint = httpx.URL(f"{c.base_url.rstrip('/')}/v1/messages")
+        headers["Host"] = endpoint.netloc.decode("ascii")
+        async with (
+            outbound_client("receipt_ocr", timeout=c.timeout) as client,
+            client.stream(
+                "POST",
+                endpoint.copy_with(host=address),
+                json=body,
+                headers=headers,
+                extensions={"sni_hostname": endpoint.raw_host.decode("ascii")},
+            ) as response,
+        ):
+            if response.headers.get("content-encoding", "").strip().lower() not in ("", "identity"):
+                raise OcrResponseRejected("compressed OCR provider response is not accepted")
+            content = bytearray()
+            async for chunk in response.aiter_bytes():
+                if len(content) + len(chunk) > MAX_VISION_RESPONSE_BYTES:
+                    raise OcrResponseRejected("OCR provider response is too large")
+                content.extend(chunk)
+            return httpx.Response(
+                response.status_code,
+                headers=response.headers,
+                content=bytes(content),
+                request=response.request,
+                extensions=response.extensions,
+            )
 
 
 async def _vision(data: bytes, content_type: str, c: OcrConfig) -> ReceiptFacts:

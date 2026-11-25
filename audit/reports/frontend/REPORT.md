@@ -43,7 +43,7 @@ Severity: High. Status: Fixed for customer purchase and renewal requests.
 
 Two tabs could both see no pending order key and create different keys; a late response could also delete a newer attempt's key. Browser localStorage operations alone do not make the read-modify-write sequence atomic.
 
-A short IndexedDB transaction now serializes key creation and conditional removal across tabs. A delayed success only clears the key it actually used. If browser storage or cross-tab coordination is unavailable, the request is not sent. Existing pending localStorage keys remain usable. Reseller and other loyalty operations still need their own concurrency review; wallet topups and loyalty rewards are addressed by FE-007 and FE-008.
+The earlier IndexedDB lock still read and wrote localStorage; repeated browser tests showed that different tabs could observe stale localStorage values despite the lock. Order keys now live in the IndexedDB transaction itself. A delayed success only clears the key it actually used, and pending-order views receive cross-tab change notifications. Legacy attempts are migrated once; the upgraded database prevents older order flows from opening the old storage version. If safe storage is unavailable, the request is not sent. Wallet topups and loyalty rewards use the same atomic store (FE-007 and FE-008); reseller and other loyalty flows remain under review.
 
 ## FE-006 — an unresolved order can become impossible to retry
 
@@ -53,27 +53,31 @@ At b2b0099 the frontend retained the original idempotency key but did not expose
 
 The order and VPN views now expose unresolved attempts for the current customer and store, even when a fresh quote is unavailable. Recovery submits the original payload and key; an action whose key has already been cleared cannot start a new order. The UI explains that an order not previously registered is retried at the current price. This relies on the existing backend idempotency contract and makes no API or schema changes.
 
-## FE-007 — wallet topup attempts can overwrite or erase one another
-
-Severity: High. Status: Fixed.
-
-At bed1f67, different tabs could choose or update a topup key without coordination. In a deterministic reproduction, two requests for the same payment shared a key; after one succeeded, a different topup began, and the late response from the first payment overwrote or deleted the newer key. Confirming an older receipt could also delete the newer attempt. Retrying after either loss could create a duplicate payment intent. Four new regression cases failed on that base.
-
-Topup key creation and changes now use the existing IndexedDB transaction lock. A response or receipt can update or remove only its own key, and a malformed success response stays unresolved. If browser coordination or valid stored state is unavailable, the topup is not sent. Existing per-customer keys are retained; the server API and database are unchanged. Previously unresolved test payments should be reconciled before retrying.
-
 ## FE-008 — loyalty redemptions lose their retry key after errors or reloads
 
 Severity: High. Status: Fixed.
 
 At 369a5eb the reward key lived only in component memory and was deleted on any non-success response. The server commits the points debit and wallet credit before completing the response, so a 500 or lost response followed by another click or reload could redeem twice. Three regression cases failed on that base, including a retry with a different key and an inaccessible reward after reload.
 
-Reward attempts now persist per store, customer and reward before sending, and use the existing cross-tab lock. Ambiguous responses retain the key; recovery remains available even if the reward no longer appears in the club. A valid success clears only its own key, so a late response cannot erase a newer attempt. Redemption requires the signed-in identity, localStorage and IndexedDB. The API and database are unchanged. A definitive error can leave an attempt pending for support to reconcile, and pre-fix in-flight redemptions had no durable key.
+Reward attempts persist per store, customer and reward in the same IndexedDB transactions as orders and topups. Legacy localStorage rewards are migrated and pending views receive cross-tab notifications. Ambiguous responses retain the key; recovery remains available even if the reward no longer appears in the club. A valid success clears only its own key, so a late response cannot erase a newer attempt. Redemption requires the signed-in identity, localStorage and IndexedDB. The API and database are unchanged. A definitive error can leave an attempt pending for support to reconcile, and pre-fix in-flight redemptions had no durable key.
+
+## FE-007 — overlapping wallet topups can lose their retry key
+
+Severity: High. Status: Fixed. Parent: PR #166 at `d8ee272`.
+
+Each tab previously chose and saved a key with separate localStorage operations. A delayed rejection, success, terminal payment response or receipt from an older tab could also delete or overwrite a newer unresolved attempt. The next retry could use a fresh key and create a second payment intent.
+
+Topups now choose and persist keys in a single IndexedDB transaction. Responses and receipt completion update or remove only the matching key. A non-success response retains its key because another request with that key may still be in flight; a malformed success also remains unresolved. If browser storage or coordination is unavailable, no request is sent.
+
+Compatibility: after an HTTP error, the customer must retry the same amount or contact support until the prior attempt is resolved. Terminal failed or cancelled payments can be cleared. IndexedDB and localStorage are required. A localStorage guard refuses new attempts if initialized IndexedDB alone is deleted; clearing all browser storage cannot be detected, and recovery on another device is outside this browser-only protection. An already-open pre-upgrade wallet tab uses localStorage without IndexedDB and must be closed or reloaded at deployment; the project has no released users.
+
+Regression evidence: tests cover stale responses, receipt completion, legacy migration, database loss and unavailable coordination. Chromium tests hold a real IndexedDB transaction while two tabs submit orders or topups; both wait and use the same key. A reload test verifies that migrated keys remain authoritative even when legacy localStorage changes.
 
 ## Customer order retry invariants
 
 For a store, signed-in customer and exact request payload, every unresolved retry uses the same key. A late response must not erase a newer key, and a stale recovery action must never start a new order. If coordination or storage fails, no order is sent. Purchase and renewal recovery remains reachable without relying on a fresh quote.
 
-The order request helper alone creates and conditionally clears the stored key; browser transactions serialize changes across tabs. Recovery views only read the attempt and submit its expected key. Reseller and loyalty paths have their own invariants; loyalty rewards are addressed by FE-008.
+The order request helper alone creates and conditionally clears the stored key; browser transactions serialize changes across tabs. Recovery views only read the attempt and submit its expected key. Wallet topups and loyalty rewards have their own retry policies (FE-007 and FE-008); other reseller and loyalty paths remain under review.
 
 | Event | No pending key | Pending key | Confirmed or stale recovery |
 |---|---|---|---|
@@ -90,10 +94,12 @@ The order request helper alone creates and conditionally clears the stored key; 
 - FE-003: all 12 wallet/ticket tests passed; storefront lint, typecheck and format check passed.
 - FE-004: six order/renewal unit tests, all 98 storefront tests, lint, typecheck and build passed. The browser suite passed 25 tests, including retry after reload; two staging-only tests were skipped.
 - FE-005: all 100 storefront tests, lint, typecheck, format check and build passed. The full browser suite passed 26 tests including real two-tab coordination; two staging-only tests were skipped.
-- FE-006: storefront lint, typecheck, format check, build and all 104 unit tests passed. The browser suite passed 28 tests, including purchase and renewal recovery; two staging-only tests were skipped. Backend lint and tests passed (2,921 passed, 19 skipped).
-- FE-007: 17 focused wallet/ticket tests passed, including five new topup regressions; lint and typecheck passed. Two real-browser tests passed, covering coordinated purchases and topups across tabs. The complete storefront suite passed 109 tests, formatting and build.
-- FE-008: 14 focused loyalty tests, lint and typecheck passed. A real-browser two-tab redemption test passed. The complete storefront suite passed 116 tests, formatting and build; the browser suite is running separately.
+- FE-006: 104 storefront tests, lint, typecheck, format check and build passed. Three browser scenarios passed, including both recovery cases and overlapping tabs.
+- FE-007 and the FE-005 storage correction: all 118 storefront tests, lint, typecheck, build and changed-file Prettier checks passed. Fifteen Chromium runs passed across five repetitions of both two-tab paths and legacy migration with mocked APIs. The full Windows checkout needs line-ending autodetection because its unchanged CRLF files fail the repository's LF-only format check.
+- FE-008: 14 focused loyalty tests, lint and typecheck passed before the storage consolidation; two-tab browser coverage was added.
+- Reconciled FE-005..FE-008: all 134 storefront tests, lint, typecheck, format check and production build passed. The account dashboard now loads on demand and first-load storefront JavaScript is 222.2 kB against the existing 274 kB budget.
+- The complete Chromium suite on the reconciled frontend passed 32 tests; two scenarios requiring a seeded staging stack were skipped. It includes concurrent order, wallet and reward retries and recovery after reload.
 - Admin web: 361 tests, lint, typecheck, format check and build passed.
 - Before FE-004: Playwright browser suite passed 24 tests; two staging-only tests were skipped.
 
-Backend make lint and make test passed on the FE-006 tree: 2,921 tests passed and 19 were skipped. FE-007 and FE-008 only change frontend code and audit documentation. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.
+Backend make lint and make test passed on the FE-001 tree: 2,921 tests passed and 19 were skipped. FE-002 through FE-007 only change frontend code and audit documentation. A fresh backend make lint and make test also passed on the FE-006 tree: 2,921 tests passed and 19 were skipped; FE-007 does not change the backend. The frontend audit continues separately; no claim is made here that all frontend paths have been reviewed.

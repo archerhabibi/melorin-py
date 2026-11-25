@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_store, make_user, open_schema_engine, pg_url
+from melorin.core import settings_store
 from melorin.core.errors import AppError
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store, StoreMembership
@@ -139,3 +140,69 @@ async def test_parallel_reseller_corrections_replay_once_without_overdrawing(sam
         async with factory() as s:
             assert (await s.get(Wallet, wallet_id)).balance == 0
             assert (await s.scalar(select(func.sum(LedgerEntry.amount)))) == 0
+
+
+async def test_reseller_retry_waits_for_the_original_after_cap_is_lowered(monkeypatch):
+    async with open_schema_engine() as engine:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        store_id, wallet_id = await _funded_wallet(factory, 1_000)
+        async with factory() as s:
+            customer_id = (await s.get(Wallet, wallet_id)).user_id
+            s.add(StoreMembership(store_id=store_id, user_id=customer_id, role="customer", status="active"))
+            await settings_store.set_value(s, "reseller.manual_topup_max", 1000)
+            await s.commit()
+
+        async with factory() as first_session, factory() as retry_session:
+            first_ctx = SimpleNamespace(store=await first_session.get(Store, store_id), user=await first_session.get(User, customer_id))
+            retry_ctx = SimpleNamespace(store=await retry_session.get(Store, store_id), user=await retry_session.get(User, customer_id))
+            body = CustomerWalletAdjustment(amount=-1000, reason="correction", idempotency_key="cap-race-001")
+            first_ready, retry_waiting, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+            original_commit, original_lock = first_session.commit, wallet.lock_wallets
+
+            async def gated_commit():
+                first_ready.set()
+                await release.wait()
+                await original_commit()
+
+            async def observed_lock(session, wallets):
+                if session is retry_session:
+                    retry_waiting.set()
+                await original_lock(session, wallets)
+
+            monkeypatch.setattr(first_session, "commit", gated_commit)
+            monkeypatch.setattr(wallet, "lock_wallets", observed_lock)
+            first = asyncio.create_task(adjust_customer_wallet_core(first_session, first_ctx, customer_id, body))
+            retry = waiter = None
+            try:
+                await asyncio.wait_for(first_ready.wait(), timeout=15)
+                async with factory() as s:
+                    await settings_store.set_value(s, "reseller.manual_topup_max", 400)
+                    await s.commit()
+                retry = asyncio.create_task(adjust_customer_wallet_core(retry_session, retry_ctx, customer_id, body))
+                waiter = asyncio.create_task(retry_waiting.wait())
+                done, _ = await asyncio.wait({retry, waiter}, timeout=15, return_when=asyncio.FIRST_COMPLETED)
+                if retry in done:
+                    await retry
+                    pytest.fail("retry finished before waiting for the original transaction")
+                assert waiter in done, "retry never reached the wallet lock"
+                release.set()
+                first_result, retry_result = await asyncio.wait_for(asyncio.gather(first, retry), timeout=15)
+                assert first_result["transaction_id"] == retry_result["transaction_id"]
+                assert first_result["balance"] == retry_result["balance"] == 0
+            finally:
+                release.set()
+                tasks = [task for task in (first, retry, waiter) if task is not None]
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        async with factory() as s:
+            assert (await s.get(Wallet, wallet_id)).balance == 0
+            assert (await s.scalar(select(func.sum(LedgerEntry.amount)))) == 0
+            count = await s.scalar(
+                select(func.count())
+                .select_from(LedgerTransaction)
+                .where(LedgerTransaction.idempotency_key == f"reseller-adjust:{store_id}:cap-race-001")
+            )
+            assert count == 1

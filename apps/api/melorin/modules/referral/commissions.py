@@ -38,8 +38,14 @@ async def _plan(session: AsyncSession, order: Order, kind: str) -> Plan | None:
 
 
 async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
-    order = await session.get(Order, order_id)
-    if not order or not is_revenue(order.kind) or order.total <= 0:
+    # Refunds lock this same row before changing the status. Re-read it under
+    # the lock so a delayed completion cannot award rewards after a refund.
+    order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
+    if not order or order.status != OrderStatus.COMPLETED or not is_revenue(order.kind) or order.total <= 0:
+        return
+    # The order lock also serializes retries. A replay must not turn the first
+    # purchase's signup reward into a second, ordinary commission.
+    if await session.scalar(select(Commission.id).where(Commission.order_id == order.id)):
         return
     # Store isolation (docs/17): the relationship is looked up INSIDE the order's own store. A referral made in another store
     # never pays here and never charges this store's referral-expense account; this store's own relationship (if any) is the one used.
@@ -77,9 +83,12 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
     kind = "signup_reward" if prior == 0 and not reward_granted else "commission"
     plan = await _plan(session, order, kind)
     gross = amount_for(plan, order.total)
-    if gross <= 0 or await session.scalar(select(Commission.id).where(Commission.order_id == order.id, Commission.kind == kind)):
+    if gross <= 0:
         return
     w = await wallet.get_wallet(session, rel.referrer_user_id, order.store_id, currency=order.currency)
+    # Refunds take the wallet before the clawback as well; a consistent order
+    # prevents concurrent settlement and reversal from deadlocking.
+    await wallet.lock_wallets(session, [w])
     claw = await session.scalar(
         select(CommissionClawback)
         .where(
@@ -88,6 +97,7 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
             CommissionClawback.currency == order.currency,
         )
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     outstanding = claw.outstanding if claw else 0
     payout, recovered = offset_with_outstanding(gross, outstanding)
@@ -152,12 +162,18 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
 
 async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
     rows = (
-        await session.scalars(select(Commission).where(Commission.order_id == order_id, Commission.status == "credited").with_for_update())
+        await session.scalars(
+            select(Commission)
+            .where(Commission.order_id == order_id, Commission.status == "credited")
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
     ).all()
     for c in rows:
+        w = await wallet.get_wallet(session, c.referrer_user_id, c.store_id, currency=c.currency or "IRT")
+        await wallet.lock_wallets(session, [w])
+        take = outstanding = 0
         if c.ledger_tx_id:
-            w = await wallet.get_wallet(session, c.referrer_user_id, c.store_id, currency=c.currency or "IRT")
-            await wallet.lock_wallets(session, [w])
             take, outstanding = split_reversal(c.amount - c.offset_amount, w.balance)
             if take:
                 await wallet.post(
@@ -173,32 +189,49 @@ async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
                     ],
                     memo="برگشت کمیسیون به‌دلیل استرداد",
                 )
-            if outstanding:
-                claw = await session.scalar(
-                    select(CommissionClawback)
-                    .where(
-                        CommissionClawback.referrer_user_id == c.referrer_user_id,
-                        CommissionClawback.store_id == c.store_id,
-                        CommissionClawback.currency == w.currency,
-                    )
-                    .with_for_update()
+        # The refunded commission cannot keep settling an earlier clawback.
+        # Restore the offset even when the whole reward was offset and there
+        # was no cash payout or ledger transaction.
+        restored = c.offset_amount
+        total_clawback: int | None = None
+        if restored or outstanding:
+            claw = await session.scalar(
+                select(CommissionClawback)
+                .where(
+                    CommissionClawback.referrer_user_id == c.referrer_user_id,
+                    CommissionClawback.store_id == c.store_id,
+                    CommissionClawback.currency == w.currency,
                 )
-                if not claw:
-                    claw = CommissionClawback(referrer_user_id=c.referrer_user_id, store_id=c.store_id, currency=w.currency, outstanding=0)
-                    session.add(claw)
-                claw.outstanding += outstanding
-            c.reversed_amount = take + outstanding
-            c.status = "reversed"
-            order = await session.get(Order, order_id)
-            text = f"↩️ کمیسیون معرف به‌دلیل استرداد برگشت خورد\nسفارش: {order.number if order else '-'}\nبرگشت‌شده: {take:,} {c.currency or ''}".rstrip()
-            if outstanding:
-                text += f"\nبدهی باقی‌مانده معرف: {outstanding:,}"
-            await events.emit(
-                session,
-                events.EVENT_CENTER,
-                {"store_id": c.store_id, "topic": ec_topics.AFFILIATE, "text": text},
-                dedup_key=f"ec:affiliate:reversal:{c.id}",
+                .with_for_update()
+                .execution_options(populate_existing=True)
             )
+            if not claw:
+                claw = CommissionClawback(referrer_user_id=c.referrer_user_id, store_id=c.store_id, currency=w.currency, outstanding=0)
+                session.add(claw)
+            claw.outstanding += restored + outstanding
+            total_clawback = claw.outstanding
+            if restored:
+                audit.record(
+                    session,
+                    "commission.clawback_offset_restored",
+                    actor_type="system",
+                    entity_type="commission",
+                    entity_id=c.id,
+                    store_id=c.store_id,
+                    data={"restored": restored, "outstanding": claw.outstanding},
+                )
+        c.reversed_amount = take + outstanding
+        c.status = "reversed"
+        order = await session.get(Order, order_id)
+        text = f"↩️ کمیسیون معرف به‌دلیل استرداد برگشت خورد\nسفارش: {order.number if order else '-'}\nبرگشت‌شده: {take:,} {c.currency or ''}".rstrip()
+        if total_clawback is not None:
+            text += f"\nبدهی باقی‌مانده معرف: {total_clawback:,}"
+        await events.emit(
+            session,
+            events.EVENT_CENTER,
+            {"store_id": c.store_id, "topic": ec_topics.AFFILIATE, "text": text},
+            dedup_key=f"ec:affiliate:reversal:{c.id}",
+        )
 
 
 async def earnings(session: AsyncSession, referrer_id: uuid.UUID, store_id: uuid.UUID) -> dict:

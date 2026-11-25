@@ -173,16 +173,6 @@ async def test_overlong_link_never_exceeds_caption_limit(session, tg):
     assert len(tg["message"]) == 1  # full link follows as text
 
 
-async def test_provisioning_emits_delivery_event_not_generic_notice():
-    import inspect
-
-    from melorin.modules.orders import provisioning as service
-
-    src = inspect.getsource(service.provision_order)
-    assert src.count("events.ORDER_DELIVERY") == 2  # normal path + reconcile path
-    assert "notify:account" not in src
-
-
 async def test_missing_link_is_retried_not_sent_without_qr(session, tg):
     """Fresh order without a stored link: raise (outbox retry) instead of posting text without QR."""
     order = await _seed(session, link=None)

@@ -55,56 +55,60 @@ async def adjust_customer_wallet_core(
         raise NotFound("مشتری")
     if body.amount == 0:
         raise AppError("BAD_AMOUNT", "مبلغ نامعتبر است.", 400)
-    cap = await settings_store.get(session, "reseller.manual_topup_max")
-    if cap and abs(body.amount) > int(cap):
-        raise AppError("BAD_AMOUNT", "مبلغ از سقف مجاز شارژ دستی بیشتر است.", 400)
-    w = await wallet.get_wallet(session, customer_id, ctx.store.id, currency=ctx.store.currency)
     key = f"reseller-adjust:{ctx.store.id}:{body.idempotency_key}"
     kind = "reseller_manual_topup" if body.amount > 0 else "reseller_manual_correction"
-    # Serialize both the balance check and the replay lookup. A concurrent
-    # request with this key may have committed while this one waited for the lock.
-    await wallet.lock_wallets(session, [w])
-    if body.amount < 0 and w.balance + body.amount < 0 and not await wallet.find_tx(session, key):
-        raise AppError("INSUFFICIENT_FUNDS", "اصلاح موجودی نمی‌تواند کیف پول را منفی کند.", 409)
-    postings = [
-        wallet.Posting(body.amount, wallet=w, min_balance=0),
-        wallet.Posting(-body.amount, account=wallet.acc_reseller_cash(ctx.store.id)),
-    ]
-    tx, created = await wallet.post(
-        session,
-        kind=kind,
-        key=key,
-        currency=ctx.store.currency,
-        store_id=ctx.store.id,
-        postings=postings,
-        actor_id=ctx.user.id,
-        memo=(body.reason + (f" | ref: {body.reference}" if body.reference else ""))[:500],
-    )
-    if not created:
-        same_posting = await session.scalar(
-            select(LedgerEntry.id).where(
-                LedgerEntry.transaction_id == tx.id, LedgerEntry.wallet_id == w.id, LedgerEntry.amount == body.amount
-            )
-        )
-        if tx.kind != kind or same_posting is None:
-            raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency برای عملیات دیگری استفاده شده است.", 409)
-    if created:
-        audit.record(
+    # A rejected adjustment must roll back even a newly created wallet.
+    async with session.begin_nested():
+        w = await wallet.get_wallet(session, customer_id, ctx.store.id, currency=ctx.store.currency)
+        # A concurrent request with this key may commit while we wait for the wallet lock.
+        await wallet.lock_wallets(session, [w])
+        existing = await wallet.find_tx(session, key)
+        # A lowered cap must not hide a transaction that already succeeded.
+        if not existing:
+            cap = await settings_store.get(session, "reseller.manual_topup_max")
+            if cap and abs(body.amount) > int(cap):
+                raise AppError("BAD_AMOUNT", "مبلغ از سقف مجاز شارژ دستی بیشتر است.", 400)
+        if body.amount < 0 and w.balance + body.amount < 0 and not existing:
+            raise AppError("INSUFFICIENT_FUNDS", "اصلاح موجودی نمی‌تواند کیف پول را منفی کند.", 409)
+        postings = [
+            wallet.Posting(body.amount, wallet=w, min_balance=0),
+            wallet.Posting(-body.amount, account=wallet.acc_reseller_cash(ctx.store.id)),
+        ]
+        tx, created = await wallet.post(
             session,
-            "reseller.customer_wallet_adjusted",
-            actor_id=ctx.user.id,
-            actor_type=actor_type,
-            entity_type="wallet",
-            entity_id=w.id,
+            kind=kind,
+            key=key,
+            currency=ctx.store.currency,
             store_id=ctx.store.id,
-            data={
-                "customer_id": str(customer_id),
-                "amount": body.amount,
-                "reason": body.reason,
-                "reference": body.reference,
-                "tx": str(tx.id),
-            },
+            postings=postings,
+            actor_id=ctx.user.id,
+            memo=(body.reason + (f" | ref: {body.reference}" if body.reference else ""))[:500],
         )
+        if not created:
+            same_posting = await session.scalar(
+                select(LedgerEntry.id).where(
+                    LedgerEntry.transaction_id == tx.id, LedgerEntry.wallet_id == w.id, LedgerEntry.amount == body.amount
+                )
+            )
+            if tx.kind != kind or same_posting is None:
+                raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency برای عملیات دیگری استفاده شده است.", 409)
+        if created:
+            audit.record(
+                session,
+                "reseller.customer_wallet_adjusted",
+                actor_id=ctx.user.id,
+                actor_type=actor_type,
+                entity_type="wallet",
+                entity_id=w.id,
+                store_id=ctx.store.id,
+                data={
+                    "customer_id": str(customer_id),
+                    "amount": body.amount,
+                    "reason": body.reason,
+                    "reference": body.reference,
+                    "tx": str(tx.id),
+                },
+            )
     await session.commit()
     return {"ok": True, "balance": w.balance, "transaction_id": tx.id}
 

@@ -6,7 +6,7 @@ from melorin.core import audit, channel
 from melorin.domain import password_policy
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.config import get_settings
-from melorin.core.deps import AdminUser, CurrentAuth, CurrentUser, Session, main_store
+from melorin.core.deps import AdminUser, CurrentAuth, CurrentUser, Session, main_store, require_admin
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import hit
 from melorin.core.security import totp_counter, totp_new_secret, verify_password, hash_password
@@ -133,7 +133,8 @@ async def attach_email(body: EmailCodeVerify, user: CurrentUser, session: Sessio
 
 @auth.post("/admin/password")
 async def change_admin_password(body: AdminPasswordChange, admin: AdminUser, session: Session):
-    if not await verify_password(body.current_password, admin.password_hash):
+    verified_hash = admin.password_hash
+    if not await verify_password(body.current_password, verified_hash):
         audit.security_event(session, "admin.password_change_failed", admin.id)
         await session.commit()
         raise AppError("INVALID_CURRENT_PASSWORD", "رمز فعلی نادرست است.", 401)
@@ -142,8 +143,20 @@ async def change_admin_password(body: AdminPasswordChange, admin: AdminUser, ses
     broken = password_policy.violation(body.new_password, admin.email or "")  # same rules as invite acceptance
     if broken:
         raise AppError(broken, password_policy.MESSAGES_FA[broken], 422)
-    admin.password_hash = await hash_password(body.new_password)
-    audit.record(session, "admin.password_changed", actor_id=admin.id, actor_type="admin", entity_type="user", entity_id=admin.id)
+    new_hash = await hash_password(body.new_password)  # do expensive work before taking the user row lock
+    current = await session.get(User, admin.id, with_for_update=True, populate_existing=True)
+    if not current or not current.is_active or not current.is_super_admin or not current.totp_enabled:
+        raise AppError("UNAUTHORIZED", "نشست نامعتبر یا منقضی است.", 401)
+    await require_admin(session, current)  # recheck IP restrictions against the refreshed account
+    if current.password_hash != verified_hash:
+        audit.security_event(session, "admin.password_change_failed", current.id)
+        await session.commit()
+        raise AppError("INVALID_CURRENT_PASSWORD", "رمز فعلی نادرست است.", 401)
+    broken = password_policy.violation(body.new_password, current.email or "")
+    if broken:
+        raise AppError(broken, password_policy.MESSAGES_FA[broken], 422)
+    current.password_hash = new_hash
+    audit.record(session, "admin.password_changed", actor_id=current.id, actor_type="admin", entity_type="user", entity_id=current.id)
     await session.commit()
     return {"ok": True}
 

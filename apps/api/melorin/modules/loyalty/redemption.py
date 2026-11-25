@@ -28,20 +28,29 @@ async def redeem(
 ) -> tuple[LoyaltyRedemption, bool]:
     """Spend the customer's points on one reward of THIS store. Returns (redemption, created); a retry with the same key
     returns the first redemption and spends nothing more. The caller commits."""
+    key = (idempotency_key or uuid.uuid4().hex)[:100]
+
+    async def existing_redemption() -> LoyaltyRedemption | None:
+        replay = await session.scalar(
+            select(LoyaltyRedemption).where(
+                LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
+            )
+        )
+        if replay and replay.reward_id != reward_id:
+            raise AppError("IDEMPOTENCY_KEY_REUSED", "این کلید برای جایزهٔ دیگری استفاده شده است.", 409)
+        return replay
+
+    replay = await existing_redemption()
+    if replay:
+        return replay, False
     row = await get_program(session, store.id)
     if not row or not row.is_enabled:
         raise AppError("LOYALTY_DISABLED", "باشگاه مشتریان این فروشگاه فعال نیست.", 400)
-    key = (idempotency_key or uuid.uuid4().hex)[:100]
-    replay = await session.scalar(
-        select(LoyaltyRedemption).where(
-            LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
-        )
-    )
-    if replay:
-        if replay.reward_id != reward_id:
-            raise AppError("IDEMPOTENCY_KEY_REUSED", "این کلید برای جایزهٔ دیگری استفاده شده است.", 409)
-        return replay, False
     acc = await get_account(session, store.id, user.id, lock=True)
+    # A same-key request may have committed while this one waited for the account lock.
+    replay = await existing_redemption()
+    if replay:
+        return replay, False
     reward = await session.scalar(
         select(LoyaltyReward)
         .where(LoyaltyReward.id == reward_id, LoyaltyReward.store_id == store.id)
@@ -80,11 +89,7 @@ async def redeem(
             session.add(redemption)
             await session.flush()
     except IntegrityError:  # the same retry racing itself: the other request won, return its result
-        again = await session.scalar(
-            select(LoyaltyRedemption).where(
-                LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
-            )
-        )
+        again = await existing_redemption()
         if again:
             return again, False
         raise

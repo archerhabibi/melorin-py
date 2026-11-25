@@ -1,16 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listPendingOrders, submitOrder } from '../src/orderRequest.ts';
-import { withAttemptLock } from '../src/attemptLock.ts';
-
-// Browser tests exercise IndexedDB locking; these tests isolate request and UI behavior.
-vi.mock('../src/attemptLock.ts', () => ({ withAttemptLock: vi.fn(async (operation) => operation()) }));
+import * as attemptStorage from '../src/attemptLock.ts';
+import { deleteAttemptDatabase, resetAttemptStorage } from './attemptStorage.js';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const body = { product_id: 'p1', payment_method: 'wallet', kind: 'purchase', bundle_id: 'b1' };
 const input = (coreFetch, accountId = 'u1', order = body) => ({ coreFetch, storeId: 's1', accountId, body: order });
 const keys = (mock) => mock.mock.calls.map(([, options]) => options.headers['Idempotency-Key']);
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => resetAttemptStorage());
 afterEach(() => vi.restoreAllMocks());
 
 describe('durable order requests', () => {
@@ -106,7 +104,7 @@ describe('durable order requests', () => {
 
   it('does not send if cross-tab storage coordination is unavailable', async () => {
     const coreFetch = vi.fn();
-    withAttemptLock.mockRejectedValueOnce(new Error('blocked'));
+    vi.spyOn(attemptStorage, 'updateStoredAttempt').mockRejectedValueOnce(new Error('blocked'));
     await expect(submitOrder(input(coreFetch))).rejects.toThrow('درخواست ارسال نشد');
     expect(coreFetch).not.toHaveBeenCalled();
   });
@@ -119,5 +117,44 @@ describe('durable order requests', () => {
     });
     await expect(submitOrder(input(coreFetch))).rejects.toThrow('درخواست ارسال نشد');
     expect(coreFetch).not.toHaveBeenCalled();
+  });
+
+  it('migrates a legacy pending order and keeps using its original key', async () => {
+    const storageKey = 'melorin:order-attempt:s1:u1:' + encodeURIComponent(JSON.stringify(body));
+    const legacyKey = 'web-order-11111111-1111-4111-8111-111111111111';
+    localStorage.setItem(storageKey, legacyKey);
+    const coreFetch = vi.fn(async () => json({}, 503));
+    await submitOrder(input(coreFetch));
+    expect(keys(coreFetch)).toEqual([legacyKey]);
+    expect(await listPendingOrders('purchase', 's1', 'u1')).toEqual([{ body, key: legacyKey }]);
+
+    // Stale legacy data must never replace the authoritative IndexedDB value.
+    localStorage.setItem(storageKey, 'web-order-22222222-2222-4222-8222-222222222222');
+    await submitOrder(input(coreFetch));
+    expect(keys(coreFetch)[1]).toBe(legacyKey);
+  });
+
+  it('does not send a new order if its initialized IndexedDB was deleted', async () => {
+    const coreFetch = vi.fn(async () => json({}, 503));
+    await submitOrder(input(coreFetch));
+    await deleteAttemptDatabase();
+    await expect(submitOrder(input(coreFetch))).rejects.toThrow('درخواست ارسال نشد');
+    await expect(listPendingOrders('purchase', 's1', 'u1')).rejects.toThrow('attempt storage lost');
+    expect(coreFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('prevents an older tab from reopening the legacy database version', async () => {
+    await submitOrder(input(vi.fn(async () => json({}, 503))));
+    const oldVersion = new Promise((resolve, reject) => {
+      const request = indexedDB.open('melorin-attempt-lock', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await expect(oldVersion).rejects.toHaveProperty('name', 'VersionError');
+  });
+
+  it('does not hide a corrupted pending order from recovery', async () => {
+    localStorage.setItem('melorin:order-attempt:s1:u1:%broken', 'web-order-1111');
+    await expect(listPendingOrders('purchase', 's1', 'u1')).rejects.toThrow();
   });
 });

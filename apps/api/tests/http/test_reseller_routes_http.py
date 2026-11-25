@@ -189,6 +189,35 @@ async def test_manual_adjustment_key_cannot_be_reused_for_a_different_amount_or_
         assert other_wallet is None or other_wallet.balance == 0
 
 
+@pytest.mark.parametrize("amount", [1000, -1000])
+async def test_manual_adjustment_retry_survives_a_lowered_cap(amount):
+    from melorin.core import settings_store
+
+    async with api_client() as (c, maker, main):
+        w = await _world(c, maker, main)
+        cust = await _customer(maker, w.a, email="mine@example.com")
+        url = _panel(w.a, f"/customers/{cust.id}/wallet")
+        if amount < 0:
+            assert (await c.post(url, headers=w.h["a"], json=_adjust(1000, key="initial-credit"))).status_code == 200
+        request = _adjust(amount, key="adjustment-0001")
+        first = await c.post(url, headers=w.h["a"], json=request)
+        assert first.status_code == 200
+
+        async with maker() as s:
+            await settings_store.set_value(s, "reseller.manual_topup_max", 400)
+            await s.commit()
+
+        retry = await c.post(url, headers=w.h["a"], json=request)
+        assert retry.status_code == 200
+        assert retry.json()["transaction_id"] == first.json()["transaction_id"]
+        assert retry.json()["balance"] == first.json()["balance"]
+        conflict = await c.post(url, headers=w.h["a"], json=_adjust(amount + 1, key="adjustment-0001"))
+        assert (conflict.status_code, _err(conflict)) == (409, "IDEMPOTENCY_KEY_REUSE")
+        new = await c.post(url, headers=w.h["a"], json=_adjust(amount, key="adjustment-0002"))
+        assert (new.status_code, _err(new)) == (400, "BAD_AMOUNT")
+        assert (await _wallet(maker, cust.id, w.a.id)).balance == first.json()["balance"]
+
+
 async def test_manual_topup_validates_amount_cap_and_membership():
     async with api_client() as (c, maker, main):
         w = await _world(c, maker, main)
@@ -213,6 +242,7 @@ async def test_manual_topup_validates_amount_cap_and_membership():
             await s.commit()
         capped = await c.post(_panel(w.a, f"/customers/{mine.id}/wallet"), headers=w.h["a"], json=_adjust(1001))
         assert capped.status_code == 400 and _err(capped) == "BAD_AMOUNT"
+        assert await _wallet(maker, mine.id, w.a.id) is None
         assert (await c.post(_panel(w.a, f"/customers/{mine.id}/wallet"), headers=w.h["a"], json=_adjust(1000))).status_code == 200
 
 

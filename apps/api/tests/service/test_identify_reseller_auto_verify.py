@@ -136,13 +136,14 @@ async def test_another_applications_code_does_not_count():
 
 async def test_private_hosts_are_refused_without_a_request(monkeypatch):
     async def private(_):
-        return False
+        return None
 
-    monkeypatch.setattr(auto_verify, "host_is_public", private)
-    called = []
-    monkeypatch.setattr(httpx.AsyncClient, "get", lambda *a, **k: called.append(1))
+    def unexpected_client(*args, **kwargs):
+        pytest.fail("a refused endpoint must not receive a connection")
+
+    monkeypatch.setattr(auto_verify, "resolve_public_address", private)
+    monkeypatch.setattr(auto_verify, "outbound_client", unexpected_client)
     assert await auto_verify.check_http("evil.example.com", "v") is False
-    assert not called
 
 
 async def test_http_proof_body_is_capped_and_matched_exactly():

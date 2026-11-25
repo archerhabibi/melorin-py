@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { subscribeToAttemptChanges } from './attemptLock.ts';
 import { listPendingRewards } from './loyaltyAttempts.ts';
 import type { PendingReward } from './loyaltyAttempts.ts';
 
@@ -22,11 +23,9 @@ export function usePendingLoyalty(storeId?: string, accountId?: string) {
     };
   }, [storeId, accountId, scope, version]);
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key.startsWith('melorin:loyalty-redemption:')) refresh();
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    return subscribeToAttemptChanges((key) => {
+      if (key === null || key.startsWith('melorin:loyalty-redemption:')) refresh();
+    });
   }, [refresh]);
   const current = snapshot?.scope === scope ? snapshot : null;
   return {

@@ -291,6 +291,12 @@ async def attach_receipt(
     ``read_later`` queues the automatic reading of the picture (OCR/vision) for the worker; ``claim`` then holds only what the
     customer typed and is completed by ``ocr_job.run`` (V01 V-21). A replaced receipt discards the older reading.
     """
+    # Uploads may start before a reviewer or SMS settles the payment. Serialize the decision and re-read it
+    # before changing the receipt, so stale request state cannot reopen or overwrite a completed payment.
+    current = await session.get(Payment, payment.id, with_for_update=True, populate_existing=True)
+    if current is None:
+        raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+    payment = current
     if payment.provider != "manual_card" or payment.status not in (P.PENDING, P.AWAITING_REVIEW):
         raise AppError("INVALID_PAYMENT_STATE", "برای این پرداخت امکان ارسال رسید نیست.", 409)
     payment.receipt_file_id = file_id

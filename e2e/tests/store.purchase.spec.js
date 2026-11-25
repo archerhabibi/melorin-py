@@ -33,13 +33,13 @@ async function holdAttemptLock(page) {
   await page.evaluate(
     () =>
       new Promise((resolve, reject) => {
-        const open = indexedDB.open('melorin-attempt-lock', 1);
+        const open = indexedDB.open('melorin-attempt-lock', 2);
         open.onerror = () => reject(open.error);
-        open.onupgradeneeded = () => open.result.createObjectStore('locks');
+        open.onupgradeneeded = () => open.result.createObjectStore('attempts');
         open.onsuccess = () => {
           const db = open.result;
-          const tx = db.transaction('locks', 'readwrite');
-          const store = tx.objectStore('locks');
+          const tx = db.transaction('attempts', 'readwrite');
+          const store = tx.objectStore('attempts');
           let released = false;
           window.releaseAttemptTestLock = () => {
             released = true;
@@ -428,4 +428,136 @@ test('a lost purchase remains recoverable even when the new quote has insufficie
   await expect.poll(() => keys.length).toBe(2);
   expect(keys[1]).toBe(keys[0]);
   assertNoErrors();
+});
+
+test('wallet topups in overlapping tabs wait for coordination and share a key', async ({ page, context }) => {
+  const pages = [page, await context.newPage()];
+  const keys = [];
+  const releaseResponses = [];
+  for (const p of pages) {
+    await mockCore(p, signedIn({ 'GET /api/v1/stores/store-main/wallet/transactions': [] }));
+    await p.route('**/api/v1/stores/store-main/wallet/topups', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      keys.push(route.request().headers()['idempotency-key']);
+      await new Promise((resolve) => releaseResponses.push(resolve));
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+    });
+    await p.goto('/#/dashboard');
+    await p.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'کیف پول' }).click();
+    await p.getByPlaceholder('مبلغ').fill('1000');
+  }
+
+  // Hold the shared IndexedDB transaction until both tabs have attempted to acquire it.
+  await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open('melorin-attempt-lock', 2);
+        open.onerror = () => reject(open.error);
+        open.onupgradeneeded = () => open.result.createObjectStore('attempts');
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('attempts', 'readwrite');
+          const store = tx.objectStore('attempts');
+          let released = false;
+          window.releaseWalletTestLock = () => {
+            released = true;
+          };
+          const hold = () => {
+            if (!released) store.get('gate').onsuccess = hold;
+          };
+          store.get('gate').onsuccess = () => {
+            hold();
+            resolve();
+          };
+          tx.oncomplete = () => db.close();
+          tx.onabort = () => reject(tx.error);
+        };
+      }),
+  );
+  for (const p of pages) {
+    await p.evaluate(() => {
+      const original = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (...args) => {
+        window.walletLockRequested = true;
+        return original(...args);
+      };
+    });
+  }
+  await Promise.all(pages.map((p) => p.getByRole('button', { name: 'ایجاد درخواست' }).click()));
+  for (const p of pages) await expect.poll(() => p.evaluate(() => window.walletLockRequested)).toBe(true);
+  expect(keys).toHaveLength(0);
+  await page.evaluate(() => window.releaseWalletTestLock());
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[0]).toBe(keys[1]);
+  releaseResponses.forEach((release) => release());
+  const attempt = await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open('melorin-attempt-lock', 2);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('attempts', 'readonly');
+          const request = tx.objectStore('attempts').get('melorin:wallet-topup:store-main:u1');
+          request.onsuccess = () => resolve(JSON.parse(request.result));
+          request.onerror = () => reject(request.error);
+          tx.oncomplete = () => db.close();
+        };
+      }),
+  );
+  expect(attempt.idempotencyKey).toBe(keys[0]);
+});
+
+test('a legacy wallet key is migrated once and remains authoritative after reload', async ({ page }) => {
+  const legacyKey = 'topup-11111111-1111-4111-8111-111111111111';
+  const keys = [];
+  await page.addInitScript((key) => {
+    if (!localStorage.getItem('melorin:attempt-storage-initialized')) {
+      localStorage.setItem(
+        'melorin:wallet-topup:store-main:u1',
+        JSON.stringify({ amount: '1000', idempotencyKey: key, state: 'unknown' }),
+      );
+    }
+  }, legacyKey);
+  await mockCore(
+    page,
+    signedIn({
+      'GET /api/v1/stores/store-main/wallet/transactions': [],
+      'POST /api/v1/stores/store-main/wallet/topups': (req) => {
+        keys.push(req.headers()['idempotency-key']);
+        return { status: 503, body: { error: { message: 'نامعلوم' } } };
+      },
+    }),
+  );
+  await page.goto('/#/dashboard');
+  await page.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'کیف پول' }).click();
+  await page.getByPlaceholder('مبلغ').fill('1000');
+  await page.getByRole('button', { name: 'ایجاد درخواست' }).click();
+  await expect.poll(() => keys.length).toBe(1);
+  expect(keys[0]).toBe(legacyKey);
+  const oldVersionError = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const request = indexedDB.open('melorin-attempt-lock', 1);
+        request.onerror = () => resolve(request.error?.name);
+        request.onsuccess = () => {
+          request.result.close();
+          resolve(null);
+        };
+      }),
+  );
+  expect(oldVersionError).toBe('VersionError');
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'melorin:wallet-topup:store-main:u1',
+      JSON.stringify({ amount: '1000', idempotencyKey: 'topup-22222222-2222-4222-8222-222222222222' }),
+    );
+  });
+  await page.reload();
+  await page.getByRole('navigation', { name: 'بخش‌های حساب' }).getByRole('button', { name: 'کیف پول' }).click();
+  await page.getByPlaceholder('مبلغ').fill('1000');
+  await page.getByRole('button', { name: 'ایجاد درخواست' }).click();
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[1]).toBe(legacyKey);
 });
