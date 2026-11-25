@@ -69,11 +69,12 @@ async def _fail(
     message: str,
     *,
     account: VpnAccount | None = None,
+    hold_for_review: bool = False,
 ) -> str:
     """Handle a provisioning failure for *order*.
 
     - Retries remain  : mark PROCESSING, schedule a delayed re-enqueue.
-    - Retries exhausted: call _give_up() -> auto-refund + admin notify.
+    - Retries exhausted: auto-refund, or hold an uncertain paid bot renewal for review.
 
     Returns: 'retry_scheduled' | 'refunded' | 'refund_failed'
     """
@@ -96,6 +97,8 @@ async def _fail(
         await enqueue(session, order, delay=delay)
         return "retry_scheduled"
 
+    if hold_for_review:
+        return await _needs_review(session, order, message)
     return await _give_up(session, order, message)
 
 
@@ -231,6 +234,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     queued_template = int(((order.pricing_snapshot or {}).get("renewal_queue") or {}).get("template_id") or 0) if queued else 0
     if queued and queued_template <= 0:
         return await _needs_review(session, order, "تمدید پیش‌خرید بدون تمپلیت پنل ثبت شده است؛ بررسی دستی لازم است.")
+    paid_bot_renewal = bool(account and order.kind == "renewal" and not queued and getattr(adapter, "kind", None) == "upstream_bot")
     try:
         if account and queued:
             # PG-09 prepaid renewal: the NEXT package is queued on the panel; the current one keeps running untouched.
@@ -239,8 +243,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             expire = pa.expire_at
         elif account:
             # Renewal = the account becomes exactly what a new account of its package is (core rule: vpn.renewal):
-            # package time from now, package volume, usage back to zero. Absolute values, so a retry is harmless.
-            pa = await renewal.apply_to_panel(adapter, account, product, now=now)
+            # package time from now, package volume, usage back to zero. The order id also identifies paid-provider retries.
+            pa = await renewal.apply_to_panel(adapter, account, product, now=now, operation_id=str(order.id))
             expire = renewal.target(product, now=now).expires_at
         else:
             # Every account is created under the PasarGuard admin of ITS store (Main Store or the reseller), never the shared owner.
@@ -282,13 +286,23 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         if e.kind == ErrorKind.UNKNOWN:
             # A timeout does NOT mean the panel rejected the write. Read back
             # before giving up to avoid duplicating accounts on retry.
-            try:
-                remote = await adapter.get_account(account.username if account else username(order))
-            except PanelError:
-                remote = None
-            # For a renewal the account already exists on the panel, so "it exists" proves nothing: only a panel that
-            # already shows the renewed time/volume counts as success, otherwise the (idempotent) renewal is retried.
-            landed_ok = plans.queued_landed(remote, queued_template) if queued else (remote and renewal.landed(remote, product, now=now))
+            if paid_bot_renewal and account:
+                # A matching expiry can predate this order. Only provider evidence tied to this operation proves success.
+                reconcile = getattr(adapter, "reconcile_renewal", None)
+                try:
+                    remote = await reconcile(account.username, str(order.id)) if callable(reconcile) else None
+                except PanelError:
+                    remote = None
+                landed_ok = bool(remote)
+            else:
+                try:
+                    remote = await adapter.get_account(account.username if account else username(order))
+                except PanelError:
+                    remote = None
+                # For other renewal panels, a matching time and volume can settle a timed-out absolute update.
+                landed_ok = bool(
+                    plans.queued_landed(remote, queued_template) if queued else (remote and renewal.landed(remote, product, now=now))
+                )
             if remote and (order.kind != "renewal" or landed_ok):
                 # The panel actually succeeded despite the timeout - reconcile.
                 if account is None:
@@ -331,16 +345,14 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                 )
                 await session.commit()
                 return "completed_after_reconcile"
-        # Both TRANSIENT and unreconciled UNKNOWN errors feed the same
-        # retry/give-up logic. _fail() schedules the next attempt or
-        # triggers an immediate auto-refund when retries are exhausted.
-        # Admin is only notified, never asked to intervene manually.
-        return await _fail(session, order, e.message, account=account)
+        # Paid bot renewals can have an unknown external charge even when a later attempt is transient.
+        # Exhausted retries go to review rather than refunding an operation that may still land.
+        return await _fail(session, order, e.message, account=account, hold_for_review=paid_bot_renewal)
     except Exception as e:
         log.warning("provisioning failed unexpectedly order=%s", order.id, exc_info=True)
         attempt.status = "failed"
         attempt.error_kind, attempt.error, attempt.finished_at = ErrorKind.UNKNOWN, str(e), utcnow()
-        return await _fail(session, order, str(e), account=account)
+        return await _fail(session, order, str(e), account=account, hold_for_review=paid_bot_renewal)
 
     account.server_id, account.panel_id, account.panel_ref = server.id, panel.id, pa.ref
     if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:

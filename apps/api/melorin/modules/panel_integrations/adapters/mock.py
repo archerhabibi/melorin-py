@@ -51,7 +51,9 @@ class MockPanelAdapter:
         if username in _STATE:
             _STATE[username].status = "active"
 
-    async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
+    async def extend_account(
+        self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int, operation_id: str | None = None
+    ) -> PanelAccount:
         acc = _STATE.get(username) or await self.create_account(AccountSpec(username, expire_at, traffic_bytes))
         acc.expire_at, acc.traffic_limit_bytes, acc.status = expire_at, traffic_bytes, "active"
         return acc

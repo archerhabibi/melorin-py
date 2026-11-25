@@ -29,6 +29,7 @@ class ScriptedPanel:
         self.remote = remote
         self.created: list[AccountSpec] = []
         self.extended: list[tuple] = []
+        self.operation_ids: list[str | None] = []
 
     def _next(self):
         step = self.script.pop(0) if self.script else None
@@ -52,7 +53,8 @@ class ScriptedPanel:
         self.created.append(spec)
         return self._account(spec.username, spec.expire_at, spec.traffic_bytes)
 
-    async def extend_account(self, username, *, expire_at, traffic_bytes):
+    async def extend_account(self, username, *, expire_at, traffic_bytes, operation_id=None):
+        self.operation_ids.append(operation_id)
         self._next()
         self.extended.append((username, expire_at, traffic_bytes))
         return self._account(username, expire_at, traffic_bytes)
@@ -298,6 +300,7 @@ async def test_renewal_restarts_the_existing_account_on_its_own_panel_with_the_p
         assert result == "completed", renewal.last_error
         username, expire, traffic = panel.extended[-1]
         assert username == acc.username and traffic == w["product"].traffic_gb * 1024**3
+        assert panel.operation_ids[-1] == str(renewal.id)
         expected = dt.datetime.now(dt.UTC) + dt.timedelta(days=w["product"].duration_days)  # from now, not old expiry + package
         assert abs(expire - expected) < dt.timedelta(minutes=2)
         attempt = (await s.scalars(select(ProvisioningAttempt).order_by(ProvisioningAttempt.created_at))).all()[-1]
@@ -337,3 +340,43 @@ async def test_renewal_of_an_account_whose_panel_vanished_stops_for_review_inste
         assert await vpn.provision_order(s, renewal.id) == "needs_review"
         assert renewal.status == "provisioning_failed" and renewal.needs_review is True
         assert panel.extended == []
+
+
+@pytest.mark.parametrize("confirmed,final_transient", [(False, False), (False, True), (True, False)])
+async def test_paid_renewal_reconciles_only_the_same_operation_and_holds_uncertain_refunds(panel_factory, confirmed, final_transient):
+    class PaidPanel(ScriptedPanel):
+        kind = "upstream_bot"
+
+        def __init__(self, remote):
+            last = ErrorKind.TRANSIENT if final_transient else ErrorKind.UNKNOWN
+            super().__init__(
+                [PanelError(ErrorKind.UNKNOWN, "confirmation timed out")] * 3 + [PanelError(last, "later failure")], remote=remote
+            )
+            self.reconciled_ids = []
+
+        async def reconcile_renewal(self, username, operation_id):
+            self.reconciled_ids.append(operation_id)
+            return self.remote if confirmed else None
+
+    async with open_session() as s:
+        w = await _world(s)
+        initial = panel_factory(ScriptedPanel())
+        await vpn.provision_order(s, w["order"].id)
+        acc = await s.get(VpnAccount, w["order"].vpn_account_id)
+        remote = initial._account(
+            acc.username, dt.datetime.now(dt.UTC) + dt.timedelta(days=w["product"].duration_days), w["product"].traffic_gb * 1024**3
+        )
+        panel = panel_factory(PaidPanel(remote))
+        order = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RECON1")
+        order.kind, order.vpn_account_id = "renewal", acc.id
+        await s.commit()
+        if confirmed:
+            assert await vpn.provision_order(s, order.id) == "completed_after_reconcile"
+            assert order.status == "completed"
+        else:
+            results = [await vpn.provision_order(s, order.id) for _ in range(4)]
+            assert results == ["retry_scheduled", "retry_scheduled", "retry_scheduled", "needs_review"]
+            assert order.status == "provisioning_failed" and order.needs_review
+        expected_reconciles = 1 if confirmed else 3 if final_transient else 4
+        assert panel.reconciled_ids == [str(order.id)] * expected_reconciles
+        assert panel.operation_ids == [str(order.id)] * (1 if confirmed else 4)

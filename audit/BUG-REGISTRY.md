@@ -39,6 +39,8 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | INT-008 | High | Upstream-bot chat locks can be bypassed, leaked or delete another owner | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-009 | High | Upstream-bot purchases can proceed after shared state fails or is unreadable | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-010 | High | An expired upstream-bot chat lease can allow overlapping paid flows | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| INT-011 | High | Retried upstream-bot renewals can be charged twice or falsely reconciled | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| INT-012 | High | A stale chat owner can overwrite or delete its successor's purchase state | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-003 | High | Wallet topup retry state is shared between accounts using the same store and browser | AI-05 | Fixed | audit/reports/frontend/REPORT.md |

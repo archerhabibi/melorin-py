@@ -267,7 +267,7 @@ async def test_renew_can_be_switched_off():
     assert a.capabilities().extend is False and a.capabilities().suspend is False
     await a.create_account(spec())
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.PERMANENT and "not enabled" in e.value.message and bot.renew_confirms == 0
     assert make(bot).capabilities().extend is True  # verified flow: on by default
 
@@ -389,7 +389,9 @@ async def test_renew_flow_pays_once_and_reads_the_new_expiry():
     bot = FakeParentBot()
     a = make(bot)
     await a.create_account(spec())
-    pa = await a.extend_account("Mel_10G1", expire_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30), traffic_bytes=10 * GB)
+    pa = await a.extend_account(
+        "Mel_10G1", expire_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30), traffic_bytes=10 * GB, operation_id="order-1"
+    )
     assert bot.renewals == 1 and bot.balance == 385000
     assert pa.expire_at == parsing.parse_jalali("1405/09/11 04:34") and pa.traffic_limit_bytes == 10 * GB and pa.traffic_used_bytes == 0
     d = await a.store.get("Mel_10G1")
@@ -400,7 +402,7 @@ async def test_renew_accepts_the_zero_amount_the_real_bot_prints():
     bot = FakeParentBot(renew_shown=0)
     a = make(bot)
     await a.create_account(spec())
-    await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+    await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert bot.renewals == 1
 
 
@@ -409,7 +411,7 @@ async def test_renew_refuses_a_different_amount_on_the_confirm_screen():
     a = make(bot)
     await a.create_account(spec())
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.PERMANENT and "cancelled" in e.value.message and bot.renew_confirms == 0
 
 
@@ -419,11 +421,11 @@ async def test_renew_price_cap_and_low_wallet_stop_before_confirm():
     await a.create_account(spec())
     bot.renew_price = 120000
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.PERMANENT and "max_price" in e.value.message and bot.renew_confirms == 0
     bot.renew_price, bot.balance = 60000, 50000
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.PERMANENT and "top it up" in e.value.message and bot.renew_confirms == 0
 
 
@@ -432,7 +434,7 @@ async def test_renew_other_volume_is_manual_and_pays_nothing():
     a = make(bot)
     await a.create_account(spec())
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=20 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=20 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.PERMANENT and "manual" in e.value.message and bot.renew_confirms == 0
 
 
@@ -441,7 +443,7 @@ async def test_renew_stale_buttons_is_transient():
     a = make(bot)
     await a.create_account(spec())
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.TRANSIENT and bot.renew_confirms == 0
 
 
@@ -450,9 +452,11 @@ async def test_renew_without_ack_is_unknown_and_a_retry_never_pays_twice():
     a = make(bot)
     await a.create_account(spec())
     with pytest.raises(PanelError) as e:
-        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
     assert e.value.kind == ErrorKind.UNKNOWN and bot.renewals == 1
-    pa = await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)  # outbox retry: the account screen shows it landed
+    pa = await a.extend_account(
+        "Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1"
+    )  # outbox retry: the account screen shows it landed
     assert bot.renewals == 1 and bot.renew_confirms == 1 and pa.expire_at == parsing.parse_jalali("1405/09/11 04:34")
 
 
@@ -462,22 +466,26 @@ async def test_renew_confirmed_but_not_applied_blocks_a_second_payment_inside_th
     await a.create_account(spec())
     for _ in range(2):
         with pytest.raises(PanelError) as e:
-            await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+            await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
         assert e.value.kind == ErrorKind.UNKNOWN
     assert bot.renew_confirms == 1  # second attempt did not confirm again
     d = await a.store.get("Mel_10G1")
-    d["renew_started"] = time.time() - 3600  # window over, nothing changed upstream: the earlier confirm never took effect
-    await a.store.set("Mel_10G1", d)
+    d["renew_started"] = time.time() - 3600  # elapsed time does not prove that a delayed confirmation failed
+    async with a._lock() as lease:
+        await a.store.set("Mel_10G1", d, lease=lease)
     bot.renew_applies = True
-    await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
-    assert bot.renewals == 1 and bot.renew_confirms == 2
+    with pytest.raises(PanelError) as e:
+        await a.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
+    assert e.value.kind == ErrorKind.UNKNOWN and bot.renewals == 0 and bot.renew_confirms == 1
 
 
 async def test_renewed_usage_is_zero_so_core_needs_no_second_extend_call():
     bot = FakeParentBot()
     a = make(bot)
     await a.create_account(spec())
-    pa = await a.extend_account("Mel_10G1", expire_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30), traffic_bytes=10 * GB)
+    pa = await a.extend_account(
+        "Mel_10G1", expire_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30), traffic_bytes=10 * GB, operation_id="order-1"
+    )
     assert pa.traffic_used_bytes == 0  # usage is back to zero, so Core's "raise the limit by what was used" fallback never fires
 
 
@@ -579,7 +587,9 @@ async def test_failed_pending_write_never_confirms_purchase(monkeypatch):
                 return True
             raise ConnectionError("cannot persist pending purchase")
 
-        async def eval(self, *args):
+        async def eval(self, script, count, *args):
+            if count == 2:
+                raise ConnectionError("cannot persist pending purchase")
             return 1
 
     monkeypatch.setattr(state, "_redis", lambda: FailingStateRedis())
@@ -623,7 +633,17 @@ async def test_lost_lease_does_not_confirm_a_paid_action(monkeypatch, operation)
                 self.steal_on = None
             return True
 
-        async def eval(self, script, count, key, token, *args):
+        async def eval(self, script, count, *args):
+            if count == 2:
+                key, account_key, token, *values = args
+                if self.values.get(key) != token:
+                    return 0
+                if values:
+                    await self.set(account_key, values[0])
+                else:
+                    self.values.pop(account_key, None)
+                return 1
+            key, token, *args = args
             if self.values.get(key) != token:
                 return 0
             if not args:
@@ -641,7 +661,7 @@ async def test_lost_lease_does_not_confirm_a_paid_action(monkeypatch, operation)
         if operation == "buy":
             await adapter.create_account(spec())
         elif operation == "renew":
-            await adapter.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+            await adapter.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
         else:
             await adapter.revoke_account("Mel_10G1")
     assert exc.value.kind == ErrorKind.UNKNOWN
@@ -666,7 +686,17 @@ async def test_lost_lease_before_pending_write_preserves_new_owner_state(monkeyp
             self.values[key] = value
             return True
 
-        async def eval(self, script, count, key, token, *args):
+        async def eval(self, script, count, *args):
+            if count == 2:
+                key, account_key, token, *values = args
+                if self.values.get(key) != token:
+                    return 0
+                if values:
+                    self.values[account_key] = values[0]
+                else:
+                    self.values.pop(account_key, None)
+                return 1
+            key, token, *args = args
             if self.values.get(key) != token:
                 return 0
             if not args:
@@ -705,7 +735,7 @@ async def test_lost_lease_before_pending_write_preserves_new_owner_state(monkeyp
         if operation == "buy":
             await adapter.create_account(spec())
         elif operation == "renew":
-            await adapter.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB)
+            await adapter.extend_account("Mel_10G1", expire_at=None, traffic_bytes=10 * GB, operation_id="order-1")
         else:
             await adapter.revoke_account("Mel_10G1")
     assert exc.value.kind == ErrorKind.UNKNOWN
@@ -713,3 +743,246 @@ async def test_lost_lease_before_pending_write_preserves_new_owner_state(monkeyp
     assert json.loads(redis.values[account_key]) == {"status": "active", "ref": "new-owner"}
     assert bot.purchases == (0 if operation == "buy" else 1)
     assert bot.renew_confirms == 0 and bot.refunds == 0
+
+
+async def test_replaced_owner_between_lease_check_and_write_keeps_its_state(monkeypatch):
+    import json
+
+    class RedisRace:
+        def __init__(self):
+            self.values = {}
+            self.replace_on_write = True
+
+        def replace_owner(self, lock_key, account_key):
+            if self.replace_on_write:
+                self.values[lock_key] = "replacement-owner"
+                self.values[account_key] = json.dumps({"status": "active", "ref": "new-owner"})
+                self.replace_on_write = False
+
+        async def get(self, key):
+            return self.values.get(key)
+
+        async def set(self, key, value, **kwargs):
+            if kwargs.get("nx") and key in self.values:
+                return False
+            if ":acc:" in key:
+                self.replace_owner(key.split(":acc:")[0] + ":lock", key)
+            self.values[key] = value
+            return True
+
+        async def eval(self, script, key_count, *args):
+            if key_count == 2:
+                lock_key, account_key, token, *values = args
+                self.replace_owner(lock_key, account_key)
+                if self.values.get(lock_key) != token:
+                    return 0
+                if values:
+                    self.values[account_key] = values[0]
+                else:
+                    self.values.pop(account_key, None)
+                return 1
+            key, token, *values = args
+            if self.values.get(key) != token:
+                return 0
+            if not values:
+                self.values.pop(key, None)
+            return 1
+
+    redis = RedisRace()
+    monkeypatch.setattr(state, "_redis", lambda: redis)
+    bot = FakeParentBot()
+    with pytest.raises(PanelError) as exc:
+        await make(bot).create_account(spec())
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    account_key = next(key for key in redis.values if key.endswith(":acc:Mel_10G1"))
+    assert json.loads(redis.values[account_key]) == {"status": "active", "ref": "new-owner"}
+    assert bot.purchases == 0
+
+
+async def test_repeated_renewal_with_same_operation_does_not_pay_twice():
+    bot = FakeParentBot()
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert bot.renew_confirms == 1
+
+
+async def test_concurrent_renewal_with_same_operation_does_not_pay_twice(monkeypatch):
+    bot = FakeParentBot()
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    original_get = adapter.store.get
+    ready = asyncio.Event()
+    readers = 0
+
+    async def simultaneous_get(username):
+        nonlocal readers
+        value = await original_get(username)
+        if readers < 2:
+            readers += 1
+            if readers == 2:
+                ready.set()
+            await asyncio.wait_for(ready.wait(), timeout=2)
+        return value
+
+    monkeypatch.setattr(adapter.store, "get", simultaneous_get)
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    await asyncio.gather(
+        adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1"),
+        adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1"),
+    )
+    assert bot.renew_confirms == 1
+
+
+async def test_renewal_operation_id_survives_target_drift_and_later_operations():
+    bot = FakeParentBot()
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    await adapter.extend_account("Mel_10G1", expire_at=target + dt.timedelta(minutes=10), traffic_bytes=10 * GB, operation_id="order-1")
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-2")
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert bot.renew_confirms == 2
+
+
+async def test_renewal_operation_id_cannot_be_reused_for_a_different_volume():
+    bot = FakeParentBot()
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=20 * GB, operation_id="order-1")
+    assert exc.value.kind == ErrorKind.PERMANENT
+    assert bot.renew_confirms == 1
+
+
+async def test_different_renewal_does_not_acknowledge_an_older_pending_operation():
+    bot = FakeParentBot(renew_ack=False)
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert exc.value.kind == ErrorKind.UNKNOWN and bot.renew_confirms == 1
+    bot.renew_ack = True
+    await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-2")
+    assert bot.renew_confirms == 2
+
+
+@pytest.mark.parametrize("operation", ["read", "refund"])
+async def test_waiting_flow_rechecks_account_state_under_the_chat_lock(monkeypatch, operation):
+    bot = FakeParentBot()
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    original_get = adapter.store.get
+    loaded = asyncio.Event()
+
+    async def observed_get(username):
+        result = await original_get(username)
+        loaded.set()
+        return result
+
+    monkeypatch.setattr(adapter.store, "get", observed_get)
+    async with adapter._lock() as lease:
+        pending = asyncio.create_task(adapter.get_account("Mel_10G1") if operation == "read" else adapter.revoke_account("Mel_10G1"))
+        await asyncio.wait_for(loaded.wait(), timeout=2)
+        current = await original_get("Mel_10G1")
+        if operation == "read":
+            current["renew_completed"] = {"op:order-1": 10 * GB}
+        else:
+            current.update(status="revoked", upstream_refunded=True)
+        await adapter.store.set("Mel_10G1", current, lease=lease)
+    await pending
+    current = await original_get("Mel_10G1")
+    if operation == "read":
+        assert current["renew_completed"] == {"op:order-1": 10 * GB}
+    else:
+        assert current["status"] == "revoked" and bot.refunds == 0
+
+
+@pytest.mark.parametrize("expire_at", [None, dt.datetime(2026, 12, 25, tzinfo=dt.UTC)])
+async def test_paid_renewal_requires_a_stable_operation_id(expire_at):
+    bot = FakeParentBot()
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=expire_at, traffic_bytes=10 * GB)
+    assert exc.value.kind == ErrorKind.PERMANENT
+    assert bot.renew_confirms == 0
+
+
+async def test_unobserved_renewal_is_never_reconfirmed_after_the_wait_window():
+    bot = FakeParentBot(renew_applies=False)
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert exc.value.kind == ErrorKind.UNKNOWN and bot.renew_confirms == 1
+    pending = await adapter.store.get("Mel_10G1")
+    pending["renew_started"] = time.time() - 3600
+    async with adapter._lock() as lease:
+        await adapter.store.set("Mel_10G1", pending, lease=lease)
+    bot.renew_applies = True
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert exc.value.kind == ErrorKind.UNKNOWN and bot.renew_confirms == 1
+    assert (await adapter.store.get("Mel_10G1"))["renew_operation_key"] == "op:order-1"
+    bot.renewed["eg1_1068"] = ("1405/08/11 04:34", "1405/09/11 04:34")
+    pa = await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert pa.expire_at == parsing.parse_jalali("1405/09/11 04:34") and bot.renew_confirms == 1
+
+
+async def test_reconciliation_requires_evidence_for_the_same_renewal_operation():
+    bot = FakeParentBot(renew_ack=False)
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    assert await adapter.reconcile_renewal("Mel_10G1", "order-2") is None
+    recovered = await adapter.reconcile_renewal("Mel_10G1", "order-1")
+    assert recovered is not None and recovered.expire_at == parsing.parse_jalali("1405/09/11 04:34")
+    assert await adapter.reconcile_renewal("Mel_10G1", "order-1") is not None
+    assert bot.renew_confirms == 1
+
+
+async def test_unresolved_renewal_blocks_a_refund_until_reconciled():
+    bot = FakeParentBot(renew_ack=False, renew_applies=False)
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    with pytest.raises(PanelError) as exc:
+        await adapter.revoke_account("Mel_10G1")
+    assert exc.value.kind == ErrorKind.UNKNOWN and bot.refunds == 0
+    bot.renewed["eg1_1068"] = ("1405/08/11 04:34", "1405/09/11 04:34")
+    assert await adapter.reconcile_renewal("Mel_10G1", "order-1") is not None
+    await adapter.revoke_account("Mel_10G1")
+    assert bot.refunds == 1
+
+
+async def test_incomplete_pending_renewal_identity_cannot_be_settled_or_repaid():
+    bot = FakeParentBot(renew_ack=False)
+    adapter = make(bot)
+    await adapter.create_account(spec())
+    target = dt.datetime(2026, 12, 25, tzinfo=dt.UTC)
+    with pytest.raises(PanelError):
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-1")
+    pending = await adapter.store.get("Mel_10G1")
+    pending.pop("renew_operation_traffic")
+    async with adapter._lock() as lease:
+        await adapter.store.set("Mel_10G1", pending, lease=lease)
+    with pytest.raises(PanelError) as exc:
+        await adapter.reconcile_renewal("Mel_10G1", "order-1")
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    with pytest.raises(PanelError) as exc:
+        await adapter.extend_account("Mel_10G1", expire_at=target, traffic_bytes=10 * GB, operation_id="order-2")
+    assert exc.value.kind == ErrorKind.UNKNOWN and bot.renew_confirms == 1

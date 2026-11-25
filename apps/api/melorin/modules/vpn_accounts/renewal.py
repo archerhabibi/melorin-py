@@ -119,13 +119,16 @@ def describe(account, product, *, now: dt.datetime | None = None) -> dict:
     }
 
 
-async def apply_to_panel(adapter, account, product, *, now: dt.datetime | None = None):
+async def apply_to_panel(adapter, account, product, *, now: dt.datetime | None = None, operation_id: str | None = None):
     """Make the panel account equal to the package: new expiry, package volume, usage back to zero.
 
-    Safe to repeat (absolute values only). Returns the panel's view of the account afterwards.
+    A stable operation id identifies paid provider renewals across retries. Returns the panel's account afterwards.
     """
     t = target(product, now=now)
-    pa = await adapter.extend_account(account.username, expire_at=t.expires_at, traffic_bytes=t.traffic_bytes)
+    operation = {"operation_id": operation_id} if operation_id is not None else {}
+    pa = await adapter.extend_account(account.username, expire_at=t.expires_at, traffic_bytes=t.traffic_bytes, **operation)
+    if getattr(adapter, "kind", None) == "upstream_bot":
+        return pa  # This provider already resets usage; another extend would buy another renewal.
     used = int(getattr(pa, "traffic_used_bytes", 0) or 0)
     if used:
         reset = getattr(adapter, "reset_traffic", None)
@@ -133,7 +136,7 @@ async def apply_to_panel(adapter, account, product, *, now: dt.datetime | None =
             pa = await reset(account.username)
         elif t.traffic_bytes:
             # Panel cannot reset usage: raise the limit by what was already used, so the customer still gets the full package.
-            pa = await adapter.extend_account(account.username, expire_at=t.expires_at, traffic_bytes=used + t.traffic_bytes)
+            pa = await adapter.extend_account(account.username, expire_at=t.expires_at, traffic_bytes=used + t.traffic_bytes, **operation)
     return pa
 
 
