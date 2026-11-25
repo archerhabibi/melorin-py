@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: DB-001..DB-006 fixed, including the receipt-upload race. Same-key order and bank-SMS concurrency have PostgreSQL regression coverage; broader ledger reconciliation and CHECK constraints remain to review.
+- Status: DB-001..DB-007 fixed, including the receipt-upload and consolidation/refund races. Broader ledger reconciliation and CHECK constraints remain to review.
 - Base: stacked on `audit/02-security` (`2ab7d15`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -77,6 +77,16 @@
 - Regression: PostgreSQL cases cover approval and rejection from pending or awaiting-review state and an upload waiting on a concurrent payment lock.
 - Dependencies: AI-08 PostgreSQL concurrency coverage; no API or schema change.
 
+### DB-007 — Reversals credit or debit a retired wallet after consolidation
+- Severity: High. Status: Fixed. Base: PR #196 at `700f42003e284e7cfd6940bf060833defaca7b0a`.
+- File / symbol: `modules/wallet/service.py: reverse`; callers include order refunds and payment reversals.
+- Evidence: after a wallet with 300 units was consolidated, reversing a 200-unit purchase credited the retired wallet instead of the active wallet. The same failure occurred on SQLite and PostgreSQL, including when the refund waited for a concurrent consolidation.
+- Impact: refunds can become inaccessible and payment reversals can leave a hidden balance in a retired wallet.
+- Root cause: the reversal reused the historical ledger entry wallet without checking its current consolidation destination after acquiring locks.
+- Fix: follow and validate the destination chain, lock current wallets in the standard order and retry if consolidation changes a destination while waiting. Invalid, cyclic, cross-person, cross-store and cross-currency routes fail closed. Reversal amounts remain balanced and history is unchanged.
+- Regression: real account-consolidation tests cover credit and debit reversals, repeated reversals and invalid routes; a PostgreSQL test forces consolidation to complete while a refund is waiting for the wallet lock. No schema migration.
+- Compatibility: a reversal entry can name the current wallet instead of the historical retired wallet. Existing balances stranded by earlier reversals are not automatically repaired.
+
 ### Checked and not a defect
 - Money columns are `BigInteger`; no float arithmetic in `domain/{ledger,commission,pricing}.py` (`debt.state` uses a float ratio for a display state only).
 - Every write to `Wallet.balance` goes through `wallet.post`, which locks wallets in a fixed order and applies the lowest-allowed-balance rule.
@@ -89,6 +99,7 @@
 - Tests: `tests/service/test_wallet_reversal_once.py`, `tests/contracts/test_db_guards_contract.py`, additions to `tests/postgres/test_postgres_concurrency.py` and `tests/postgres/test_migration_baseline.py`.
 - DB-004/DB-005: `modules/payments/bank_sms/{matching,review}.py`, HTTP regressions in `test_bank_sms_auto_verify.py` and `test_receipt_grace.py`, and `tests/postgres/test_bank_sms_concurrency.py`.
 - DB-006: `modules/payments/service.py` and `tests/postgres/test_receipt_payment_race.py`.
+- DB-007: `modules/wallet/service.py`, account-linking service tests and PostgreSQL consolidation/refund concurrency coverage.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -107,12 +118,15 @@
 | DB-006 PostgreSQL regression on fix | PASS | 5 passed on PostgreSQL |
 | DB-006 `make lint` | PASS | import contracts, Ruff and format |
 | DB-006 `make test` | PASS | 2,985 passed, 54 skipped; five PostgreSQL race tests passed separately |
+| DB-007 service, HTTP and PostgreSQL regressions | PASS | 44 SQLite cases and 13 PostgreSQL cases passed; the new sequential and concurrent cases failed on the parent |
+| DB-007 `make lint` and mypy | PASS | 8 import contracts; 391 files type-checked |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
 - The reversal rule is enforced per ledger transaction; it does not decide whether a payment may be refunded after a provisional revoke (status checks in `modules/payments` remain the policy).
 - Triggers are created by the migration only; the SQLite and `create_all` test schemas do not have them (same as `account_link_audits`).
 - Matching makes a decision from receipts committed when it reads candidates; a receipt submitted later requires its own proof or human review.
+- Balances stranded by reversals written before DB-007 require separate reconciliation; this change protects future reversals.
 
 ## 8. Needs a human decision
 - DB-003 changes `wallet.reverse` semantics: a second reversal of the same transaction now returns the first one instead of posting. Confirm that no flow needs two reversals of one transaction (none found).

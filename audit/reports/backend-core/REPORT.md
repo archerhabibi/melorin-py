@@ -159,6 +159,7 @@
 | BE-009 full make test | PASS | 2,957 passed, 46 skipped on the PR #183 code tree |
 | BE-010 / BE-011 focused regressions | PASS | 65 service/HTTP tests and 5 PostgreSQL race scenarios passed; 2 service and 2 PostgreSQL regressions failed on the parent; make lint and mypy passed |
 | BE-012 focused HTTP and PostgreSQL | PASS | 8 related HTTP cases and 3 PostgreSQL concurrency cases passed; both retry cases failed on the parent |
+| BE-012 `make test` | PASS | 3,014 passed, 55 skipped in the default lane; three relevant PostgreSQL cases ran separately |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.

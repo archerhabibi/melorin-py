@@ -40,4 +40,5 @@ rm -f "$T/backups/$new" "$T/backups/$new.sha256"
 set +e; out="$(drill MELORIN_RPO_HOURS=24)"; rc=$?; set -e
 [ "$rc" = 1 ] && grep -q "RPO" <<<"$out" || fail "stale backup ($old) not flagged (rc=$rc): $out"
 echo "ok  3 stale backup violates RPO"
+bash "$SRC/scripts/test_backup_restore_drill.sh"
 echo "restore drill tests passed"

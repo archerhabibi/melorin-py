@@ -28,6 +28,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | DB-004 | High | Bank SMS matching can choose a receipt without comparing open provisional credits and all eligible pending receipts | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-005 | High | A stale bank SMS matcher can reopen a linked message or override a human ignore decision | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | DB-006 | High | A stale receipt upload can overwrite a completed payment decision | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
+| DB-007 | High | Reversals after account consolidation post to an inaccessible retired wallet | AI-03 | Fixed | audit/reports/database-finance/REPORT.md |
 | INT-001 | Medium | SMTP over TLS (`ssl` and `starttls`) accepts any certificate and any host name: `smtplib` falls back to an unverified context | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-002 | Medium | Outgoing webhook delivery buffers the receiver's whole response and bounds only each read: a tenant-controlled endpoint can exhaust worker memory or hold its delivery slots | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-003 | Medium | OCR endpoint validation did not bind the checked address to the connection | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
@@ -47,6 +48,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | FE-008 | High | Loyalty reward retries can spend points twice after an ambiguous response or reload | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
+| OPS-002 | High | A failed or overlapping restore drill can delete another database or overwrite its dump | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-003 | Medium | Order idempotency concurrency contract is always skipped | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
