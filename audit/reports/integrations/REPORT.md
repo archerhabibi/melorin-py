@@ -3,12 +3,12 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-010 fixed, including receipt cleanup, OCR cancellation, upstream-bot purchase retries, lock handling, shared-state failures and lease expiry. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-011 fixed, including upstream-bot renewal retries; the full backend suite passed with skips. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
 - `core/{email,storage,http}.py`, `modules/payments/adapters/{zarinpal,manual_card,base,registry}.py`, `modules/payments/bank_sms/{authentication,ingestion}.py`, `modules/payments/receipt_ocr.py`, `modules/webhooks/service.py`, `domain/{webhook,netpolicy}.py`.
-- Not reviewed yet: `modules/panel_integrations/**` (sanaei, pasarguard, upstream_bot), `bank_sms/{matching,review,reconciliation}`, `domain/bank_sms.py`.
+- Beyond the individual findings, the remaining panel adapter paths and bank-SMS matching, review and reconciliation still need review.
 - Out of scope: payment ledger and refund state (AI-03), worker scheduling (AI-06), secrets handling in CI (AI-07).
 
 ## 3. Method
@@ -117,6 +117,15 @@
 - Compatibility: a lost or unverifiable lease now fails closed with an unknown outcome. No API or schema change.
 - Residual risk: the ownership check and a following state write are not atomic, and a Telegram click already sent cannot be fenced during a network partition. Redis durability and explicit reconciliation of unknown outcomes remain necessary.
 
+### INT-011 — Renewal retries can pay twice or falsely report success
+- Severity: High. Status: Fixed. Base: PR #200.
+- Evidence: concurrent and repeated renewals confirmed the upstream purchase twice; an unanswered confirmation could be repeated after a timeout without proof of failure. A pre-existing matching expiry could also be mistaken for the outcome of a new order.
+- Impact: duplicate upstream charges, a falsely completed order, or an automatic refund even though a delayed upstream charge may still land. A refund could also race a pending renewal.
+- Fix: pass the order id to the adapter, serialize and retain completed renewal ids, require identifiable pending state, and reconcile only evidence tied to the same order. Unresolved confirmations do not expire into a second payment; exhausted upstream-bot renewal retries are held for review. Pending renewals block upstream refunds.
+- Compatibility: upstream-bot paid renewals require a stable operation id. Generic adjustments, bulk changes and rollback calls without one are refused rather than treated as paid renewals; legacy unidentified pending renewals require manual reconciliation. The former settle-window setting no longer authorizes retrying an unconfirmed charge.
+- Verification: 115 focused adapter, lock, provisioning and renewal tests passed; nine new cases failed before their fixes. No live Telegram peer was contacted.
+- Residual risk: operation history is stored in Redis and can be lost; writes are not atomically fenced against lease loss. An upstream screen change can also have an external cause, so without provider-side idempotency and durable reconciliation exactly-once charges are not guaranteed.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -135,6 +144,8 @@
 - `modules/panel_integrations/adapters/upstream_bot/adapter.py` and adapter tests (INT-007).
 - `modules/panel_integrations/adapters/upstream_bot/state.py` and lock tests (INT-008).
 - `modules/panel_integrations/adapters/upstream_bot/state.py` and shared-state tests (INT-009).
+
+- Upstream-bot adapter, renewal orchestration and adapter/service regressions (INT-011).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -171,10 +182,13 @@
 | INT-009 lock, state and fake-provider tests | PASS | 48 passed; 8 failure cases reproduced before the fix |
 | INT-009 real Redis state checks | PASS | cross-client read, corrupted mapping and offline write |
 | INT-009 full suite | QUEUED | follows INT-008 full run |
+| INT-010 full suite | PASS | 3,034 passed, 56 skipped |
+| INT-011 focused adapter, lock and service tests | PASS | 115 passed; nine added cases failed before the corresponding fixes |
+| INT-011 full suite | PASS | 3,051 passed, 56 skipped; a semantics-preserving bool conversion occurred during the run, followed by 49 relevant tests on the final code |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
-- Upstream-bot Redis persistence loss and a chat lease expiring during a long flow can undermine cross-process idempotency; these paths need separate fixes.
+- Upstream-bot Redis persistence loss and state writes not atomically fenced against lease loss can undermine cross-process idempotency; these paths need separate fixes.
 - Cleanup failure is logged. Objects are retained when the database commit outcome is uncertain to avoid deleting a referenced file; a later orphan sweep remains useful.
 - INT-003 connects to the first validated address; a provider with an unreachable first address can require manual review until a later attempt resolves differently.
 - PasarGuard password sessions remain cached for up to 50 minutes. An external password change may need upstream token revocation or a process restart; upstream bearer-token validity depends on the panel.
@@ -195,3 +209,6 @@
 - INT-007 follow-up: branch `audit/27-upstream-purchase-18ef6bf0`; parent PR #192.
 - INT-008 follow-up: branch `audit/28-upstream-lock-18ef6bf0`; parent PR #193.
 - INT-009 follow-up: branch `audit/29-upstream-state-18ef6bf0`; parent PR #194.
+
+- INT-010 follow-up: branch audit/35-upstream-lease-e6a4711e; parent PR #199.
+- INT-011 follow-up: branch audit/36-renew-idempotency-e6a4711e; parent PR #200.

@@ -297,7 +297,9 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
         else:
             await self._legacy_update(username, enable=True)
 
-    async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
+    async def extend_account(
+        self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int, operation_id: str | None = None
+    ) -> PanelAccount:
         changes = {"enable": True, "totalGB": int(traffic_bytes or 0), "expiryTime": to_ms(expire_at)}
         if await self._api_style() == "v3":
             await self._v3_update(username, **changes)

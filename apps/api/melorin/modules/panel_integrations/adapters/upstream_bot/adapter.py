@@ -317,8 +317,11 @@ class UpstreamBotAdapter:
             return self._account(username, d)
         try:
             async with self._lock():
-                _, _, det = await self._open_detail(d["ref"])
-                d = await self._apply_detail(username, d, det)
+                current = await self.store.get(username)
+                if not current or current.get("status") != "active" or not current.get("ref"):
+                    return None
+                _, _, det = await self._open_detail(current["ref"])
+                d = await self._apply_detail(username, current, det)
                 if not d.get("subscription_url"):
                     d["subscription_url"] = await self._fetch_link(d["ref"])
                     await self.store.set(username, d)
@@ -338,7 +341,8 @@ class UpstreamBotAdapter:
             upstream_status=det.status,
             checked_at=time.time(),
         )
-        d.pop("renew_pending", None)
+        if not d.get("renew_started"):
+            d.pop("renew_pending", None)
         await self.store.set(username, d)
         return d
 
@@ -363,7 +367,9 @@ class UpstreamBotAdapter:
     async def resume_account(self, username: str) -> None:
         raise PanelError(ErrorKind.PERMANENT, "upstream_bot: the parent bot cannot resume accounts")
 
-    async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
+    async def extend_account(
+        self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int, operation_id: str | None = None
+    ) -> PanelAccount:
         """Renew through the parent bot ("تمدید اکانت" -> "تمدید با حجم اولیه" -> "تایید تمدید اکانت").
 
         The parent bot restarts the package from now: new expiry, usage back to zero. Only the original volume is renewed
@@ -381,20 +387,36 @@ class UpstreamBotAdapter:
         cap = int(self.cfg["max_price"] or 0)
         if cap <= 0:
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: config.max_price must be set before automatic renewals")
-        ref = d["ref"]
+        if operation_id is None or not operation_id.strip() or len(operation_id) > 128:
+            raise PanelError(ErrorKind.PERMANENT, "upstream_bot: paid renewal requires a stable operation id")
+        request_key = f"op:{operation_id}"
         async with self._lock() as lease:
+            # Another worker can finish the same request while this one waits for the chat.
+            d = await self.store.get(username)
+            if not d or not d.get("ref") or d.get("status") != "active":
+                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: unknown upstream account for renewal")
+            completed = self._renew_history(d)
+            if request_key in completed:
+                if completed[request_key] != int(traffic_bytes):
+                    raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal operation id was reused for another volume")
+                return self._account(username, d)
+            ref = d["ref"]
             c = self._client()
             _, det_msg, before = await self._open_detail(ref)
             if d.get("renew_started"):
-                # an earlier attempt pressed confirm: decide from the account screen, never by paying again
+                pending_key = self._pending_renewal_key(d)
+                if pending_key == request_key and d.get("renew_operation_traffic") != int(traffic_bytes):
+                    raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal operation id was reused for another volume")
                 if self._renew_landed(d, before):
-                    return await self._renew_done(username, d, before)
-                if time.time() - float(d["renew_started"]) < float(r["settle_window"]):
-                    raise PanelError(
-                        ErrorKind.UNKNOWN, "upstream_bot: a renewal was confirmed moments ago and has not shown up yet; not paying twice"
-                    )
-                for k in ("renew_started", "renew_before_expire", "renew_before_renewed", "renew_price"):
-                    d.pop(k, None)  # window over and nothing changed upstream: that confirm never took effect
+                    reconciled = await self._renew_done(username, d, before)
+                    if pending_key == request_key:
+                        return reconciled
+                    d = await self.store.get(username)
+                    if not d:
+                        raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: reconciled renewal state disappeared")
+                else:
+                    # Elapsed time is not proof that the confirmation failed: a delayed charge can still land.
+                    raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: a previous renewal has not shown up yet; not paying twice")
             btn = self._find_button(det_msg, r["renew_button"])
             if not btn:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: button '{r['renew_button']}' not on the account screen")
@@ -446,6 +468,8 @@ class UpstreamBotAdapter:
             d.update(
                 renew_pending=True,  # get_account must now read fresh, never from cache
                 renew_started=time.time(),
+                renew_operation_key=request_key,
+                renew_operation_traffic=int(traffic_bytes),
                 renew_before_expire=before.expire_at.isoformat() if before.expire_at else None,
                 renew_before_renewed=before.renewed_at.isoformat() if before.renewed_at else None,
                 renew_price=opt.price,
@@ -475,6 +499,38 @@ class UpstreamBotAdapter:
             return await self._renew_done(username, d, after)
 
     @staticmethod
+    def _renew_history(d: dict) -> dict:
+        completed = d.get("renew_completed", {})
+        if not isinstance(completed, dict):
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: invalid renewal history")
+        return completed
+
+    @staticmethod
+    def _pending_renewal_key(d: dict) -> str:
+        key, traffic = d.get("renew_operation_key"), d.get("renew_operation_traffic")
+        if not isinstance(key, str) or not key.startswith("op:") or not key[3:] or type(traffic) is not int or traffic < 0:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: a previous renewal cannot be identified; reconcile it first")
+        return key
+
+    async def reconcile_renewal(self, username: str, operation_id: str) -> PanelAccount | None:
+        """Read the result of this renewal without starting another paid operation."""
+        request_key = f"op:{operation_id}"
+        async with self._lock():
+            d = await self.store.get(username)
+            if not d or d.get("status") != "active" or not d.get("ref"):
+                return None
+            if request_key in self._renew_history(d):
+                return self._account(username, d)
+            if not d.get("renew_started"):
+                return None
+            if self._pending_renewal_key(d) != request_key:
+                return None
+            _, _, detail = await self._open_detail(d["ref"])
+            if self._renew_landed(d, detail):
+                return await self._renew_done(username, d, detail)
+            return None
+
+    @staticmethod
     def _renew_landed(d: dict, det: parsing.AccountDetail) -> bool:
         """Did the account screen change since the confirm click (new expiry or a new renewal date)?"""
         be, br = d.get("renew_before_expire"), d.get("renew_before_renewed")
@@ -483,8 +539,19 @@ class UpstreamBotAdapter:
         return det.renewed_at is not None and det.renewed_at.isoformat() != br
 
     async def _renew_done(self, username: str, d: dict, det: parsing.AccountDetail) -> PanelAccount:
+        request_key = self._pending_renewal_key(d)
+        completed = dict(self._renew_history(d))
         d = await self._apply_detail(username, d, det)
-        for k in ("renew_started", "renew_before_expire", "renew_before_renewed"):
+        completed[request_key] = int(d["renew_operation_traffic"])
+        d["renew_completed"] = completed
+        for k in (
+            "renew_started",
+            "renew_pending",
+            "renew_before_expire",
+            "renew_before_renewed",
+            "renew_operation_key",
+            "renew_operation_traffic",
+        ):
             d.pop(k, None)
         d["renewed_at_ts"] = time.time()
         await self.store.set(username, d)
@@ -517,11 +584,16 @@ class UpstreamBotAdapter:
         d = await self.store.get(username)
         if not d or not d.get("ref") or d.get("status") in ("revoked", "pending"):
             return
-        if d.get("upstream_refunded"):
-            d["status"] = "revoked"
-            await self.store.set(username, d)
-            return
         async with self._lock() as lease:
+            d = await self.store.get(username)
+            if not d or not d.get("ref") or d.get("status") in ("revoked", "pending"):
+                return
+            if d.get("upstream_refunded"):
+                d["status"] = "revoked"
+                await self.store.set(username, d)
+                return
+            if d.get("renew_started"):
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: reconcile the pending renewal before refunding this account")
             c = self._client()
             try:
                 _, det_msg, _ = await self._open_detail(d["ref"])

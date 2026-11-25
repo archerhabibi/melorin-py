@@ -220,7 +220,9 @@ class UsersMixin:
         d = await self._require(username)
         await self._req("PUT", self._write_path(d), json=build_modify_payload(status="active"))
 
-    async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
+    async def extend_account(
+        self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int, operation_id: str | None = None
+    ) -> PanelAccount:
         d = await self._require(username)
         out = await self._req(
             "PUT",
