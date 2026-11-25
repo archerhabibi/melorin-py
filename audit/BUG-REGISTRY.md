@@ -48,6 +48,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | FE-008 | High | Loyalty reward retries can spend points twice after an ambiguous response or reload | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
+| OPS-002 | High | A failed or overlapping restore drill can delete another database or overwrite its dump | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-003 | Medium | Order idempotency concurrency contract is always skipped | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
