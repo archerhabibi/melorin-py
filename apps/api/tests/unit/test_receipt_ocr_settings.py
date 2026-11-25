@@ -98,3 +98,15 @@ async def test_connection_test_explains_the_failure(session, monkeypatch, status
     )
     out = await admin_ocr.test_receipt_ocr(ADMIN, session)
     assert out["ok"] is ok and needle in (out["detail"] or out["error"])
+
+
+@pytest.mark.parametrize("failure", [TimeoutError(), receipt_ocr.OcrResponseRejected("too large")])
+async def test_connection_test_reports_response_limits(session, monkeypatch, failure):
+    await admin_ocr.update_receipt_ocr(ReceiptOcrIn(engine="vision", api_key="k"), ADMIN, session)
+
+    async def fail(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(receipt_ocr, "post_vision", fail)
+    out = await admin_ocr.test_receipt_ocr(ADMIN, session)
+    assert out["ok"] is False and out["error"]

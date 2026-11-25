@@ -97,6 +97,10 @@ async def test_receipt_ocr(admin: AdminUser, session: Session):
                 error = f"پاسخ غیرمنتظره از سرویس: HTTP {r.status_code}"
         except receipt_ocr.OcrEndpointForbidden:
             error = "آدرس سرویس به نشانی داخلی/غیرعمومی می‌رسد و پذیرفته نمی‌شود."
+        except receipt_ocr.OcrResponseRejected:
+            error = "پاسخ سرویس نامعتبر یا بیش از حد مجاز بود."
+        except TimeoutError:
+            error = "زمان انتظار برای پاسخ سرویس به پایان رسید."
         except OSError as exc:  # DNS failure
             error = f"نام سرویس resolve نشد ({type(exc).__name__})."
         except httpx.HTTPError as exc:
