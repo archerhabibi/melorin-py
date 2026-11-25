@@ -41,6 +41,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | INT-010 | High | An expired upstream-bot chat lease can allow overlapping paid flows | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-011 | High | Retried upstream-bot renewals can be charged twice or falsely reconciled | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | INT-012 | High | A stale chat owner can overwrite or delete its successor's purchase state | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
+| INT-013 | Medium | An OCR provider can send an unbounded or indefinitely slow response | AI-04 | Fixed | audit/reports/integrations/REPORT.md |
 | FE-001 | Medium | Direct web deployments omit CSP and opener policy; asset locations suppress inherited security headers | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-002 | Medium | A rendering exception unmounts the storefront without a recovery screen | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-003 | High | Wallet topup retry state is shared between accounts using the same store and browser | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
@@ -50,6 +51,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | FE-007 | High | Concurrent or delayed wallet topup responses and receipts can overwrite a newer retry key | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-008 | High | Loyalty reward retries can spend points twice after an ambiguous response or reload | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
+| WRK-002 | Medium | Overlapping poll ticks exceed the per-worker concurrency limit and failed ticks leave sibling work running | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | OPS-002 | High | A failed or overlapping restore drill can delete another database or overwrite its dump | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | OPS-003 | High | Backup retention can delete unrelated files and other backup types | AI-07 | Fixed | audit/reports/devops/REPORT.md |

@@ -9,7 +9,11 @@ from melorin.worker import arq_app
 
 
 class _Redis:
+    def __init__(self):
+        self.calls = []
+
     async def set(self, *a, **k):
+        self.calls.append((a, k))
         return True
 
 
@@ -40,6 +44,188 @@ async def test_poll_tick_bounds_concurrency(monkeypatch):
     monkeypatch.setattr(arq_app, "process_event", work)
     monkeypatch.setattr(arq_app, "process_webhook", work)
 
-    out = await arq_app.poll_tick({"redis": _Redis()})
+    out = await arq_app.poll_tick({"redis": _Redis(), "poll_tick_lock": asyncio.Lock()})
     assert out == {"events": 20, "deliveries": 20}
     assert 1 < peak <= arq_app.TICK_CONCURRENCY
+
+
+@pytest.mark.asyncio
+async def test_overlapping_ticks_skip_claims_but_still_refresh_heartbeat(monkeypatch):
+    active = peak = claims = 0
+    full, overflow, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    async def work(_row):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        if active == arq_app.TICK_CONCURRENCY:
+            full.set()
+        if active > arq_app.TICK_CONCURRENCY:
+            overflow.set()
+        try:
+            await release.wait()
+        finally:
+            active -= 1
+
+    async def events(_s):
+        nonlocal claims
+        claims += 1
+        return list(range(20))
+
+    async def hooks(_s):
+        return []
+
+    @asynccontextmanager
+    async def session():
+        yield object()
+
+    monkeypatch.setattr(arq_app, "session_factory", lambda: session)
+    monkeypatch.setattr(arq_app, "claim_batch", events)
+    monkeypatch.setattr(arq_app, "claim_webhook_batch", hooks)
+    monkeypatch.setattr(arq_app, "process_event", work)
+    redis = _Redis()
+    ctx = {"redis": redis, "poll_tick_lock": asyncio.Lock()}
+    first = asyncio.create_task(arq_app.poll_tick(ctx))
+    second = overflow_waiter = None
+    try:
+        await asyncio.wait_for(full.wait(), timeout=2)
+        # ARQ copies the startup context for each job, while sharing its objects.
+        second = asyncio.create_task(arq_app.poll_tick(dict(ctx)))
+        overflow_waiter = asyncio.create_task(overflow.wait())
+        done, _ = await asyncio.wait({second, overflow_waiter}, timeout=2, return_when=asyncio.FIRST_COMPLETED)
+        assert second in done, f"overlapping ticks reached {peak} concurrent rows"
+        assert await second == {"events": 0, "deliveries": 0, "skipped": True}
+        assert not overflow.is_set()
+        assert claims == 1
+        assert len(redis.calls) == 1  # a long batch must not make the worker look dead
+        release.set()
+        assert await first == {"events": 20, "deliveries": 0}
+        assert await arq_app.poll_tick(dict(ctx)) == {"events": 20, "deliveries": 0}
+        assert claims == 2
+    finally:
+        release.set()
+        if overflow_waiter is not None:
+            overflow_waiter.cancel()
+        await asyncio.gather(*(task for task in (first, second, overflow_waiter) if task is not None), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_failed_row_does_not_leave_other_rows_running_after_tick_exits(monkeypatch):
+    started, failed, release, finished = (asyncio.Event() for _ in range(4))
+
+    async def work(row):
+        if row == "slow":
+            started.set()
+            await release.wait()
+            finished.set()
+        else:
+            await started.wait()
+            failed.set()
+            raise RuntimeError("row failed")
+
+    async def events(_s):
+        return ["slow", "bad"]
+
+    async def hooks(_s):
+        return []
+
+    @asynccontextmanager
+    async def session():
+        yield object()
+
+    monkeypatch.setattr(arq_app, "session_factory", lambda: session)
+    monkeypatch.setattr(arq_app, "claim_batch", events)
+    monkeypatch.setattr(arq_app, "claim_webhook_batch", hooks)
+    monkeypatch.setattr(arq_app, "process_event", work)
+    ctx = {"redis": _Redis(), "poll_tick_lock": asyncio.Lock()}
+    tick = asyncio.create_task(arq_app.poll_tick(ctx))
+    try:
+        await asyncio.wait_for(failed.wait(), timeout=2)
+        done, _ = await asyncio.wait({tick}, timeout=0.1)
+        assert not done, "the tick returned while another row was still running"
+        assert await arq_app.poll_tick(dict(ctx)) == {"events": 0, "deliveries": 0, "skipped": True}
+        release.set()
+        with pytest.raises(RuntimeError, match="row failed"):
+            await tick
+        assert finished.is_set()
+        assert not ctx["poll_tick_lock"].locked()
+    finally:
+        release.set()
+        await asyncio.gather(tick, return_exceptions=True)
+        await asyncio.wait_for(finished.wait(), timeout=2)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_tick_does_not_construct_coroutines_for_waiting_rows(monkeypatch):
+    constructed = active = 0
+    full, release, cleanup_started, cleanup_release = (asyncio.Event() for _ in range(4))
+
+    def work(_row):
+        nonlocal constructed
+        constructed += 1
+
+        async def run():
+            nonlocal active
+            active += 1
+            if active == arq_app.TICK_CONCURRENCY:
+                full.set()
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                cleanup_started.set()
+                await cleanup_release.wait()
+                raise
+            finally:
+                active -= 1
+
+        return run()
+
+    async def events(_s):
+        return list(range(20))
+
+    async def hooks(_s):
+        return []
+
+    @asynccontextmanager
+    async def session():
+        yield object()
+
+    monkeypatch.setattr(arq_app, "session_factory", lambda: session)
+    monkeypatch.setattr(arq_app, "claim_batch", events)
+    monkeypatch.setattr(arq_app, "claim_webhook_batch", hooks)
+    monkeypatch.setattr(arq_app, "process_event", work)
+    ctx = {"redis": _Redis(), "poll_tick_lock": asyncio.Lock()}
+    tick = asyncio.create_task(arq_app.poll_tick(ctx))
+    try:
+        await asyncio.wait_for(full.wait(), timeout=2)
+        assert constructed == arq_app.TICK_CONCURRENCY
+        tick.cancel()
+        await asyncio.wait_for(cleanup_started.wait(), timeout=2)
+        assert ctx["poll_tick_lock"].locked()
+        assert await arq_app.poll_tick(dict(ctx)) == {"events": 0, "deliveries": 0, "skipped": True}
+        cleanup_release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await tick
+        assert active == 0
+        assert not ctx["poll_tick_lock"].locked()
+    finally:
+        release.set()
+        cleanup_release.set()
+        await asyncio.gather(tick, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_startup_adds_the_lock_shared_by_arq_job_contexts(monkeypatch):
+    from melorin.core import logging as core_logging
+    from melorin.worker import metrics_server
+
+    async def start_metrics(_ctx):
+        pass
+
+    monkeypatch.setattr(arq_app, "assert_lock_backend_configured", lambda: None)
+    monkeypatch.setattr(core_logging, "quiet_worker_heartbeat", lambda: None)
+    monkeypatch.setattr(metrics_server, "start_metrics_server", start_metrics)
+    ctx = {}
+    await arq_app.startup(ctx)
+    assert isinstance(ctx["poll_tick_lock"], asyncio.Lock)
+    assert dict(ctx)["poll_tick_lock"] is ctx["poll_tick_lock"]

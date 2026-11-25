@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-012 fixed, including upstream-bot renewal retries and state fencing. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
+- Status: first pass over mail, storage, payment adapters, bank-SMS ingestion, receipt OCR and outgoing webhooks done. INT-001..INT-013 fixed, including upstream-bot state fencing and bounded vision responses. Remaining panel adapter paths and bank-SMS code are still to review (follow-up commits on this branch).
 - Base: stacked on `audit/03-database-finance` (`4537ca7`). Date: 2026-11-23.
 
 ## 2. Reviewed
@@ -134,6 +134,14 @@
 - Verification: the new race failed on the parent and passed with the fix. The 76 adapter, state and lock tests passed, as did three real Redis cases for successful writes/deletes and rejection of stale writes/deletes. Lint and mypy passed; the full backend suite is running.
 - Compatibility and limits: no API or schema change. Redis data loss and a Telegram click already sent before lease loss remain outside this fix; no real Telegram provider was contacted.
 
+### INT-013 — A vision OCR provider can exhaust memory or hold a worker indefinitely
+- Severity: Medium. Status: Fixed. Base: PR #202.
+- Evidence: the parent read an entire multi-megabyte response before returning, exceeded a one-second configured timeout while a peer dripped bytes, and accepted compressed responses without a decompression bound. Three regressions reproduced these behaviors before the fix.
+- Impact: a misbehaving provider can exhaust memory or occupy the limited OCR worker slots, delaying receipt processing.
+- Fix: include DNS and the complete HTTP exchange in the configured deadline; request identity encoding, reject compressed bodies, and stream at most 256 KiB. The admin connection test explains rejected responses and timeouts; failed receipt reads remain available for human review.
+- Verification: 44 OCR, admin, TLS-pinning and contract tests passed; the three new tests failed on the parent. Lint, mypy and the secret scan passed. The full backend suite is running.
+- Compatibility and limits: providers must honor identity encoding and keep responses within the cap. No real vision provider was contacted, and local Tesseract image resource limits remain separate work.
+
 ### Checked and not a defect
 - Every outbound call in scope goes through `outbound_client` (bounded timeout, redirects off, per-purpose metrics); no `verify=False` in the scope. The Pasarguard ops client reads `verify` from the panel config: reviewed with the panel adapters.
 - Webhook SSRF: static URL rules, numeric host spellings, resolve once, every address checked (CGNAT, NAT64, 6to4, Teredo, IPv4-mapped), connection to the validated address with the real SNI and `Host`.
@@ -155,6 +163,7 @@
 
 - Upstream-bot adapter, renewal orchestration and adapter/service regressions (INT-011).
 - Upstream-bot state and adapter, with race and real Redis regressions (INT-012).
+- Vision OCR response limits, admin error handling and response regressions (INT-013).
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -196,7 +205,9 @@
 | INT-011 full suite | PASS | 3,051 passed, 56 skipped; a semantics-preserving bool conversion occurred during the run, followed by 49 relevant tests on the final code |
 | INT-012 adapter, state and lock tests | PASS | 76 passed; the new stale-owner regression failed on the parent |
 | INT-012 real Redis tests | PASS | 3 passed; current owner and stale set/delete paths |
-| INT-012 full backend suite | RUNNING | exact code commit a17bced |
+| INT-012 full backend suite | PASS | 3,053 passed, 59 skipped on exact code commit a17bced; Redis integration passed separately |
+| INT-013 focused OCR and admin tests | PASS | 44 passed; three new response-limit cases failed on the parent |
+| INT-013 full backend suite | RUNNING | exact code commit a74722b |
 | CI `quality`, `postgres-lane`, `web-e2e` | see PR | |
 
 ## 7. Residual risks
@@ -225,3 +236,4 @@
 - INT-010 follow-up: branch audit/35-upstream-lease-e6a4711e; parent PR #199.
 - INT-011 follow-up: branch audit/36-renew-idempotency-e6a4711e; parent PR #200.
 - INT-012 follow-up: branch audit/37-followup-d5cdff38; parent PR #201.
+- INT-013 follow-up: branch audit/38-ocr-response-d5cdff38; parent PR #202.

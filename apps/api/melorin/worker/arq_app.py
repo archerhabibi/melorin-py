@@ -43,23 +43,43 @@ from melorin.worker.wrap import assert_lock_backend_configured, tracked_job
 TICK_CONCURRENCY = 8
 
 
-@tracked_job(lock=False)  # runs every 2 s and is idempotent per claimed row, so no lock; still logged/metered like the rest
+async def _heartbeat(ctx):
+    now = time.time()
+    await ctx["redis"].set("melorin:worker:last_tick", str(now), ex=15)
+    set_gauge("melorin_worker_last_tick", now)
+
+
+@tracked_job(lock=False)  # each worker uses its own overlap guard; other workers can still process rows in parallel
 async def poll_tick(ctx):
-    async with session_factory()() as session:
-        events = await claim_batch(session)
-        deliveries = await claim_webhook_batch(session)
-    if events or deliveries:
-        # T27: at most TICK_CONCURRENCY rows in flight at once (each opens its own DB session); the batch itself is unchanged.
-        gate = asyncio.Semaphore(TICK_CONCURRENCY)
+    guard = ctx["poll_tick_lock"]
+    if guard.locked():
+        # A slow batch must not make the live worker fail its heartbeat check.
+        await _heartbeat(ctx)
+        return {"events": 0, "deliveries": 0, "skipped": True}
+    # No await separates the locked check from acquiring this uncontended lock.
+    async with guard:
+        async with session_factory()() as session:
+            events = await claim_batch(session)
+            deliveries = await claim_webhook_batch(session)
+        if events or deliveries:
+            gate = asyncio.Semaphore(TICK_CONCURRENCY)
 
-        async def _bounded(coro):
-            async with gate:
-                return await coro
+            async def _bounded(process, row):
+                async with gate:
+                    # Construct the row coroutine only after acquiring a slot.
+                    return await process(row)
 
-        await asyncio.gather(*(_bounded(process_event(e)) for e in events), *(_bounded(process_webhook(d)) for d in deliveries))
-    await ctx["redis"].set("melorin:worker:last_tick", str(time.time()), ex=15)
-    set_gauge("melorin_worker_last_tick", __import__("time").time())
-    return {"events": len(events), "deliveries": len(deliveries)}
+            results = await asyncio.gather(
+                *(_bounded(process_event, event) for event in events),
+                *(_bounded(process_webhook, delivery) for delivery in deliveries),
+                return_exceptions=True,
+            )
+            # Keep the guard until every sibling has finished, then report the failure.
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+        await _heartbeat(ctx)
+        return {"events": len(events), "deliveries": len(deliveries)}
 
 
 async def startup(ctx):
@@ -67,6 +87,7 @@ async def startup(ctx):
     # from inside the running job: a fixed job id can stall the chain.
     from melorin.core.logging import quiet_worker_heartbeat
 
+    ctx["poll_tick_lock"] = asyncio.Lock()  # ARQ copies this context for jobs, preserving the shared lock
     assert_lock_backend_configured()  # fail-closed locks: without a Redis URL every guarded job would be refused
     quiet_worker_heartbeat()  # arq (re)configures its loggers before startup(), so the filter is attached here (audit V-026)
     from melorin.worker.metrics_server import start_metrics_server
