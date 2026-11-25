@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-005 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-006 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -62,6 +62,15 @@
 - Compatibility: existing orders created before this change lack an identity and cannot be replayed with their old key; retrieve the existing order instead. Otherwise clients must retry the same checkout details; coupon case and surrounding whitespace remain equivalent.
 - Tests: service and HTTP coverage for matching and changed requests, default bundle resolution, coupon normalization and legacy orders; PostgreSQL coverage for concurrent insertion, renewal locking and exhausted-coupon recovery. Full results are recorded below after verification.
 
+### BE-006 — Loyalty reward retries can fail or acknowledge a different reward
+- Severity: Medium. Status: Fixed. Base: PR #179 at 04d7780d375e94f3a42c43916a49c337dfb9c12a.
+- File / symbol: modules/loyalty/redemption.py, redeem.
+- Evidence: on PostgreSQL, same-key concurrent redemptions returned insufficient points, sold-out or per-user-limit errors after the first completed. A concurrent same-key request for a different reward incorrectly returned the first reward as a success. Four race cases failed on the base; a replay after disabling the program also failed on SQLite.
+- Root cause: the replay lookup was performed before waiting for the account lock, and the unique-key recovery path did not check the reward identity. The program-enabled check also preceded retrieval of an already completed redemption.
+- Fix: reuse one scoped replay-and-identity check before program validation, after the account lock, and after a unique-key conflict. A new key still requires an enabled program and obeys stock, point and customer limits.
+- Regression: tests/postgres/test_loyalty_replay_postgres.py exercises four race cases and a different-key control; the service suite exercises a replay after program disablement. One redemption, one points debit, one balanced wallet credit and the correct remaining balance are asserted.
+- Compatibility: a conflicting same-key request now returns IDEMPOTENCY_KEY_REUSED (409); a retry of an already completed reward remains retrievable after the program is disabled. No schema migration.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
@@ -89,6 +98,7 @@
 | BE-005 `PYTEST_ADDOPTS="-n 2" make test` | PASS | 2,935 passed, 32 skipped on `e1dee522`; subsequent changes were documentation, formatting and an additional completed-order replay assertion |
 | BE-005 final service and HTTP checks | PASS | 9 passed, including replay after provisioning |
 | `gen_api_client.py --check`, `gen_docs.py --check` | PASS | API snapshot and generated docs unchanged |
+| BE-006 loyalty concurrency regressions | PASS | PostgreSQL: 5 passed after the fix; 4 failed on the parent. SQLite: 33 loyalty service and 8 HTTP tests passed; mypy and make lint passed |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.
