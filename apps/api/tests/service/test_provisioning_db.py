@@ -445,7 +445,7 @@ async def test_paid_renewal_reconciles_only_the_same_operation_and_holds_uncerta
             acc.username, dt.datetime.now(dt.UTC) + dt.timedelta(days=w["product"].duration_days), w["product"].traffic_gb * 1024**3
         )
         panel = panel_factory(PaidPanel(remote))
-        order = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RECONCILE1")
+        order = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RECON1")
         order.kind, order.vpn_account_id = "renewal", acc.id
         await s.commit()
         if confirmed:
