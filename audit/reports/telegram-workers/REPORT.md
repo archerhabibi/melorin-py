@@ -39,7 +39,7 @@
 - SQLite worker service tests: 28 passed.
 - PostgreSQL 16: both SQL failure paths and the sent-notification case passed (3 tests).
 - `make lint`: passed; full `make test` is run separately on this branch.
-- WRK-002: three failures reproduced on the parent; 47 focused worker tests and `make lint` passed after the fix. Full `make test` is running on the test server.
+- WRK-002: three failures reproduced on the parent; 47 focused worker tests and `make lint` passed after the fix. Full `make test`: 3,062 passed, 59 skipped on code commit `519a56f`.
 
 ## 7. Residual risks
 - Telegram delivery and a database commit are not a distributed transaction: a message sent immediately before a database failure can be delivered again on retry.
