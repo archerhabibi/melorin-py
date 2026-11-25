@@ -7,15 +7,13 @@ PostgreSQL lane only (``TEST_PG_URL``): SQLite/pysqlite does not honour rollback
 import asyncio
 
 import pytest
+from hypothesis import HealthCheck, given, settings, strategies as st
 from sqlalchemy import func, select
 
-hypothesis = pytest.importorskip("hypothesis")
-from hypothesis import HealthCheck, given, settings, strategies as st  # noqa: E402
-
-from _db import make_store, make_user, open_session, pg_url  # noqa: E402
-from melorin.core.errors import AppError  # noqa: E402
-from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction  # noqa: E402
-from melorin.modules.wallet import service as wallet  # noqa: E402
+from _db import make_store, make_user, open_session, pg_url
+from melorin.core.errors import AppError
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction
+from melorin.modules.wallet import service as wallet
 
 pytestmark = pytest.mark.skipif(pg_url() is None, reason="PostgreSQL lane: set TEST_PG_URL")
 

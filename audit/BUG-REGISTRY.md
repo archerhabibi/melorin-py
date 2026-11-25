@@ -24,6 +24,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | QA-001 | Medium | Random six-character order numbers can collide and make PostgreSQL tests flaky | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
+| QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)
 AUD-001 payment intent retry, AUD-002 refund availability, AUD-003 Zarinpal refund credentials UI, AUD-007 worker lock fail-open, AUD-008 worker metrics scrape (`docs/audits/2026-11-19-deep-technical-audit.fa.md`; fixing branches are ancestors of `main`).
