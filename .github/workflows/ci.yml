@@ -54,7 +54,12 @@ jobs:
       - run: pytest -q -n auto -m "not integration" tests/http tests/service
         env: {MELORIN_JWT_SECRET: ci-secret}  # no MELORIN_DATABASE_URL => the SQLite development default
       - run: pytest -q -m integration
-        env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
+        env:
+          MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin
+          MELORIN_REDIS_URL: redis://localhost:6379/0
+          MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234
+          MELORIN_ALLOW_MOCK_PROVIDERS: 'true'
+          TEST_PG_ADMIN_URL: postgresql+asyncpg://melorin:test@localhost:5432/postgres
       - run: pytest -q ../telegram-main/tests
         env: {MELORIN_CORE_URL: 'http://core.invalid'}
       - run: pytest -q ../telegram-reseller/tests  # T-R3: this suite was never run by CI before
