@@ -1,7 +1,7 @@
 # AI-05 — Frontend audit (in progress)
 
 Base: audit/04-integrations at 6e5f745f61d09915f9528ccd0e967cd5ff544222.
-Scope so far: browser security headers, storefront recovery, wallet topups, and purchase and renewal retry flows. Reseller and loyalty flows remain under review.
+Scope so far: browser security headers, storefront recovery, wallet topups, loyalty reward retries, and purchase and renewal retries. Reseller and remaining loyalty flows remain under review.
 
 ## FE-001 — browser protections depend on which proxy is used
 
