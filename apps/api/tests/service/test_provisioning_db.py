@@ -143,7 +143,9 @@ async def test_provisioning_releases_panel_connection(panel_factory, outcome):
                 await vpn.provision_order(s, w["order"].id)
         else:
             result = await vpn.provision_order(s, w["order"].id)
-            expected = "retry_scheduled" if outcome == "panel_error" else "completed_after_reconcile" if outcome == "reconcile" else "completed"
+            expected = (
+                "retry_scheduled" if outcome == "panel_error" else "completed_after_reconcile" if outcome == "reconcile" else "completed"
+            )
             assert result == expected
         assert panel.closed == 1
 

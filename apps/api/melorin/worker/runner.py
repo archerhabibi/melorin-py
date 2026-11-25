@@ -21,6 +21,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn_accounts import sync
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
@@ -347,7 +348,7 @@ async def rollback_renewal(session, payload):
             adapter = build_adapter(panel)
             try:
                 seed_adapter(adapter, account)
-                await adapter.clear_next_plan(account.username)
+                await optional_ops(adapter).clear_next_plan(account.username)
             finally:
                 await close_adapter(adapter)
             account.queued_plan = None

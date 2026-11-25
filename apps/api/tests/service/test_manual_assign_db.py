@@ -116,8 +116,9 @@ async def test_manual_assignment_releases_panel_connection(maker, monkeypatch, o
         with pytest.raises(asyncio.CancelledError):
             await assign(maker, ids)
     elif outcome == "missing":
-        with pytest.raises(AppError, match="پنل"):
+        with pytest.raises(AppError) as exc:
             await assign(maker, ids)
+        assert exc.value.code == "ORPHAN_GONE"
     else:
         result = await assign(maker, ids)
         assert result.order.status == "completed"

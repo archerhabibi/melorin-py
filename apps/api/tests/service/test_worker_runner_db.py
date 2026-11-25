@@ -523,6 +523,7 @@ async def test_worker_closes_panel_adapter_on_failure_or_cancellation(maker, mon
         raise error("operation failed")
 
     if failure == "seed":
+
         def fail_seed(*args, **kwargs):
             raise RuntimeError("seeding failed")
 
