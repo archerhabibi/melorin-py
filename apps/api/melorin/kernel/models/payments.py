@@ -22,7 +22,7 @@ class Payment(IdMixin, TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(8))
     status: Mapped[str] = mapped_column(String(20), index=True)
     external_ref: Mapped[str | None] = mapped_column(String(200))
-    receipt_file_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("file_objects.id"))
+    receipt_file_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("file_objects.id"), index=True)
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     idempotency_key: Mapped[str | None] = mapped_column(String(100))

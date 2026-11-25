@@ -5,6 +5,7 @@ import logging
 import uuid
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.core import events
@@ -210,10 +211,19 @@ async def process_event(e: OutboxEvent):
             await session.commit()
             inc("melorin_outbox_events_total", topic=e.topic, result="processed")
         except Exception as ex:
-            log.exception("outbox failed %s", event_id)
+            if isinstance(ex, SQLAlchemyError):
+                # SQL errors can contain query parameters and leave PostgreSQL's transaction unusable.
+                log.error("outbox database failure %s (%s)", event_id, type(ex).__name__)
+                await session.rollback()
+                error = f"Database error: {type(ex).__name__}"
+            else:
+                log.exception("outbox failed %s", event_id)
+                if not session.is_active:
+                    await session.rollback()
+                error = str(ex)
             failed = await session.get(OutboxEvent, event_id, with_for_update=True)
             if failed is not None and failed.status == "processing":
-                failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, str(ex)
+                failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, error
                 failed.available_at = utcnow() + dt.timedelta(seconds=_retry_delay(failed.attempts, ex))
                 from melorin.modules.eventcenter import rules as event_center_rules
 

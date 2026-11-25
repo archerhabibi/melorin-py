@@ -1,5 +1,6 @@
 """Upstream-bot adapter: parser tests on the real screenshots' texts + a fake parent bot driving the full buy flow."""
 
+import asyncio
 import datetime as dt
 import time
 
@@ -207,6 +208,7 @@ def spec(name="Mel_10G1", gb=10, days=30):
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch):
     state._MEM.clear()
+    state._LOCKS.clear()  # each async test has its own event loop
     monkeypatch.setattr(state, "_redis", lambda: None)
 
 
@@ -477,3 +479,91 @@ async def test_renewed_usage_is_zero_so_core_needs_no_second_extend_call():
     await a.create_account(spec())
     pa = await a.extend_account("Mel_10G1", expire_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30), traffic_bytes=10 * GB)
     assert pa.traffic_used_bytes == 0  # usage is back to zero, so Core's "raise the limit by what was used" fallback never fires
+
+
+async def test_concurrent_retries_for_same_username_pay_once():
+    class YieldingBot(FakeParentBot):
+        async def click(self, msg, button):
+            if "تایید خرید" in button.text:
+                await asyncio.sleep(0.05)  # let the other retry observe the pending purchase
+            return await super().click(msg, button)
+
+    bot = YieldingBot()
+    adapter = make(bot)
+    request = spec()
+    first, second = await asyncio.gather(adapter.create_account(request), adapter.create_account(request))
+    assert bot.purchases == 1
+    assert first.ref == second.ref
+
+
+async def test_unanswered_purchase_is_not_repeated_and_recovery_preserves_plan():
+    class SilentPaidBot(FakeParentBot):
+        async def click(self, msg, button):
+            if "تایید خرید" in button.text:
+                self.purchases += 1  # provider charged, but its reply was lost
+                raise PanelError(ErrorKind.UNKNOWN, "no purchase reply")
+            return await super().click(msg, button)
+
+    bot = SilentPaidBot()
+    adapter = make(bot)
+    request = spec()
+    for _ in range(2):
+        with pytest.raises(PanelError) as exc:
+            await adapter.create_account(request)
+        assert exc.value.kind == ErrorKind.UNKNOWN
+    assert bot.purchases == 1
+    bot._add(DELIVERY)
+    recovered = await adapter.create_account(request)
+    assert recovered.ref == "eg1_1068"
+    assert recovered.traffic_limit_bytes == request.traffic_bytes
+    assert recovered.expire_at == request.expire_at
+    assert bot.purchases == 1
+
+
+async def test_get_account_rechecks_after_waiting_for_an_inflight_purchase(monkeypatch):
+    confirming, release, pending_seen = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    class GatedBot(FakeParentBot):
+        async def click(self, msg, button):
+            if "تایید خرید" in button.text:
+                confirming.set()
+                await release.wait()
+            return await super().click(msg, button)
+
+    bot = GatedBot()
+    adapter = make(bot)
+    original_get = adapter.store.get
+
+    async def observe_pending(username):
+        value = await original_get(username)
+        if value and value.get("status") == "pending":
+            pending_seen.set()
+        return value
+
+    monkeypatch.setattr(adapter.store, "get", observe_pending)
+    purchase = asyncio.create_task(adapter.create_account(spec()))
+    await asyncio.wait_for(confirming.wait(), timeout=2)
+    lookup = asyncio.create_task(adapter.get_account("Mel_10G1"))
+    try:
+        await asyncio.wait_for(pending_seen.wait(), timeout=2)
+    finally:
+        release.set()
+    bought, observed = await asyncio.gather(purchase, lookup)
+    assert observed is not None and observed.ref == bought.ref
+    assert bot.purchases == 1
+
+
+async def test_confirmation_timeout_is_reported_as_unknown():
+    class TimeoutAfterCharge(FakeParentBot):
+        async def click(self, msg, button):
+            if "تایید خرید" in button.text:
+                self.purchases += 1
+                raise PanelError(ErrorKind.TRANSIENT, "connection lost")
+            return await super().click(msg, button)
+
+    bot = TimeoutAfterCharge()
+    adapter = make(bot)
+    with pytest.raises(PanelError) as exc:
+        await adapter.create_account(spec())
+    assert exc.value.kind == ErrorKind.UNKNOWN
+    assert bot.purchases == 1

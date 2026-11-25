@@ -10,7 +10,7 @@ from melorin.core import channel
 from melorin.core.deps import CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
-from melorin.core.storage import get_storage, validate_upload
+from melorin.core.storage import Storage, get_storage, validate_upload
 from melorin.core.ratelimit import RateLimit, client_ip
 from melorin.modules.payments import bank_sms, provisional, queries, receipt_fingerprints, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
@@ -19,6 +19,13 @@ from melorin.kernel.models.system import FileObject
 
 router = APIRouter(tags=["payments"])
 log = logging.getLogger("melorin.payments")
+
+
+async def _discard_uncommitted_receipt(storage: Storage, key: str) -> None:
+    try:
+        await storage.delete(key)
+    except (OSError, AppError):
+        log.warning("Could not remove rejected receipt upload", exc_info=True)
 
 
 @router.post("/stores/{store_id}/wallet/topups", response_model=PaymentOut)
@@ -95,25 +102,38 @@ async def upload_receipt(
     ocr_cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
     read_later = receipt_ocr.configured_engine(ocr_cfg) is not None and (file.content_type or "") in receipt_ocr.IMAGE_TYPES
     claim = bank_sms.build_claim(typed, None, None)
-    key = await get_storage().put(data, file.content_type or "")
-    fo = FileObject(
-        owner_user_id=user.id,
-        store_id=p.store_id,
-        purpose="receipt",
-        storage_key=key,
-        content_type=file.content_type,
-        size=len(data),
-        sha256=digest,
-    )
-    session.add(fo)
-    await session.flush()
-    await receipt_fingerprints.store_fingerprint(session, p, sha256=digest, file_unique_id=file_unique_id)
-    duplicate = receipt_fingerprints.summarize(matches, store_id=p.store_id)
-    # Only a website session carries the customer's own address; a bot session arrives from the bot's container, which says nothing.
-    origin = provisional.origin_tag(client_ip(request)) if auth.claims.channel == channel.SITE else None
-    await service.attach_receipt(
-        session, p, fo.id, claim, duplicate, read_later=read_later, origin=origin
-    )  # commits the fingerprint with the receipt
+    storage = get_storage()
+    key = await storage.put(data, file.content_type or "")
+    try:
+        fo = FileObject(
+            owner_user_id=user.id,
+            store_id=p.store_id,
+            purpose="receipt",
+            storage_key=key,
+            content_type=file.content_type,
+            size=len(data),
+            sha256=digest,
+        )
+        session.add(fo)
+        await session.flush()
+        await receipt_fingerprints.store_fingerprint(session, p, sha256=digest, file_unique_id=file_unique_id)
+        duplicate = receipt_fingerprints.summarize(matches, store_id=p.store_id)
+        # Only a website session carries the customer's own address; a bot session arrives from its own container.
+        origin = provisional.origin_tag(client_ip(request)) if auth.claims.channel == channel.SITE else None
+    except BaseException:
+        # No commit has been attempted yet, so this newly stored object cannot be referenced by a committed file row.
+        await _discard_uncommitted_receipt(storage, key)
+        raise
+    try:
+        await service.attach_receipt(
+            session, p, fo.id, claim, duplicate, read_later=read_later, origin=origin
+        )  # commits the fingerprint with the receipt
+    except AppError as exc:
+        # These state checks run before attach_receipt mutates or commits anything. A failed commit has an ambiguous outcome;
+        # do not delete the object for other errors because the database might already reference it.
+        if exc.code in ("INVALID_PAYMENT_STATE", "PAYMENT_NOT_FOUND"):
+            await _discard_uncommitted_receipt(storage, key)
+        raise
     await bank_sms.try_auto_verify_payment(session, p)
     await session.refresh(p)
     return payment_out(p)

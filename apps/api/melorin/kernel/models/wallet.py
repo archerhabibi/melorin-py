@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import BigInteger, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import BigInteger, ForeignKey, Index, String, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
@@ -31,6 +31,16 @@ class Wallet(IdMixin, TimestampMixin, Base):
 
 class LedgerTransaction(IdMixin, CreatedMixin, Base):
     __tablename__ = "ledger_transactions"
+    # DB-003: a transaction is reversed at most once, whatever idempotency key the second caller brings.
+    __table_args__ = (
+        Index(
+            "uq_ledger_transactions_reverses_id",
+            "reverses_id",
+            unique=True,
+            postgresql_where=text("reverses_id IS NOT NULL"),
+            sqlite_where=text("reverses_id IS NOT NULL"),
+        ),
+    )
     kind: Mapped[str] = mapped_column(String(40), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(200), unique=True)
     store_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)

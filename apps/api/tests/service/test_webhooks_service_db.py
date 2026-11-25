@@ -6,7 +6,9 @@ retry/backoff/auto-disable behaviour can be asserted deterministically.
 
 from __future__ import annotations
 
+import asyncio
 import socket
+from contextlib import asynccontextmanager
 
 import httpx
 import pytest
@@ -58,13 +60,14 @@ class FakeClient:
     async def __aexit__(self, *a):
         return False
 
-    async def post(self, url, content=None, headers=None, extensions=None):
+    @asynccontextmanager
+    async def stream(self, method, url, content=None, headers=None, extensions=None):
         FakeClient.calls.append(
             {"url": url, "content": content, "headers": headers, "follow": self.kwargs.get("follow_redirects"), "ext": extensions}
         )
         if isinstance(FakeClient.outcome, Exception):
             raise FakeClient.outcome
-        return httpx.Response(FakeClient.outcome)
+        yield httpx.Response(FakeClient.outcome)
 
 
 @pytest.fixture
@@ -304,3 +307,55 @@ async def test_cgnat_resolution_is_refused(http, monkeypatch):
         monkeypatch.setattr(svc.socket, "getaddrinfo", _dns(["100.100.100.200"]))
         await svc.deliver_one(s, d.id)
         assert http.calls == [] and e.status == "auto_disabled"
+
+
+# --- the receiver is a tenant's own server: bounded in time and in bytes (audit INT-002) ---------------------------------
+
+
+class _Endless(httpx.AsyncByteStream):
+    """A 200 whose body never ends; ``sent`` counts what the client actually pulled from it."""
+
+    def __init__(self) -> None:
+        self.sent = 0
+
+    async def __aiter__(self):
+        while self.sent < 64 * 1024 * 1024:  # the test's own stop; a client that obeys never gets near it
+            self.sent += 65536
+            yield b"x" * 65536
+
+
+@pytest.fixture
+def real_http(monkeypatch):
+    """The real ``httpx.AsyncClient`` over an in-memory transport; the test sets ``real_http['handler']``."""
+    box: dict = {}
+    real_client = httpx.AsyncClient
+
+    class Client(real_client):
+        def __init__(self, *a, **k):
+            k["transport"] = httpx.MockTransport(lambda request: box["handler"](request))
+            super().__init__(*a, **k)
+
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    return box
+
+
+async def test_the_response_body_of_a_receiver_is_never_read(real_http):
+    body = _Endless()
+    real_http["handler"] = lambda request: httpx.Response(200, stream=body)
+    async with open_session() as s:
+        _, d, _ = await _pending(s)
+        assert await svc.deliver_one(s, d.id) == "delivered"
+    assert body.sent == 0  # only the status counts; a hostile receiver cannot make the worker buffer its answer
+
+
+async def test_a_receiver_that_never_answers_fails_the_attempt_within_the_deadline(real_http, monkeypatch):
+    monkeypatch.setattr(svc, "DELIVERY_DEADLINE_SECONDS", 0.2, raising=False)
+
+    async def never(request):
+        await asyncio.sleep(30)
+
+    real_http["handler"] = never
+    async with open_session() as s:
+        e, d, _ = await _pending(s)
+        assert await asyncio.wait_for(svc.deliver_one(s, d.id), 5) == "pending"  # backoff scheduled, worker slot released
+        assert d.attempts == 1 and "no complete response" in d.last_error and e.consecutive_failures == 1

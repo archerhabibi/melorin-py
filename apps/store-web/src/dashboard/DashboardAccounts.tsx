@@ -15,6 +15,9 @@ import {
 import AccountInquiry from '../AccountInquiry.tsx';
 import { Empty, Loading, StatusBadge, fa, fd } from '../ui.tsx';
 import { msgOf } from './DashboardTickets.tsx';
+import { submitOrder } from '../orderRequest.ts';
+import { usePendingOrders } from '../usePendingOrders.ts';
+import type { PendingOrder } from '../orderRequest.ts';
 import type { Json } from '../types';
 
 export const J = { 'Content-Type': 'application/json' };
@@ -55,6 +58,10 @@ function Renew({
   account,
   coreFetch,
   storeId,
+  userId,
+  pendingAttempts,
+  pendingReady,
+  onPendingChange,
   notify,
   reload,
   onClose,
@@ -62,6 +69,10 @@ function Renew({
   account?: Json;
   coreFetch?: Json;
   storeId?: Json;
+  userId?: string;
+  pendingAttempts: PendingOrder[];
+  pendingReady: boolean;
+  onPendingChange: () => void;
   notify?: Json;
   reload?: Json;
   onClose?: Json;
@@ -100,23 +111,32 @@ function Renew({
       live = false;
     };
   }, [account.id, coreFetch, notify, storeId]);
-  async function buy() {
+  async function buy(attempt?: PendingOrder) {
     setBusy(true);
     try {
-      const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, {
-        method: 'POST',
-        headers: { ...J, 'Idempotency-Key': `web-renew-${crypto.randomUUID()}` },
-        body: JSON.stringify({
+      const { response } = await submitOrder({
+        coreFetch,
+        storeId,
+        accountId: userId,
+        body: attempt?.body || {
           product_id: info.package.product_id,
           payment_method: 'wallet',
           kind: 'renewal',
           vpn_account_id: account.id,
-        }),
+        },
+        expectedKey: attempt?.key,
       });
-      if (!r.ok) return notify(await msgOf(r, 'تمدید ناموفق بود'));
+      if (!response.ok) {
+        onPendingChange();
+        return notify(await msgOf(response, 'تمدید ناموفق بود'));
+      }
+      onPendingChange();
       notify('تمدید ثبت شد');
       reload?.();
       onClose();
+    } catch (error: Json) {
+      onPendingChange();
+      notify(error?.message || 'تمدید ناموفق بود');
     } finally {
       setBusy(false);
     }
@@ -152,7 +172,25 @@ function Renew({
           )}
         </div>
       )}
-      {quote && (
+      {pendingAttempts.length > 0 && (
+        <div className="mt-3 border-t border-line pt-3">
+          <p className="text-xs text-muted">
+            نتیجه تمدید قبلی مشخص نیست؛ همان درخواست را دوباره ارسال کنید. اگر ثبت نشده باشد، هزینه با قیمت فعلی محاسبه
+            می‌شود.
+          </p>
+          {pendingAttempts.map((attempt, index) => (
+            <button
+              key={attempt.key}
+              disabled={busy || !userId || !pendingReady}
+              onClick={() => buy(attempt)}
+              className="btn-primary mt-2 !px-4 !py-2 text-xs"
+            >
+              تلاش مجدد تمدید قبلی{pendingAttempts.length > 1 ? ' ' + (index + 1) : ''}
+            </button>
+          ))}
+        </div>
+      )}
+      {quote && pendingAttempts.length === 0 && (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
           <span>
             مبلغ نهایی:{' '}
@@ -161,7 +199,11 @@ function Renew({
             </b>
             {!quote.sufficient_funds && <span className="mr-2 text-xs text-danger">موجودی کافی نیست</span>}
           </span>
-          <button disabled={busy || !quote.sufficient_funds} onClick={buy} className="btn-primary !px-4 !py-2 text-xs">
+          <button
+            disabled={busy || !quote.sufficient_funds || !userId || !pendingReady}
+            onClick={() => buy()}
+            className="btn-primary !px-4 !py-2 text-xs"
+          >
             پرداخت از کیف پول و تمدید
           </button>
         </div>
@@ -230,84 +272,96 @@ function ReturnAccount({
 export function Vpn({
   coreFetch,
   storeId,
+  userId,
   notify,
   reload,
 }: {
   coreFetch?: Json;
   storeId?: Json;
+  userId?: string;
   notify?: Json;
   reload?: Json;
 }) {
   const [renew, setRenew] = useState<Json>(null);
   const [giveBack, setGiveBack] = useState<Json>(null);
   const [tick, setTick] = useState(0);
+  const pending = usePendingOrders('renewal', storeId, userId);
+  const pendingFor = (account: Json) =>
+    pending.attempts.filter((attempt) => attempt.body.vpn_account_id === account.id);
   return (
-    <AccountInquiry
-      coreFetch={coreFetch}
-      base={`/api/v1/stores/${storeId}/vpn-accounts`}
-      notify={notify}
-      reloadKey={tick}
-      emptyText="اکانتی ندارید. از بخش سرویس‌ها خرید کنید."
-      emptyAction={
-        <a href="#plans" className="btn-primary mt-5">
-          دیدن سرویس‌ها
-        </a>
-      }
-      renderExtra={(a: Json) => (
-        <>
-          {a.can_renew ? (
-            <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full">
-              <RefreshCw size={16} />
-              تمدید
-            </button>
-          ) : (
-            a.renew_note && !a.is_test && <p className="mt-2 text-xs text-muted">{a.renew_note}</p>
-          )}
-          {!a.is_test && (
-            <>
-              <button
-                onClick={() =>
-                  a.can_return
-                    ? setGiveBack(giveBack === a.id ? null : a.id)
-                    : notify?.(a.return_note || 'این اکانت قابل مرجوع نیست.')
-                }
-                aria-disabled={!a.can_return || undefined}
-                className={`btn-soft mt-2 w-full ${a.can_return ? '' : 'opacity-60'}`}
-              >
-                <Undo2 size={16} />
-                مرجوعی اکانت
+    <>
+      {pending.error && <p role="status">بررسی درخواست‌های قبلی ممکن نیست؛ ذخیره‌سازی مرورگر را بررسی کنید.</p>}
+      <AccountInquiry
+        coreFetch={coreFetch}
+        base={`/api/v1/stores/${storeId}/vpn-accounts`}
+        notify={notify}
+        reloadKey={tick}
+        emptyText="اکانتی ندارید. از بخش سرویس‌ها خرید کنید."
+        emptyAction={
+          <a href="#plans" className="btn-primary mt-5">
+            دیدن سرویس‌ها
+          </a>
+        }
+        renderExtra={(a: Json) => (
+          <>
+            {a.can_renew || pendingFor(a).length > 0 ? (
+              <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full">
+                <RefreshCw size={16} />
+                {a.can_renew ? 'تمدید' : 'پیگیری تمدید قبلی'}
               </button>
-              {!a.can_return && a.return_note && <p className="mt-1 text-xs text-muted">{a.return_note}</p>}
-            </>
-          )}
-          {giveBack === a.id && (
-            <ReturnAccount
-              account={a}
-              coreFetch={coreFetch}
-              storeId={storeId}
-              notify={notify}
-              reload={() => {
-                reload?.();
-                setTick((t) => t + 1);
-              }}
-              onClose={() => setGiveBack(null)}
-            />
-          )}
-          {renew === a.id && (
-            <Renew
-              account={a}
-              coreFetch={coreFetch}
-              storeId={storeId}
-              notify={notify}
-              reload={() => {
-                reload?.();
-                setTick((t) => t + 1);
-              }}
-              onClose={() => setRenew(null)}
-            />
-          )}
-        </>
-      )}
-    />
+            ) : (
+              a.renew_note && !a.is_test && <p className="mt-2 text-xs text-muted">{a.renew_note}</p>
+            )}
+            {!a.is_test && (
+              <>
+                <button
+                  onClick={() =>
+                    a.can_return
+                      ? setGiveBack(giveBack === a.id ? null : a.id)
+                      : notify?.(a.return_note || 'این اکانت قابل مرجوع نیست.')
+                  }
+                  aria-disabled={!a.can_return || undefined}
+                  className={`btn-soft mt-2 w-full ${a.can_return ? '' : 'opacity-60'}`}
+                >
+                  <Undo2 size={16} />
+                  مرجوعی اکانت
+                </button>
+                {!a.can_return && a.return_note && <p className="mt-1 text-xs text-muted">{a.return_note}</p>}
+              </>
+            )}
+            {giveBack === a.id && (
+              <ReturnAccount
+                account={a}
+                coreFetch={coreFetch}
+                storeId={storeId}
+                notify={notify}
+                reload={() => {
+                  reload?.();
+                  setTick((t) => t + 1);
+                }}
+                onClose={() => setGiveBack(null)}
+              />
+            )}
+            {renew === a.id && (
+              <Renew
+                account={a}
+                coreFetch={coreFetch}
+                storeId={storeId}
+                userId={userId}
+                pendingAttempts={pendingFor(a)}
+                pendingReady={pending.ready}
+                onPendingChange={pending.refresh}
+                notify={notify}
+                reload={() => {
+                  reload?.();
+                  setTick((t) => t + 1);
+                }}
+                onClose={() => setRenew(null)}
+              />
+            )}
+          </>
+        )}
+      />
+    </>
   );
 }

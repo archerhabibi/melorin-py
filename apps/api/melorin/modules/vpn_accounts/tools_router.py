@@ -27,6 +27,7 @@ from melorin.modules.vpn_accounts.schemas import (
     UsageOut,
     VpnAccountOut,
 )
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(tags=["vpn-account-tools"])
 
@@ -109,7 +110,7 @@ def _register(prefix: str, dep) -> None:
 
         @router.get(f"{base}/connections", response_model=ConnectionsOut, name=f"connections_{role}")
         async def connections(
-            t: T, session: Session, limit: int = Query(20, ge=1, le=tools.MAX_FETCH_HISTORY), offset: int = Query(0, ge=0)
+            t: T, session: Session, limit: int = Query(20, ge=1, le=tools.MAX_FETCH_HISTORY), offset: int = Query(0, ge=0, le=MAX_OFFSET)
         ):
             return await tools.connections(session, t.account, role=t.role, actor_id=t.actor_id, limit=limit, offset=offset)
 

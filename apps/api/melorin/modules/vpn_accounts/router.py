@@ -12,6 +12,7 @@ from melorin.core.scope import StoreScope
 from melorin.modules.vpn_accounts import inquiry, live, returns
 from melorin.modules.vpn_accounts.qr import render_qr_png
 from melorin.modules.vpn_accounts.schemas import VpnAccountOut
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(prefix="/stores/{store_id}/vpn-accounts", tags=["vpn-accounts"])
 
@@ -35,7 +36,7 @@ async def mine(
     q: str | None = Query(None, max_length=200, description="search in the account name"),
     state: str | None = Query(None, pattern="^(active|expiring|expired)$", description="filter chip"),
     limit: int = Query(100, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     """The caller's OWN accounts in THIS store (list and search): the scope lives in ``inquiry.customer_accounts``."""
     rows, total = await inquiry.customer_accounts(session, StoreScope.of(ctx), q=q, state=state, limit=limit, offset=offset)

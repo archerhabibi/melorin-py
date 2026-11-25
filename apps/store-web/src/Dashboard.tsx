@@ -1,9 +1,10 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { Bell, ChevronDown, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight } from 'lucide-react';
+import { Bell, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignIn.tsx';
 import { Empty, Loading, PageTitle, PasswordInput, fa, fd } from './ui.tsx';
 import { J, tabs, card, btn, inp, Orders, Vpn } from './dashboard/DashboardAccounts.tsx';
 import { Wallet } from './dashboard/DashboardWallet.tsx';
+import { PendingPurchases } from './dashboard/PendingPurchases.tsx';
 import { Tickets } from './dashboard/DashboardTickets.tsx';
 import { LINKING_TAB_KEY } from './linkingTab.ts';
 import type { Json } from './types';
@@ -163,7 +164,13 @@ function Profile({
         </button>
       </div>
       <Suspense fallback={<Loading />}>
-        <Loyalty coreFetch={coreFetch} storeId={storeId} notify={notify} />
+        <Loyalty
+          key={String(storeId) + ':' + (account?.id ?? '')}
+          coreFetch={coreFetch}
+          storeId={storeId}
+          accountId={account?.id}
+          notify={notify}
+        />
       </Suspense>
       <Suspense fallback={<Loading />}>
         <Referral coreFetch={coreFetch} storeId={storeId} notify={notify} />
@@ -345,10 +352,38 @@ export default function Dashboard({
           {tab === 'notifications' && (
             <Notifications coreFetch={coreFetch} storeId={storeId} notify={notify} onCount={setUnread} />
           )}
-          {tab === 'orders' && <Orders orders={orders} />}
-          {tab === 'vpn' && <Vpn coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} />}
+          {tab === 'orders' && (
+            <>
+              <PendingPurchases
+                coreFetch={coreFetch}
+                storeId={storeId}
+                accountId={account?.id}
+                notify={notify}
+                reload={reload}
+              />
+              <Orders orders={orders} />
+            </>
+          )}
+          {tab === 'vpn' && (
+            <Vpn
+              key={String(storeId) + ':' + (account?.id ?? '')}
+              coreFetch={coreFetch}
+              storeId={storeId}
+              userId={account?.id}
+              notify={notify}
+              reload={reload}
+            />
+          )}
           {tab === 'wallet' && (
-            <Wallet coreFetch={coreFetch} storeId={storeId} wallet={wallet} reload={reload} notify={notify} />
+            <Wallet
+              key={`${storeId}:${account?.id ?? ''}`}
+              coreFetch={coreFetch}
+              storeId={storeId}
+              accountId={account?.id}
+              wallet={wallet}
+              reload={reload}
+              notify={notify}
+            />
           )}
           {tab === 'profile' && (
             <Profile coreFetch={coreFetch} storeId={storeId} account={account} notify={notify} reload={reload} />
@@ -362,40 +397,5 @@ export default function Dashboard({
         </section>
       </div>
     </div>
-  );
-}
-
-export function Faq() {
-  const items = [
-    [
-      'چطور سرویس را فعال کنم؟',
-      'پس از ورود و شارژ کیف پول، سرویس را انتخاب و پرداخت کنید؛ لینک اشتراک در بخش «اکانت‌های VPN» نمایش داده می‌شود.',
-    ],
-    [
-      'پرداخت چگونه است؟',
-      'خرید همیشه از کیف پول انجام می‌شود. کیف پول را با کارت‌به‌کارت (همراه رسید) یا درگاه شارژ کنید.',
-    ],
-    ['تمدید یا استرداد چطور است؟', 'برای تمدید یا مشکل در سفارش، از بخش تیکت‌ها با پشتیبانی در تماس باشید.'],
-    [
-      'قوانین استفاده',
-      'استفاده غیرقانونی یا فروش مجدد بدون همکاری رسمی مجاز نیست؛ سرویس تست محدود به یک‌بار برای هر کاربر است.',
-    ],
-  ];
-  return (
-    <section id="faq" className="mx-auto max-w-3xl px-5 pb-28">
-      <div className="eyebrow text-center">سوالات</div>
-      <h2 className="mt-3 text-center text-4xl font-black">پرسش‌های پرتکرار</h2>
-      <div className="mt-10 space-y-3">
-        {items.map(([q, a]) => (
-          <details key={q} className="card group !p-0 transition open:shadow-lift">
-            <summary className="flex cursor-pointer items-center justify-between gap-4 p-5 font-extrabold">
-              {q}
-              <ChevronDown size={20} className="chev shrink-0 text-muted transition-transform" />
-            </summary>
-            <p className="px-5 pb-5 leading-8 text-muted">{a}</p>
-          </details>
-        ))}
-      </div>
-    </section>
   );
 }

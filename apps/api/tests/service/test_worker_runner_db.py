@@ -7,7 +7,7 @@ import types
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_order, make_product, make_store, make_user, open_schema_engine
@@ -144,6 +144,57 @@ async def test_process_event_failure_requeues_with_exponential_backoff(maker, mo
         row = await _reload(maker, e)
         assert (row.status, row.attempts, row.last_error) == ("pending", expected_attempts, "provider down")
         assert before < _aware(row.available_at) <= utcnow() + dt.timedelta(seconds=max_delay + 1)
+
+
+@pytest.mark.parametrize("failure_path", ["flush", "execute"])
+async def test_process_event_requeues_after_database_error_without_committing_partial_work(maker, monkeypatch, caplog, failure_path):
+    async def broken_handler(session, payload):
+        session.add(_event(dedup_key="collision"))
+        await session.flush()
+        if failure_path == "flush":
+            session.add(_event(dedup_key="collision"))
+            await session.flush()
+        else:
+            await session.execute(insert(OutboxEvent).values(topic="other", payload={}, dedup_key="collision"))
+
+    monkeypatch.setitem(runner._TOPIC_HANDLERS, "t.database_failure", broken_handler)
+    event = await _claimed(maker, "t.database_failure")
+    await runner.process_event(event)
+
+    row = await _reload(maker, event)
+    assert (row.status, row.attempts, row.last_error) == ("pending", 1, "Database error: IntegrityError")
+    assert all("collision" not in record.getMessage() for record in caplog.records if record.name == runner.log.name)
+    async with maker() as session:
+        assert await session.scalar(select(OutboxEvent).where(OutboxEvent.dedup_key == "collision")) is None
+        row = await session.get(OutboxEvent, event.id)
+        row.status = "processing"
+        await session.commit()
+
+    async def recovered_handler(session, payload):
+        return None
+
+    monkeypatch.setitem(runner._TOPIC_HANDLERS, "t.database_failure", recovered_handler)
+    await runner.process_event(event)
+    assert (await _reload(maker, event)).status == "processed"
+
+
+async def test_process_event_keeps_sent_notification_state_after_a_non_database_error(maker, monkeypatch):
+    async with maker() as session:
+        user = await make_user(session)
+        await session.commit()
+
+    async def partial_delivery(session, payload):
+        session.add(Notification(user_id=user.id, kind="notice", title="t", body="b", dedup_key="delivered", telegram_status="sent"))
+        await session.flush()
+        raise RuntimeError("another recipient failed")
+
+    monkeypatch.setitem(runner._TOPIC_HANDLERS, "t.partial_delivery", partial_delivery)
+    event = await _claimed(maker, "t.partial_delivery")
+    await runner.process_event(event)
+    assert (await _reload(maker, event)).status == "pending"
+    async with maker() as session:
+        sent = await session.scalar(select(Notification).where(Notification.dedup_key == "delivered"))
+        assert sent is not None and sent.telegram_status == "sent"
 
 
 # --- webhook fan-out -----------------------------------------------------------------------------------------------

@@ -11,6 +11,7 @@ from melorin.modules.reseller import renewal as reseller_renewal
 from melorin.modules.reseller.schemas import OwnerRenewalOut
 from melorin.modules.vpn_accounts import inquiry, live
 from melorin.modules.vpn_accounts.schemas import OwnerAccountOut
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(tags=["reseller"])
 
@@ -23,7 +24,7 @@ async def store_accounts(
     q: str | None = Query(None, max_length=200, description="account name, customer name or e-mail"),
     state: str | None = Query(None, pattern="^(active|expiring|expired)$", description="filter chip"),
     limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     """The reseller's inquiry: the LIST is only his own accounts, a SEARCH also finds his own customers' (``inquiry``)."""
     rows, total = await inquiry.reseller_accounts(session, ctx.user.id, ctx.store.id, q=q, state=state, limit=limit, offset=offset)

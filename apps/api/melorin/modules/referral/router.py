@@ -16,6 +16,7 @@ from melorin.core.errors import NotFound
 from melorin.kernel.models.referral import Commission, ReferralRelationship
 from melorin.kernel.models.stores import Store
 from melorin.modules.referral import queries, service
+from melorin.core.limits import MAX_MONEY
 
 router = APIRouter(tags=["referrals"])
 
@@ -26,8 +27,8 @@ class StoreRuleIn(BaseModel):
     product_id: uuid.UUID | None = None
     kind: str = Field(pattern="^(signup_reward|commission)$")
     model: str = Field(pattern="^(fixed|percent)$")
-    value: int = Field(ge=0)
-    max_amount: int | None = Field(default=None, ge=0)
+    value: int = Field(ge=0, le=MAX_MONEY)
+    max_amount: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     is_active: bool = True
 
 

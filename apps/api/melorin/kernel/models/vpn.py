@@ -89,6 +89,8 @@ class Server(IdMixin, TimestampMixin, Base):
 
 class VpnAccount(IdMixin, TimestampMixin, Base):
     __tablename__ = "vpn_accounts"
+    # DB-001: per-panel account lists (sync, reconcile, panel operations) filter on panel_id + status.
+    __table_args__ = (Index("ix_vpn_accounts_panel_id_status", "panel_id", "status"),)
     username: Mapped[str] = mapped_column(String(64), unique=True)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)

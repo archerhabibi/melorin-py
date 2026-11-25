@@ -127,8 +127,10 @@ async def make_product(s, *, price=1000) -> Product:
 
 
 async def make_order(s, *, user, store, product, total=1000, status="paid", reseller_cost=None, number=None) -> Order:
+    if not number:
+        number = await codes.next_code(s, codes.ORDER_SEQ)
     order = Order(
-        number=number or uuid.uuid4().hex[:6],
+        number=number,
         user_id=user.id,
         store_id=store.id,
         product_id=product.id,

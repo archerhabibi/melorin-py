@@ -6,13 +6,16 @@ the TOTP enable flow, plus the admin password change guards."""
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
 from _db import make_store
 from _http import PASSWORD, add_user, api_client, totp_now
+from melorin.core import security
 from melorin.core.security import _totp, create_access_token
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import StoreMembership
+from melorin.modules.identity.routes import account
 
 AUTH = "/api/v1/auth"
 ME = "/api/v1/me"
@@ -237,12 +240,16 @@ async def test_totp_setup_then_enable_requires_a_real_code_and_arms_the_second_f
 
         bad = await c.post(f"{ME}/2fa/enable", json={"code": "000000"}, headers=a["headers"])
         assert bad.status_code == 400 and _err(bad) == "TOTP_INVALID"
-        code = _totp(secret, int(time.time()) // 30)
+        counter = int(time.time()) // 30
+        code = _totp(secret, counter)
         ok = await c.post(f"{ME}/2fa/enable", json={"code": code}, headers=a["headers"])
         assert ok.status_code == 200 and ok.json() == {"ok": True}
         async with maker() as s:
             row = await s.get(User, a["user"].id)
-            assert row.totp_enabled is True and row.totp_last_counter == int(time.time()) // 30
+            # the server accepts a code within ±1 TOTP window of its own clock, so
+            # the recorded counter may differ from ours when the 30 s boundary is
+            # crossed mid-test; asserting an exact fresh time() read is flaky.
+            assert row.totp_enabled is True and abs(row.totp_last_counter - counter) <= 1
 
         # from now on the password alone is not enough
         c.cookies.clear()
@@ -281,6 +288,44 @@ async def test_admin_password_change_guards_and_effect():
         c.cookies.clear()
         old = await c.post(f"{AUTH}/password/login", json={"email": "root@example.com", "password": PASSWORD, "totp_code": totp_now(1)})
         assert old.status_code == 401
+
+
+@pytest.mark.parametrize("change", ["password", "inactive", "demoted", "totp_disabled"])
+async def test_admin_password_change_rechecks_account_after_verification(monkeypatch, change):
+    async with api_client() as (client, maker, _):
+        headers = await _admin_login(client, maker)
+        async with maker() as session:
+            admin = await session.scalar(select(User).where(User.email == "root@example.com"))
+            admin_id, original_hash = admin.id, admin.password_hash
+        replacement_hash = await security.hash_password("owner-rotated-pass-2")
+        verify = account.verify_password
+
+        async def verify_then_change_account(password, stored):
+            valid = await verify(password, stored)
+            async with maker() as session:
+                row = await session.get(User, admin_id)
+                if change == "password":
+                    row.password_hash = replacement_hash
+                elif change == "inactive":
+                    row.is_active = False
+                elif change == "demoted":
+                    row.is_super_admin = False
+                else:
+                    row.totp_enabled = False
+                await session.commit()
+            return valid
+
+        monkeypatch.setattr(account, "verify_password", verify_then_change_account)
+        response = await client.post(
+            f"{AUTH}/admin/password",
+            json={"current_password": PASSWORD, "new_password": "another-strong-pass-1"},
+            headers=headers,
+        )
+        async with maker() as session:
+            row = await session.get(User, admin_id)
+            assert row.password_hash == (replacement_hash if change == "password" else original_hash)
+        assert response.status_code == 401
+        assert _err(response) == ("INVALID_CURRENT_PASSWORD" if change == "password" else "UNAUTHORIZED")
 
 
 async def test_admin_password_change_is_not_available_to_customers():

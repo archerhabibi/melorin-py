@@ -1,21 +1,29 @@
 // Customer › Loyalty club. The club belongs to the store the customer is in: his points, his tier and the rewards HERE.
 // Nothing is computed in the browser: Core says what he can take and what is blocked, this screen only shows it.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Award, Gift, Sparkles } from 'lucide-react';
 import { Empty, Loading, fa, fd } from './ui.tsx';
 import { unitOf } from './storeProgram.ts';
 import { BLOCKED, TX_KIND, multiplierLabel, tierProgress } from './loyaltyFormat.ts';
+import { completeReward, reserveReward } from './loyaltyAttempts.ts';
+import { usePendingLoyalty } from './usePendingLoyalty.ts';
 import type { Json } from './types';
 
-const newKey = () =>
-  (globalThis.crypto?.randomUUID?.() || `k${Date.now()}${Math.random().toString(16).slice(2)}`).slice(0, 64);
-
-export default function Loyalty({ coreFetch, storeId, notify }: { coreFetch?: Json; storeId?: Json; notify?: Json }) {
+export default function Loyalty({
+  coreFetch,
+  storeId,
+  accountId,
+  notify,
+}: {
+  coreFetch?: Json;
+  storeId?: string;
+  accountId?: string;
+  notify?: Json;
+}) {
   const [d, setD] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<Json>(null);
-  // One key per reward until its request finishes, so a double tap or a retry can never spend twice.
-  const keys = useRef<Json>({});
+  const pending = usePendingLoyalty(storeId, accountId);
 
   const load = useCallback(() => {
     return coreFetch(`/api/v1/stores/${storeId}/loyalty`)
@@ -32,36 +40,89 @@ export default function Loyalty({ coreFetch, storeId, notify }: { coreFetch?: Js
     load();
   }, [load]);
 
-  async function redeem(reward: Json) {
-    if (busy) return;
+  async function redeem(reward: Json, expectedKey?: string) {
+    if (
+      busy ||
+      !storeId?.trim() ||
+      !accountId?.trim() ||
+      !pending.ready ||
+      typeof reward?.id !== 'string' ||
+      !reward.id
+    )
+      return;
     setBusy(reward.id);
-    keys.current[reward.id] ||= newKey();
     try {
-      const r = await coreFetch(`/api/v1/stores/${storeId}/loyalty/rewards/${reward.id}/redeem`, {
-        method: 'POST',
-        headers: { 'Idempotency-Key': keys.current[reward.id] },
-      });
+      let key: string | null;
+      try {
+        key = await reserveReward(storeId, accountId, reward.id, reward.name || 'پاداش', expectedKey);
+      } catch {
+        notify('ذخیره امن وضعیت پاداش ممکن نیست؛ درخواست ارسال نشد.');
+        return;
+      }
+      if (!key) {
+        notify('وضعیت درخواست قبلی تغییر کرده است؛ پاداش‌ها را دوباره بررسی کنید.');
+        return;
+      }
+      const r = await coreFetch(
+        `/api/v1/stores/${encodeURIComponent(storeId)}/loyalty/rewards/${encodeURIComponent(reward.id)}/redeem`,
+        {
+          method: 'POST',
+          headers: { 'Idempotency-Key': key },
+        },
+      );
       if (r.ok) {
-        delete keys.current[reward.id];
+        const result = await r.json();
+        if (!result || typeof result.id !== 'string' || !result.id) throw new Error('invalid redemption result');
+        try {
+          await completeReward(storeId, accountId, reward.id, key);
+        } catch {
+          // Retaining the key keeps a later retry safe if storage becomes unavailable.
+        }
         notify(`«${reward.name}» به کیف پول شما اضافه شد`);
         await load();
       } else {
-        delete keys.current[reward.id];
         const e = await r.json().catch(() => ({}));
         notify(e?.error?.message || 'دریافت پاداش ناموفق بود');
         await load();
       }
     } catch {
-      // network failure: keep the key, a retry is the same request
-      notify('ارتباط برقرار نشد؛ دوباره تلاش کنید');
+      notify('نتیجه درخواست پاداش مشخص نیست؛ همان درخواست را دوباره بررسی کنید.');
     } finally {
+      pending.refresh();
       setBusy(null);
     }
   }
 
-  if (failed && !d) return <Empty text="باشگاه مشتریان در دسترس نیست." />;
-  if (!d) return <Loading rows={2} />;
-  if (!d.enabled) return null; // a store without a club shows nothing, not an empty promise
+  const pendingView = pending.attempts.length > 0 && (
+    <div className="space-y-2 rounded-xl border border-line p-3">
+      <p className="text-xs text-muted">نتیجه درخواست پاداش قبلی مشخص نیست؛ همان درخواست را پیگیری کنید.</p>
+      {pending.attempts.map((attempt) => (
+        <button
+          key={attempt.key}
+          className="btn-primary w-full"
+          disabled={busy != null || !pending.ready}
+          aria-label={`پیگیری ${attempt.name}`}
+          onClick={() => redeem({ id: attempt.rewardId, name: attempt.name }, attempt.key)}
+        >
+          پیگیری {attempt.name}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (!d || !d.enabled) {
+    if (pendingView || pending.error) {
+      return (
+        <div className="card space-y-3">
+          {pending.error && <p role="status">بررسی درخواست‌های قبلی ممکن نیست؛ ذخیره‌سازی مرورگر را بررسی کنید.</p>}
+          {pendingView}
+          {failed && <Empty text="باشگاه مشتریان در دسترس نیست." />}
+        </div>
+      );
+    }
+    if (failed) return <Empty text="باشگاه مشتریان در دسترس نیست." />;
+    return d ? null : <Loading rows={2} />;
+  }
 
   const unit = unitOf(d.currency);
   const pct = tierProgress(d.tier, d.next_tier, d.lifetime_earned);
@@ -71,6 +132,13 @@ export default function Loyalty({ coreFetch, storeId, notify }: { coreFetch?: Js
         <Award size={18} aria-hidden="true" />
         باشگاه مشتریان
       </h4>
+      {(!storeId?.trim() || !accountId?.trim()) && (
+        <p role="status" className="text-xs text-muted">
+          برای دریافت پاداش، اطلاعات حساب باید بارگذاری شود.
+        </p>
+      )}
+      {pending.error && <p role="status">بررسی درخواست‌های قبلی ممکن نیست؛ ذخیره‌سازی مرورگر را بررسی کنید.</p>}
+      {pendingView}
 
       <div className="grid grid-cols-2 gap-3 text-center">
         <div className="rounded-xl bg-surface2 p-3">
@@ -139,7 +207,9 @@ export default function Loyalty({ coreFetch, storeId, notify }: { coreFetch?: Js
               </div>
               <button
                 className="btn-primary shrink-0"
-                disabled={!r.available || busy != null}
+                disabled={
+                  !r.available || busy != null || !pending.ready || pending.attempts.some((a) => a.rewardId === r.id)
+                }
                 onClick={() => redeem(r)}
                 aria-label={`دریافت ${r.name}`}
               >

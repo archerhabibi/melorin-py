@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
 from _http import PASSWORD, add_user, api_client
+from melorin.core import security
 from melorin.core.security import create_access_token
 from melorin.domain.account_linking import Evidence
-from melorin.kernel.models.identity import Identity
-from melorin.modules.identity.account_linking import linking
+from melorin.kernel.models.identity import Identity, User
+from melorin.modules.identity.account_linking import linking, reauth
 
 ID = "/api/v1/identity"
 
@@ -51,6 +53,34 @@ async def test_unlink_with_password_requires_current_password():
         assert _err(r) == "REAUTH_REQUIRED"
         r = await c.post(f"{ID}/unlink", json={"identity_id": str(g1.id), "current_password": PASSWORD}, headers=_auth(user, main))
         assert r.status_code == 200 and r.json()["status"] == "revoked"
+
+
+@pytest.mark.parametrize("change", ["password", "inactive"])
+async def test_unlink_rejects_password_proof_if_account_changes_during_verification(monkeypatch, change):
+    async with api_client() as (client, maker, main):
+        user = await add_user(maker, email="pw@example.com")
+        identity, _other = await _two_google(maker, user)
+        replacement_hash = await security.hash_password("owner-rotated-pass-2")
+        verify = reauth.verify_password
+
+        async def verify_then_change_account(password, stored):
+            valid = await verify(password, stored)
+            async with maker() as session:
+                row = await session.get(User, user.id)
+                if change == "password":
+                    row.password_hash = replacement_hash
+                else:
+                    row.is_active = False
+                await session.commit()
+            return valid
+
+        monkeypatch.setattr(reauth, "verify_password", verify_then_change_account)
+        response = await client.post(
+            f"{ID}/unlink", json={"identity_id": str(identity.id), "current_password": PASSWORD}, headers=_auth(user, main)
+        )
+        async with maker() as session:
+            assert (await session.get(Identity, identity.id)).status == "active"
+        assert (response.status_code, _err(response)) == (401, "REAUTH_REQUIRED")
 
 
 async def test_passwordless_unlink_needs_a_fresh_email_code_used_once():

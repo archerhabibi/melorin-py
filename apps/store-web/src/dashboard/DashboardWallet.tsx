@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fa, fd } from '../ui.tsx';
+import { updateStoredAttempt } from '../attemptLock.ts';
 import { J, card, btn, inp } from './DashboardAccounts.tsx';
 import type { Json } from '../types';
 
 export function Wallet({
   coreFetch,
   storeId,
+  accountId,
   wallet,
   reload,
   notify,
 }: {
   coreFetch?: Json;
   storeId?: Json;
+  accountId?: string;
   wallet?: Json;
   reload?: Json;
   notify?: Json;
@@ -19,23 +22,27 @@ export function Wallet({
   const [tx, setTx] = useState<Json>([]);
   const [amount, setAmount] = useState('');
   const [pay, setPay] = useState<Json>(null);
+  const [paymentAttemptKey, setPaymentAttemptKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const topupStorageKey = `melorin:wallet-topup:${storeId}`;
+  const submitting = useRef(false);
+  const topupStorageKey =
+    typeof storeId === 'string' && storeId.trim() && typeof accountId === 'string' && accountId.trim()
+      ? `melorin:wallet-topup:${encodeURIComponent(storeId)}:${encodeURIComponent(accountId)}`
+      : null;
   // state: 'unknown' = the outcome of the last request is not known (network error / 5xx / unknown-outcome code), so the same
   // key must be reused; 'active' = a payment exists and was received, so a different amount may start a fresh request.
   type TopupAttempt = { amount?: string; idempotencyKey?: string; state?: 'unknown' | 'active' };
-  const saveAttempt = (a: TopupAttempt) => {
+  const updateAttempt = async (expectedKey: string, next: TopupAttempt | null) => {
+    if (!topupStorageKey) return;
     try {
-      localStorage.setItem(topupStorageKey, JSON.stringify(a));
+      await updateStoredAttempt(topupStorageKey, (raw) => {
+        const saved: TopupAttempt | null = JSON.parse(raw || 'null');
+        // A response or receipt from an older tab cannot replace a newer attempt.
+        if (saved?.idempotencyKey !== expectedKey) return { result: undefined };
+        return { value: next ? JSON.stringify(next) : null, result: undefined };
+      });
     } catch {
-      /* storage unavailable: the pre-send check below already refused to send */
-    }
-  };
-  const clearAttempt = () => {
-    try {
-      localStorage.removeItem(topupStorageKey);
-    } catch {
-      /* ignore */
+      /* Keep the stored key when safe coordination is unavailable. */
     }
   };
   const load = () =>
@@ -48,62 +55,81 @@ export function Wallet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [storeId]);
   async function topup() {
+    if (!topupStorageKey) {
+      notify('برای ایجاد درخواست شارژ، اطلاعات حساب باید بارگذاری شود.');
+      return;
+    }
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
     const requestedAmount = String(Number(amount));
-    let idempotencyKey: string;
     try {
-      const raw = localStorage.getItem(topupStorageKey);
-      const saved: TopupAttempt | null = raw ? JSON.parse(raw) : null;
-      if (saved?.idempotencyKey && saved.amount === requestedAmount) {
-        idempotencyKey = saved.idempotencyKey;
-      } else if (saved?.idempotencyKey && saved.state === 'unknown') {
+      let idempotencyKey: string | null;
+      try {
+        idempotencyKey = await updateStoredAttempt(topupStorageKey, (raw) => {
+          const saved: TopupAttempt | null = raw === null ? null : JSON.parse(raw);
+          if (
+            raw !== null &&
+            (!saved ||
+              typeof saved !== 'object' ||
+              Array.isArray(saved) ||
+              typeof saved.idempotencyKey !== 'string' ||
+              !saved.idempotencyKey ||
+              typeof saved.amount !== 'string' ||
+              (saved.state !== undefined && saved.state !== 'unknown' && saved.state !== 'active'))
+          )
+            throw new Error('invalid stored attempt');
+          if (saved?.idempotencyKey && saved.amount !== requestedAmount && saved.state !== 'active')
+            return { result: null };
+          const key =
+            saved?.idempotencyKey && saved.amount === requestedAmount
+              ? saved.idempotencyKey
+              : 'topup-' + crypto.randomUUID();
+          // Persist before sending, in the same cross-tab transaction that chose the key.
+          return {
+            value: JSON.stringify({
+              amount: requestedAmount,
+              idempotencyKey: key,
+              state: saved?.idempotencyKey === key && saved.state === 'active' ? 'active' : 'unknown',
+            }),
+            result: key,
+          };
+        });
+      } catch {
+        notify('ذخیره امن وضعیت درخواست در مرورگر ممکن نیست؛ برای جلوگیری از پرداخت تکراری، درخواست ارسال نشد.');
+        return;
+      }
+      if (!idempotencyKey) {
         notify(
           'نتیجهٔ درخواست شارژ قبلی هنوز مشخص نیست. برای جلوگیری از پرداخت تکراری، همان مبلغ قبلی را دوباره ارسال کنید یا با پشتیبانی تماس بگیرید.',
         );
         return;
-      } else {
-        idempotencyKey = `topup-${crypto.randomUUID()}`;
       }
-      // Persist BEFORE sending: a reload or a lost HTTP response must reuse this exact key.
-      localStorage.setItem(
-        topupStorageKey,
-        JSON.stringify({ amount: requestedAmount, idempotencyKey, state: 'unknown' }),
-      );
-    } catch {
-      notify('ذخیره امن وضعیت درخواست در مرورگر ممکن نیست؛ برای جلوگیری از پرداخت تکراری، درخواست ارسال نشد.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const r = await coreFetch(`/api/v1/stores/${storeId}/wallet/topups`, {
+      const r = await coreFetch('/api/v1/stores/' + encodeURIComponent(String(storeId)) + '/wallet/topups', {
         method: 'POST',
         headers: { ...J, 'Idempotency-Key': idempotencyKey },
-        body: JSON.stringify({ amount: Number(amount), provider: 'manual_card' }),
+        body: JSON.stringify({ amount: Number(requestedAmount), provider: 'manual_card' }),
       });
       if (!r.ok) {
         const error = await r.json().catch(() => ({}));
-        const code = error?.error?.code;
-        const message = error?.error?.message || 'ایجاد درخواست شارژ ناموفق بود';
-        // Only discard keys for client-side rejections that happen before an external intent can exist.
-        if (
-          r.status >= 400 &&
-          r.status < 500 &&
-          !['PAYMENT_INTENT_IN_PROGRESS', 'PAYMENT_INTENT_OUTCOME_UNKNOWN', 'IDEMPOTENCY_KEY_REUSE'].includes(code)
-        ) {
-          clearAttempt();
-        }
-        notify(message);
+        // Another tab may have sent this same key successfully even when this response is a 4xx.
+        notify(error?.error?.message || 'ایجاد درخواست شارژ ناموفق بود');
         return;
       }
-      const p = await r.json();
-      // Keep the key while this payment is still active: a reload after a successful
-      // response must recover the same payment rather than create another one.
-      if (p.status === 'failed' || p.status === 'cancelled') clearAttempt();
-      else saveAttempt({ amount: String(Number(amount)), idempotencyKey, state: 'active' });
+      const p = await r.json().catch(() => null);
+      if (!p || typeof p.id !== 'string' || !p.id || typeof p.status !== 'string' || !p.status) {
+        notify('نتیجهٔ درخواست شارژ مشخص نیست؛ همان مبلغ را دوباره ارسال کنید.');
+        return;
+      }
+      if (p.status === 'failed' || p.status === 'cancelled') await updateAttempt(idempotencyKey, null);
+      else await updateAttempt(idempotencyKey, { amount: requestedAmount, idempotencyKey, state: 'active' });
+      setPaymentAttemptKey(idempotencyKey);
       setPay(p);
       if (p.instructions?.redirect_url) window.location.href = p.instructions.redirect_url;
     } catch (e: Json) {
       notify(e?.message || 'ایجاد درخواست شارژ ناموفق بود');
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -112,10 +138,11 @@ export function Wallet({
   const [rc, setRc] = useState<Json>({ file: null, paid_at: '' });
   const [read, setRead] = useState<Json>(null);
   const [sending, setSending] = useState(false);
-  const resetReceipt = () => {
+  const resetReceipt = async () => {
+    if (paymentAttemptKey) await updateAttempt(paymentAttemptKey, null);
     setPay(null);
+    setPaymentAttemptKey(null);
     setAmount('');
-    clearAttempt();
     setRc({ file: null, paid_at: '' });
     setRead(null);
   };
@@ -140,7 +167,7 @@ export function Wallet({
       const done = await r.json().catch(() => ({}));
       if (done.status === 'succeeded') {
         notify('پرداخت با پیامک بانک تأیید شد و کیف پول شما شارژ شد ✅');
-        resetReceipt();
+        await resetReceipt();
         reload();
         load();
       } else if (!done.receipt_read?.paid_at) {
@@ -196,7 +223,16 @@ export function Wallet({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
               />
-              <button disabled={busy || !Number(amount)} onClick={topup} className={`${btn} mt-3 w-full`}>
+              {!topupStorageKey && (
+                <p role="status" className="mt-2 text-xs text-muted">
+                  برای ایجاد درخواست شارژ، اطلاعات حساب باید بارگذاری شود.
+                </p>
+              )}
+              <button
+                disabled={busy || !Number(amount) || !topupStorageKey}
+                onClick={topup}
+                className={`${btn} mt-3 w-full`}
+              >
                 ایجاد درخواست
               </button>
             </>
@@ -252,7 +288,7 @@ export function Wallet({
                   </button>
                 </>
               ) : (
-                <button onClick={resetReceipt} className={`${btn} mt-3 w-full`}>
+                <button onClick={() => void resetReceipt()} className={`${btn} mt-3 w-full`}>
                   بستن
                 </button>
               )}

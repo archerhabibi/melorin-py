@@ -10,6 +10,7 @@ from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import StoreMembership
+from melorin.kernel.models.wallet import LedgerEntry
 from melorin.modules.reseller.schemas import (
     CustomerOut,
     CustomerWalletAdjustment,
@@ -58,10 +59,12 @@ async def adjust_customer_wallet_core(
     if cap and abs(body.amount) > int(cap):
         raise AppError("BAD_AMOUNT", "مبلغ از سقف مجاز شارژ دستی بیشتر است.", 400)
     w = await wallet.get_wallet(session, customer_id, ctx.store.id, currency=ctx.store.currency)
-    # Lock before checking a negative correction. The check and ledger post
-    # must observe one serialized balance, not two concurrent snapshots.
+    key = f"reseller-adjust:{ctx.store.id}:{body.idempotency_key}"
+    kind = "reseller_manual_topup" if body.amount > 0 else "reseller_manual_correction"
+    # Serialize both the balance check and the replay lookup. A concurrent
+    # request with this key may have committed while this one waited for the lock.
     await wallet.lock_wallets(session, [w])
-    if body.amount < 0 and w.balance + body.amount < 0:
+    if body.amount < 0 and w.balance + body.amount < 0 and not await wallet.find_tx(session, key):
         raise AppError("INSUFFICIENT_FUNDS", "اصلاح موجودی نمی‌تواند کیف پول را منفی کند.", 409)
     postings = [
         wallet.Posting(body.amount, wallet=w, min_balance=0),
@@ -69,14 +72,22 @@ async def adjust_customer_wallet_core(
     ]
     tx, created = await wallet.post(
         session,
-        kind="reseller_manual_topup" if body.amount > 0 else "reseller_manual_correction",
-        key=f"reseller-adjust:{ctx.store.id}:{body.idempotency_key}",
+        kind=kind,
+        key=key,
         currency=ctx.store.currency,
         store_id=ctx.store.id,
         postings=postings,
         actor_id=ctx.user.id,
         memo=(body.reason + (f" | ref: {body.reference}" if body.reference else ""))[:500],
     )
+    if not created:
+        same_posting = await session.scalar(
+            select(LedgerEntry.id).where(
+                LedgerEntry.transaction_id == tx.id, LedgerEntry.wallet_id == w.id, LedgerEntry.amount == body.amount
+            )
+        )
+        if tx.kind != kind or same_posting is None:
+            raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency برای عملیات دیگری استفاده شده است.", 409)
     if created:
         audit.record(
             session,

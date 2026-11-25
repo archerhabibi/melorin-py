@@ -11,9 +11,9 @@ from sqlalchemy import select
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core.db import utcnow
 from melorin.domain import bank_sms as dom
-from melorin.kernel.models.payments import Payment
+from melorin.kernel.models.payments import BankSmsMessage, Payment
 from melorin.kernel.models.stores import Store, StorePaymentConfiguration
-from melorin.modules.payments import provisional
+from melorin.modules.payments import bank_sms, provisional
 from test_bank_sms_auto_verify import ADMIN, _balance, _login, _minute, _setup_source, _sms, _topup, sms_text  # noqa: F401
 
 
@@ -239,3 +239,114 @@ async def test_site_upload_stores_a_keyed_network_tag_not_the_address():
             p = await s.get(Payment, uuid.UUID(pid))
             tag = (p.meta or {}).get("receipt_origin")
         assert tag and len(tag) == 20 and "." not in tag and ":" not in tag
+
+
+async def _claimed_pending(c, h, sid, *, key, n, paid_at):
+    pid = await _topup(c, h, sid, key=key, receipt=False)
+    image = b"\x89PNG\r\n\x1a\n" + str(n).encode() * 24
+    response = await c.post(
+        f"/api/v1/stores/{sid}/payments/{pid}/receipt",
+        files={"file": ("r.png", image, "image/png")},
+        data={"paid_at": paid_at},
+        headers=h,
+    )
+    assert response.status_code == 200, response.text
+    return pid
+
+
+@pytest.mark.parametrize("pending_count", [1, 2])
+async def test_sms_with_equally_matching_pending_and_provisional_receipts_is_ambiguous(pending_count):
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker, "provisional@example.com")
+        admin = await _admin(c, maker)
+        token = await _setup_source(maker, main.id)
+        await _enable(c, admin, main.id)
+        when = _minute()
+        stamp = dom.utc_to_jalali_text(when)
+        provisional_id = await _topup(c, h, sid, key="sms-provisional", paid_at=stamp)
+        assert await _sweep(maker, 6) == 1
+        pending_ids = []
+        for i in range(pending_count):
+            other, _ = await _login(c, maker, f"pending{i}@example.com")
+            pending_ids.append(await _claimed_pending(c, other, sid, key=f"sms-pending-{i}", n=i + 10, paid_at=stamp))
+        response = await _sms(c, main.id, token, sms_text(when=when))
+        assert response.json()["status"] == "ambiguous"
+        async with maker() as session:
+            original = await session.get(Payment, uuid.UUID(provisional_id))
+            assert original.meta["provisional"]["state"] == "open"
+            for pid in pending_ids:
+                assert (await session.get(Payment, uuid.UUID(pid))).status == "awaiting_review"
+        # A human can resolve the ambiguity in favor of the provisional receipt without reusing the SMS.
+        async with maker() as session:
+            sms = await session.scalar(select(BankSmsMessage))
+            store = await session.get(Store, main.id)
+            linked = await bank_sms.manual_link(session, store, sms.id, uuid.UUID(provisional_id), actor_id=None, actor_type="admin")
+            assert linked.status == "matched" and str(linked.payment_id) == provisional_id
+            assert (await session.get(Payment, uuid.UUID(provisional_id))).meta["provisional"]["state"] == "confirmed"
+            assert (await bank_sms.reconcile_store(session, store))["matched"] == 0
+            for pid in pending_ids:
+                assert (await session.get(Payment, uuid.UUID(pid))).status == "awaiting_review"
+
+
+@pytest.mark.parametrize("provisional_offset,pending_offset,selected", [(0, -4, "provisional"), (-4, 0, "pending")])
+async def test_sms_selects_the_closest_receipt_across_pending_and_provisional(provisional_offset, pending_offset, selected):
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker, "provisional@example.com")
+        admin = await _admin(c, maker)
+        token = await _setup_source(maker, main.id)
+        await _enable(c, admin, main.id)
+        when = _minute()
+        provisional_id = await _topup(
+            c, h, sid, key="sms-provisional", paid_at=dom.utc_to_jalali_text(when + dt.timedelta(minutes=provisional_offset))
+        )
+        assert await _sweep(maker, 6) == 1
+        other, _ = await _login(c, maker, "pending@example.com")
+        pending_id = await _claimed_pending(
+            c, other, sid, key="sms-pending", n=10, paid_at=dom.utc_to_jalali_text(when + dt.timedelta(minutes=pending_offset))
+        )
+        response = await _sms(c, main.id, token, sms_text(when=when))
+        assert response.json()["status"] == "matched"
+        async with maker() as session:
+            original = await session.get(Payment, uuid.UUID(provisional_id))
+            pending = await session.get(Payment, uuid.UUID(pending_id))
+            assert original.meta["provisional"]["state"] == ("confirmed" if selected == "provisional" else "open")
+            assert pending.status == ("awaiting_review" if selected == "provisional" else "succeeded")
+
+
+async def test_many_unrelated_payments_do_not_hide_a_competing_receipt():
+    async with api_client() as (c, maker, main):
+        first, sid = await _login(c, maker, "provisional@example.com")
+        admin = await _admin(c, maker)
+        token = await _setup_source(maker, main.id)
+        await _enable(c, admin, main.id)
+        when = _minute()
+        stamp = dom.utc_to_jalali_text(when)
+        await _topup(c, first, sid, key="sms-provisional", paid_at=stamp)
+        assert await _sweep(maker, 6) == 1
+        other, _ = await _login(c, maker, "pending@example.com")
+        pending_id = await _claimed_pending(c, other, sid, key="sms-pending", n=10, paid_at=stamp)
+        async with maker() as session:
+            pending = await session.get(Payment, uuid.UUID(pending_id))
+            session.add_all(
+                [
+                    Payment(
+                        user_id=pending.user_id,
+                        store_id=pending.store_id,
+                        purpose="wallet_topup",
+                        provider="manual_card",
+                        amount=1,
+                        currency="IRT",
+                        status="awaiting_review",
+                        receipt_file_id=pending.receipt_file_id,
+                        idempotency_key=f"older-unrelated-{i}",
+                        created_at=pending.created_at - dt.timedelta(seconds=1),
+                        meta={"receipt_claim": {"paid_at": pending.meta["receipt_claim"]["paid_at"]}},
+                    )
+                    for i in range(500)
+                ]
+            )
+            await session.commit()
+        response = await _sms(c, main.id, token, sms_text(when=when))
+        assert response.json()["status"] == "ambiguous"
+        async with maker() as session:
+            assert (await session.get(Payment, uuid.UUID(pending_id))).status == "awaiting_review"

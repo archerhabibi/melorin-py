@@ -9,6 +9,8 @@ import logging
 import time
 import uuid
 
+from redis.exceptions import RedisError
+
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
 log = logging.getLogger("melorin.upstream_bot")
@@ -18,12 +20,9 @@ _LOCKS: dict[str, asyncio.Lock] = {}
 
 
 def _redis():
-    try:
-        from melorin.core.redis import get_redis
+    from melorin.core.redis import get_redis
 
-        return get_redis()
-    except Exception:  # pragma: no cover
-        return None
+    return get_redis()
 
 
 class _Store:
@@ -86,35 +85,52 @@ class _Store:
             _MEM[key] = json.dumps({"status": "active", "ref": ref, "subscription_url": subscription_url}, ensure_ascii=False)
 
 
+# Redis must compare the owner and delete as one operation: a lease may expire between separate GET and DEL calls.
+_RELEASE_LOCK = """
+if redis.call('get', KEYS[1]) == ARGV[1] then
+    return redis.call('del', KEYS[1])
+end
+return 0
+"""
+
+
 class _ChatLock:
     def __init__(self, ns: str, ttl: int, wait: float):
         self.key, self.ttl, self.wait, self.token = f"upstream_bot:{ns}:lock", ttl, wait, uuid.uuid4().hex
         self._local = _LOCKS.setdefault(self.key, asyncio.Lock())
-        self._held_redis = False
+        self._redis_client = None
 
     async def __aenter__(self):
-        await asyncio.wait_for(self._local.acquire(), self.wait)
-        r, end = _redis(), time.monotonic() + self.wait
-        if r is not None:
-            while True:
-                try:
-                    if await r.set(self.key, self.token, nx=True, ex=self.ttl):
-                        self._held_redis = True
-                        break
-                except Exception:
-                    break  # redis down: the process-local lock still serialises this worker
-                if time.monotonic() > end:
-                    self._local.release()
-                    raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: chat is busy, retry later")
-                await asyncio.sleep(0.5)
-        return self
+        deadline = time.monotonic() + self.wait
+        try:
+            await asyncio.wait_for(self._local.acquire(), self.wait)
+        except TimeoutError as exc:
+            raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: chat is busy, retry later") from exc
+        try:
+            try:
+                r = _redis()
+                if r is not None:
+                    while True:
+                        if await r.set(self.key, self.token, nx=True, ex=self.ttl):
+                            self._redis_client = r
+                            break
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: chat is busy, retry later")
+                        await asyncio.sleep(min(0.5, remaining))
+            except (RedisError, OSError) as exc:
+                raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: distributed chat lock unavailable") from exc
+            return self
+        except BaseException:
+            self._local.release()
+            raise
 
     async def __aexit__(self, *exc):
-        r = _redis()
-        if r is not None and self._held_redis:
-            try:
-                if await r.get(self.key) == self.token:
-                    await r.delete(self.key)
-            except Exception:
-                log.warning("upstream_bot: redis delete failed", exc_info=True)
-        self._local.release()
+        try:
+            if self._redis_client is not None:
+                try:
+                    await self._redis_client.eval(_RELEASE_LOCK, 1, self.key, self.token)
+                except (RedisError, OSError):
+                    log.warning("upstream_bot: redis lock release failed", exc_info=True)
+        finally:
+            self._local.release()

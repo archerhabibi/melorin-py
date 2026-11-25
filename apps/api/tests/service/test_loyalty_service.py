@@ -552,3 +552,21 @@ async def test_earning_and_refunds_queue_customer_notifications_once():
         await s.commit()
         keys = (await s.scalars(select(OutboxEvent.dedup_key).where(OutboxEvent.dedup_key.like("notify:loyalty:%")))).all()
         assert len(keys) == len(set(keys)) == 2  # one for the earning, one for the reversal
+
+
+async def test_redeem_replay_survives_a_disabled_program():
+    async with open_session() as s:
+        store, customer, product, admin = await _world(s)
+        reward = await _reward(s, store, admin, cost_points=10)
+        await club.on_order_completed(s, (await _complete(s, customer, store, product, total=100_000)).id)
+        first, created = await club.redeem(s, store, customer, reward.id, idempotency_key="same")
+        await s.commit()
+        program = await club.get_program(s, store.id)
+        program.is_enabled = False
+        await s.commit()
+
+        replay, created_again = await club.redeem(s, store, customer, reward.id, idempotency_key="same")
+        assert created is True and created_again is False and replay.id == first.id
+        with pytest.raises(AppError) as exc:
+            await club.redeem(s, store, customer, reward.id, idempotency_key="different")
+        assert exc.value.code == "LOYALTY_DISABLED"

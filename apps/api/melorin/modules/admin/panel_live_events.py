@@ -4,7 +4,7 @@ import datetime as dt
 import logging
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from melorin.core import audit
@@ -15,6 +15,7 @@ from melorin.modules.panelops import panel_events
 from melorin.modules.panelops import panel_events_admin
 
 from melorin.modules.panelops import queries
+from melorin.core.limits import MAX_OFFSET
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_live_events")
@@ -90,8 +91,8 @@ async def panel_events_list(
     status: str | None = None,
     action: str | None = None,
     username: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
 ):
     await _panel_or_404(session, panel_id)
     if status and status not in ("pending", "processing", "processed", "ignored", "failed"):

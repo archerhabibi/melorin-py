@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
+from sqlalchemy.exc import DataError, DBAPIError, InterfaceError, OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from melorin.core.context import correlation_id
@@ -63,6 +63,14 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException):
         return JSONResponse(_body(f"HTTP_{exc.status_code}", str(exc.detail)), status_code=exc.status_code)
+
+    @app.exception_handler(DataError)
+    async def _out_of_range(request: Request, exc: DataError):
+        # A value the client sent does not fit what it reaches (int32/int64 overflow, over-long text, a NUL byte ...): a client
+        # error, never a 500 with a stack trace. Declared bounds (core.limits) reject most of these earlier; this is the net.
+        log.warning("rejected input the database cannot store: %s", type(exc.orig).__name__ if exc.orig else type(exc).__name__)
+        body = _body("VALUE_OUT_OF_RANGE", "مقدار ورودی خارج از محدوده‌ی مجاز است.", None, _cid(request))
+        return JSONResponse(body, status_code=422)
 
     @app.exception_handler(DBAPIError)
     async def _db_error(request: Request, exc: DBAPIError):

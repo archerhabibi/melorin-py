@@ -3,6 +3,7 @@ import uuid
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from melorin.core.limits import MAX_COUNT, MAX_MONEY
 
 
 class CatalogItem(BaseModel):
@@ -127,14 +128,14 @@ CouponCreator = Literal["admin", "reseller"]
 class CouponIn(BaseModel):
     code: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_\-]+$")
     percent_bp: int = Field(default=0, ge=0, le=10_000)
-    fixed: int = Field(default=0, ge=0)
-    max_discount: int | None = Field(default=None, gt=0)
-    min_amount: int = Field(default=0, ge=0)
+    fixed: int = Field(default=0, ge=0, le=MAX_MONEY)
+    max_discount: int | None = Field(default=None, gt=0, le=MAX_MONEY)
+    min_amount: int = Field(default=0, ge=0, le=MAX_MONEY)
     product_ids: list[uuid.UUID] | None = None
     starts_at: dt.datetime | None = None
     ends_at: dt.datetime | None = None
-    max_redemptions: int | None = Field(default=None, gt=0)
-    per_customer_limit: int | None = Field(default=1, gt=0)
+    max_redemptions: int | None = Field(default=None, gt=0, le=MAX_COUNT)
+    per_customer_limit: int | None = Field(default=1, gt=0, le=MAX_COUNT)
     status: CouponStatus = "active"
 
 
@@ -176,9 +177,9 @@ class CouponOut(BaseModel):
 class CouponPatch(BaseModel):
     status: CouponStatus | None = None
     ends_at: dt.datetime | None = None
-    max_redemptions: int | None = Field(default=None, gt=0)
-    per_customer_limit: int | None = Field(default=None, gt=0)
-    max_discount: int | None = Field(default=None, gt=0)
+    max_redemptions: int | None = Field(default=None, gt=0, le=MAX_COUNT)
+    per_customer_limit: int | None = Field(default=None, gt=0, le=MAX_COUNT)
+    max_discount: int | None = Field(default=None, gt=0, le=MAX_MONEY)
 
 
 class CouponValidateIn(BaseModel):

@@ -1,7 +1,8 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from melorin.core.limits import MAX_DAYS, MAX_TRAFFIC_GB
 
 
 class VpnAccountOut(BaseModel):
@@ -127,6 +128,6 @@ class ReasonIn(BaseModel):
 
 
 class AccountAdjustIn(BaseModel):
-    add_days: int = 0
-    add_traffic_gb: int = 0
+    add_days: int = Field(default=0, ge=-MAX_DAYS, le=MAX_DAYS)
+    add_traffic_gb: int = Field(default=0, ge=-MAX_TRAFFIC_GB, le=MAX_TRAFFIC_GB)
     reason: str

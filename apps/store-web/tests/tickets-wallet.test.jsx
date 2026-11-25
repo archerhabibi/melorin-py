@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Tickets, Wallet } from '../src/Dashboard.tsx';
+import Dashboard, { Tickets, Wallet } from '../src/Dashboard.tsx';
 import { PasswordInput } from '../src/ui.tsx';
+import { readAttempt, resetAttemptStorage } from './attemptStorage.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'screen.png', { type: 'image/png' });
 
-beforeEach(() => {
-  localStorage.clear();
+beforeEach(async () => {
+  await resetAttemptStorage();
   URL.createObjectURL = vi.fn(() => 'blob:ticket-image');
   URL.revokeObjectURL = vi.fn();
   Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout, so no scrolling
@@ -32,13 +33,13 @@ describe('Wallet shows the Telegram ID', () => {
   const base = { coreFetch, storeId: 's1', reload: () => {}, notify: () => {} };
 
   it('shows the numeric Telegram ID of the owner', async () => {
-    render(<Wallet {...base} wallet={{ balance: 1000, currency: 'IRT', telegram_id: '123456789' }} />);
+    render(<Wallet accountId="u1" {...base} wallet={{ balance: 1000, currency: 'IRT', telegram_id: '123456789' }} />);
     expect(screen.getByText('آیدی عددی تلگرام')).toBeInTheDocument();
     expect(screen.getByText('123456789')).toBeInTheDocument();
   });
 
   it('says so when no Telegram account is linked', async () => {
-    render(<Wallet {...base} wallet={{ balance: 0, currency: 'IRT', telegram_id: null }} />);
+    render(<Wallet accountId="u1" {...base} wallet={{ balance: 0, currency: 'IRT', telegram_id: null }} />);
     expect(screen.getByText('متصل نیست')).toBeInTheDocument();
   });
 
@@ -63,20 +64,20 @@ describe('Wallet shows the Telegram ID', () => {
       return json([]);
     });
     const notify = vi.fn();
-    const first = render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    const first = render(<Wallet accountId="u1" coreFetch={coreFetch} storeId="s1" notify={notify} />);
     await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('نتیجه نامعلوم'));
-    expect(localStorage.getItem('melorin:wallet-topup:s1')).toContain(keys[0]);
+    expect(await readAttempt('melorin:wallet-topup:s1:u1')).toContain(keys[0]);
 
     first.unmount();
-    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    render(<Wallet accountId="u1" coreFetch={coreFetch} storeId="s1" notify={notify} />);
     await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
     await waitFor(() => expect(posts).toBe(2));
 
     expect(keys[1]).toBe(keys[0]);
-    expect(localStorage.getItem('melorin:wallet-topup:s1')).toContain(keys[0]);
+    expect(await readAttempt('melorin:wallet-topup:s1:u1')).toContain(keys[0]);
     expect(screen.getByText('1234')).toBeInTheDocument();
   });
 
@@ -91,18 +92,88 @@ describe('Wallet shows the Telegram ID', () => {
       return json([]);
     });
     const notify = vi.fn();
-    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    render(<Wallet accountId="u1" coreFetch={coreFetch} storeId="s1" notify={notify} />);
     const amount = screen.getByPlaceholderText('مبلغ');
     await userEvent.type(amount, '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
-    await waitFor(() => expect(posts).toBe(1));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('نتیجه نامعلوم'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ایجاد درخواست' })).toBeEnabled());
 
     await userEvent.clear(amount);
     await userEvent.type(amount, '2000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
 
+    await waitFor(() => expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('درخواست شارژ قبلی')));
     expect(posts).toBe(1);
-    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('درخواست شارژ قبلی'));
+  });
+
+  it('isolates unresolved topups when different customers use the same browser', async () => {
+    const keys = [];
+    const coreFetch = vi.fn(async (path, opts = {}) => {
+      if (path.endsWith('/wallet/transactions')) return json([]);
+      if (path.endsWith('/wallet/topups') && opts.method === 'POST') {
+        keys.push(opts.headers['Idempotency-Key']);
+        if (keys.length < 3)
+          return json({ error: { code: 'PAYMENT_INTENT_OUTCOME_UNKNOWN', message: 'نامعلوم' } }, 503);
+        return json({ id: 'p1', amount: 1000, currency: 'IRT', status: 'pending', instructions: {} });
+      }
+      return json([]);
+    });
+    const first = render(<Wallet accountId="user-a" coreFetch={coreFetch} storeId="s1" notify={() => {}} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(1));
+    first.unmount();
+
+    const second = render(<Wallet accountId="user-b" coreFetch={coreFetch} storeId="s1" notify={() => {}} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '2000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).not.toBe(keys[0]);
+    second.unmount();
+
+    render(<Wallet accountId="user-a" coreFetch={coreFetch} storeId="s1" notify={() => {}} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(3));
+    expect(keys[2]).toBe(keys[0]);
+  });
+
+  it('does not allow a topup before the account identity is available', async () => {
+    const coreFetch = vi.fn(async () => json([]));
+    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={() => {}} />);
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    expect(screen.getByRole('button', { name: 'ایجاد درخواست' })).toBeDisabled();
+  });
+
+  it('uses the signed-in account when the wallet is opened from the dashboard', async () => {
+    const keys = [];
+    const coreFetch = vi.fn(async (path, opts = {}) => {
+      if (path.includes('/notifications')) return json({ unread: 0, items: [] });
+      if (path.endsWith('/wallet/transactions')) return json([]);
+      if (path.endsWith('/wallet/topups') && opts.method === 'POST') {
+        keys.push(opts.headers['Idempotency-Key']);
+        return json({ error: { code: 'PAYMENT_INTENT_OUTCOME_UNKNOWN', message: 'نامعلوم' } }, 503);
+      }
+      return json([]);
+    });
+    render(
+      <Dashboard
+        account={{ id: 'user-c' }}
+        coreFetch={coreFetch}
+        storeId="s1"
+        wallet={{ balance: 0, currency: 'IRT' }}
+        orders={[]}
+        reload={() => {}}
+        notify={() => {}}
+        onLogout={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'کیف پول' }));
+    await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
+    await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
+    await waitFor(() => expect(keys).toHaveLength(1));
+    expect(await readAttempt('melorin:wallet-topup:s1:user-c')).toContain(keys[0]);
   });
 
   it('allows a different amount once the previous payment was received (no dead end after reload)', async () => {
@@ -122,13 +193,13 @@ describe('Wallet shows the Telegram ID', () => {
       return json([]);
     });
     const notify = vi.fn();
-    const first = render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    const first = render(<Wallet accountId="u1" coreFetch={coreFetch} storeId="s1" notify={notify} />);
     await userEvent.type(screen.getByPlaceholderText('مبلغ'), '1000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
     await waitFor(() => expect(keys).toHaveLength(1));
     first.unmount();
 
-    render(<Wallet coreFetch={coreFetch} storeId="s1" notify={notify} />);
+    render(<Wallet accountId="u1" coreFetch={coreFetch} storeId="s1" notify={notify} />);
     await userEvent.type(screen.getByPlaceholderText('مبلغ'), '2000');
     await userEvent.click(screen.getByRole('button', { name: 'ایجاد درخواست' }));
     await waitFor(() => expect(keys).toHaveLength(2));

@@ -6,6 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, HttpUrl, StringConstraints, model_validator
 
 from melorin.modules.catalog.schemas import RenewalOut
+from melorin.core.limits import MAX_MONEY
 
 
 class ApplicationIn(BaseModel):
@@ -59,7 +60,9 @@ class CustomerOut(BaseModel):
 class CustomerWalletAdjustment(BaseModel):
     """Reseller top-up/correction of its own customer's wallet in its own store (v1.1)."""
 
-    amount: int = Field(description="positive = top-up (cash received by the reseller), negative = correction within balance")
+    amount: int = Field(
+        ge=-MAX_MONEY, le=MAX_MONEY, description="positive = top-up (cash received by the reseller), negative = correction within balance"
+    )
     reason: str = Field(min_length=3, max_length=500)
     reference: str | None = Field(default=None, max_length=200, description="receipt / transfer reference")
     idempotency_key: str = Field(min_length=8, max_length=100)
@@ -104,7 +107,7 @@ class WebhookEndpointPatch(BaseModel):
 class PriceIn(BaseModel):
     """Retail price of one product in the reseller's own store. Null or 0 removes the price (product hidden)."""
 
-    customer_price: int | None = Field(default=None, ge=0)
+    customer_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
 
 
 class PriceBatchItem(BaseModel):

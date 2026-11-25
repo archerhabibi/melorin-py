@@ -3,7 +3,7 @@ it was created for (``Notification.store_id``), so an account delivery of anothe
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from melorin.core.db import utcnow
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.scope import StoreScope
@@ -26,7 +26,7 @@ def _out(n: Notification) -> dict:
 
 
 @router.get("")
-async def list_notifications(ctx: StoreCtx, session: Session, unread_only: bool = False, limit: int = 50):
+async def list_notifications(ctx: StoreCtx, session: Session, unread_only: bool = False, limit: int = Query(50, ge=1, le=200)):
     unread, items = await queries.list_for_store(
         session, list(StoreScope.of(ctx).where(Notification)), unread_only=unread_only, limit=limit
     )
