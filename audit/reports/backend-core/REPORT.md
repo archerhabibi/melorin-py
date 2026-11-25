@@ -3,7 +3,7 @@
 (Structure follows section 7 of the execution plan.)
 
 ## 1. Executive summary
-- Status: audit of the contract surface done; BE-001 through BE-011 are fixed. The broader business-logic review is not complete.
+- Status: audit of the contract surface done; BE-001 through BE-012 are fixed. The broader business-logic review is not complete.
 - Scope: request schemas, routers and error handling owned by AI-01 (`modules/{catalog,orders,vpn_accounts,loyalty,referral,tickets,reports,eventcenter,notifications,broadcast,reseller,admin,panelops}`, `core/{errors,pagination,limits}`).
 - Base commit: `ee384d60ba89fa25b13a694545fc26b62e7ae14a` (branch `audit/01-backend-core` stacks on `audit/00-baseline`).
 - Date: 2026-11-23.
@@ -34,7 +34,7 @@
 - Cause: the balance check preceded the replay lookup, and the existing ledger transaction was accepted without checking its wallet and amount.
 - Fix: lock the wallet before checking the balance and replay; permit an existing transaction through the balance check, and reject a reused key unless the ledger posting matches the requested wallet, amount and operation kind. A valid replay returns the existing transaction and current wallet balance.
 - Regression: HTTP tests for a spent-balance retry and key reuse; PostgreSQL tests for simultaneous same-key and different-key corrections. On PostgreSQL 16 both parallel cases passed, with one debit and no negative balance.
-- Limits: membership and configured amount-cap checks still precede replay, and the established API treats reason/reference as descriptive metadata rather than part of key identity.
+- Limits: membership checks still precede replay, and the established API treats reason/reference as descriptive metadata rather than part of key identity. BE-012 addresses changes to the amount cap.
 
 ### BE-003 — Concurrent renewal replay is rejected after the first request commits
 - Severity: Medium. Status: Fixed.
@@ -113,10 +113,19 @@
 - Root cause: settlement locked clawback before wallet, while refund locked wallet before clawback.
 - Fix: both paths lock the wallet before the clawback and refresh locked records. The PostgreSQL regression verifies both complete and checks resulting balances and debt.
 
+### BE-012 — Lowering the cap hides completed wallet adjustments
+- Severity: Medium. Status: Fixed. Reproduced on PR #195 at `38d69b9a6c73f1b32d36043ecf6e46ce4ceeb2b7`.
+- File / symbol: `modules/reseller/routes/customers.py`, `adjust_customer_wallet_core`.
+- Evidence: after a 1,000-unit credit or correction succeeded, lowering the manual adjustment cap to 400 caused the same-key retry to return HTTP 400 instead of the original transaction. Both HTTP regressions failed on the parent.
+- Root cause: the mutable cap was checked before looking up the already committed transaction.
+- Fix: under the existing wallet lock, look up the key first and enforce the current cap only for a new transaction. Replays still verify the wallet, kind and amount; membership is still checked. A savepoint rolls back wallet creation if validation rejects the adjustment.
+- Regression: HTTP tests cover positive and negative retries, conflicting key reuse, new adjustments over the cap and absence of a wallet after rejection. A PostgreSQL race lowers the cap while the original transaction is still holding the wallet lock. No database schema change.
+
 ## 5. Changes
 - `core/limits.py` new; `core/errors.py`, `core/pagination.py`; bounds in admin, catalog, notifications, referral, reports, reseller, vpn_accounts, eventcenter schemas/routers; regenerated `packages/api-client/openapi.json` and `docs/STATUS.md`.
 - BE-004 changes order replay handling and adds PostgreSQL coupon concurrency regressions; no schema or API contract change.
 - BE-005 records the checkout request identity in the existing order snapshot and verifies it for all replay paths; the API response and database schema are unchanged.
+- BE-012 lets valid reseller wallet retries recover the original transaction when the cap changes.
 
 ## 6. Test results
 | Command | Result | Notes |
@@ -149,6 +158,7 @@
 | BE-009 focused regressions | PASS | 14 service tests and 3 PostgreSQL races passed; the new replay and race tests failed on the parent. make lint and mypy passed |
 | BE-009 full make test | PASS | 2,957 passed, 46 skipped on the PR #183 code tree |
 | BE-010 / BE-011 focused regressions | PASS | 65 service/HTTP tests and 5 PostgreSQL race scenarios passed; 2 service and 2 PostgreSQL regressions failed on the parent; make lint and mypy passed |
+| BE-012 focused HTTP and PostgreSQL | PASS | 8 related HTTP cases and 3 PostgreSQL concurrency cases passed; both retry cases failed on the parent |
 
 ## 7. Residual risks
 - The bounds are generous but a product decision (`MAX_MONEY = 10**13`, `MAX_DAYS = 36500`, ...): adjust in `core/limits.py`.

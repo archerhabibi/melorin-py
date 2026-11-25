@@ -16,6 +16,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | BE-009 | High | Replayed first-purchase events can pay both a signup reward and a commission for the same order | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-010 | High | Refunding an offset referral reward can erase outstanding clawback debt | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | BE-011 | Medium | Referral settlement and refund can deadlock by locking wallet and clawback in opposite order | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
+| BE-012 | Medium | Lowering the manual adjustment cap makes completed wallet retries fail | AI-01 | Fixed | audit/reports/backend-core/REPORT.md |
 | SEC-001 | Low | Per-key API rate limit is stored and shown to the reseller but not enforced by default | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-002 | Medium | Cancelled password operations can exceed the intended KDF concurrency bound | AI-02 | Fixed | audit/reports/security/REPORT.md |
 | SEC-003 | High | Password login can succeed with credentials changed during verification | AI-02 | Fixed | audit/reports/security/REPORT.md |
