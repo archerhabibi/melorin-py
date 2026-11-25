@@ -10,16 +10,17 @@
 | 2026-11-23 | Fix phase runs team by team in chain order and every team is pushed as soon as its first proven change is green (owner request). The test server has no GitHub credentials: commits are relayed through the owner machine over SSH with a pinned host key. | AI-00 |
 | 2026-11-23 | AI-05 uses audit/05-frontend-fe001 from the AI-04 head; the pre-existing audit/05-frontend placeholder is preserved. Later branches follow the actual AI-05 PR head. | AI-00 |
 | 2026-11-24 | A newly confirmed reseller wallet API issue is fixed in a follow-up stacked on the current AI-05 head; its PostgreSQL concurrency test is included with the API change. | AI-00 |
+| 2026-11-24 | The AI-05 follow-ups #166 and #167 forked before the current #165 head and are not ancestors of #173. PR #166 was reconciled with #165; #167 still fails the bundle budget and needs integration into the later stack. | AI-00 |
 
 ## Status
 | Team | Phase | State |
 |---|---|---|
 | AI-00 | 0 | Baseline docs written; PR `audit/00-baseline` |
-| AI-01 | 3 | BE-001 fixed (PR #161); BE-002 and BE-003 fixed in follow-ups; broader business-logic review continues |
+| AI-01 | 3 | BE-001 fixed (PR #161); BE-002, BE-003 and BE-004 fixed in follow-ups; broader business-logic review continues |
 | AI-02 | 3 | SEC-001 fixed, authorization matrix test added; 9 `PENDING` bounds closed |
 | AI-03 | 3 | DB-001..DB-003 fixed; order-creation concurrency now tested, ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001 (SMTP certificate verification) and INT-002 (webhook response bounds) fixed; panel adapters and the rest of bank SMS still to review |
-| AI-05 | 3 | FE-001..FE-008 fixed; frontend audit continues (PR #165) |
+| AI-05 | 3 | FE-001..FE-008 addressed in PR #165; #166 reconciled; #167 needs its bundle check fixed and integration; frontend audit continues |
 | AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 fixed; CI and operations review continues |
 | AI-08 | 3 | QA-001..QA-003 fixed; broader test strategy, integration and performance review continues |
