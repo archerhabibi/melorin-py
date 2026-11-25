@@ -7,15 +7,16 @@ customer channel can never mint an admin session."""
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from _http import PASSWORD, add_user, api_client, totp_now
-from melorin.core import integrations
+from melorin.core import integrations, security
 from melorin.core.security import decode_access_token
 from melorin.kernel.models.identity import RefreshToken, User
 from melorin.kernel.models.stores import Store
 from melorin.modules.identity import google as google_signin
 from melorin.modules.identity import service
+from melorin.modules.identity.routes import sign_in
 from melorin.modules.identity.routes._common import GOOGLE_NONCE_COOKIE, REFRESH_COOKIE
 
 API = "/api/v1/auth"
@@ -95,6 +96,61 @@ async def test_wrong_password_and_unknown_user_are_indistinguishable_and_inactiv
         assert {(r.status_code, _err(r), r.json()["error"]["message"]) for r in responses} == {
             (401, "INVALID_CREDENTIALS", responses[0].json()["error"]["message"])
         }
+
+
+@pytest.mark.parametrize("change", ["password", "password_rehash", "inactive", "email"])
+async def test_password_login_rechecks_account_after_password_verification(monkeypatch, change):
+    async with api_client() as (client, maker, _):
+        user = await add_user(maker)
+        replacement = "another-password-after-reset"
+        if change == "password_rehash":
+            # An old login must not rehash over a replacement that uses legacy parameters.
+            with monkeypatch.context() as patch:
+                patch.setitem(security._SCRYPT, "log2n", security._SCRYPT["log2n"] - 1)
+                replacement_hash = await security.hash_password(replacement)
+        else:
+            replacement_hash = await security.hash_password(replacement)
+
+        verify = sign_in.verify_password
+
+        async def verify_then_change_account(password, stored):
+            valid = await verify(password, stored)
+            async with maker() as session:
+                row = await session.get(User, user.id)
+                if change.startswith("password"):
+                    row.password_hash = replacement_hash
+                elif change == "inactive":
+                    row.is_active = False
+                else:
+                    row.email = "changed@example.com"
+                await session.commit()
+            return valid
+
+        monkeypatch.setattr(sign_in, "verify_password", verify_then_change_account)
+        response = await client.post(f"{API}/password/login", json={"email": "user@example.com", "password": PASSWORD})
+
+        async with maker() as session:
+            row = await session.get(User, user.id)
+            if change.startswith("password"):
+                assert row.password_hash == replacement_hash
+                assert await security.verify_password(replacement, row.password_hash)
+            token_count = await session.scalar(select(func.count()).select_from(RefreshToken).where(RefreshToken.user_id == user.id))
+        assert (response.status_code, _err(response)) == (401, "INVALID_CREDENTIALS")
+        assert token_count == 0 and REFRESH_COOKIE not in response.cookies
+
+
+async def test_password_login_upgrades_an_old_hash(monkeypatch):
+    async with api_client() as (client, maker, _):
+        with monkeypatch.context() as patch:
+            patch.setitem(security._SCRYPT, "log2n", security._SCRYPT["log2n"] - 1)
+            user = await add_user(maker)
+        assert security.needs_rehash(user.password_hash)
+        response = await client.post(f"{API}/password/login", json={"email": "user@example.com", "password": PASSWORD})
+        assert response.status_code == 200, response.text
+        async with maker() as session:
+            row = await session.get(User, user.id)
+            assert not security.needs_rehash(row.password_hash)
+            assert await security.verify_password(PASSWORD, row.password_hash)
 
 
 async def test_repeated_failures_throttle_the_account_even_with_the_right_password():
