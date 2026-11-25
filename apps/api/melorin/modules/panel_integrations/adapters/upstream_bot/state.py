@@ -3,6 +3,8 @@
 Redis errors stop shared-state operations. A process-local copy is available when Redis is explicitly absent.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -54,23 +56,19 @@ class _Store:
             raw = _MEM.get(self._k(username))
         return _decode_mapping(raw) if raw is not None else None
 
-    async def set(self, username: str, data: dict) -> None:
+    def _check_lease(self, lease: _ChatLock) -> None:
+        if lease.key != f"upstream_bot:{self.ns}:lock":
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock does not protect this purchase state")
+
+    async def set(self, username: str, data: dict, *, lease: _ChatLock) -> None:
+        self._check_lease(lease)
         raw = json.dumps(data, ensure_ascii=False)
-        try:
-            r = _redis()
-            if r is not None and not await r.set(self._k(username), raw):
-                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state was not stored")
-        except (RedisError, OSError) as exc:
-            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
+        await lease._write_state(self._k(username), raw)
         _MEM[self._k(username)] = raw
 
-    async def delete(self, username: str) -> None:
-        try:
-            r = _redis()
-            if r is not None:
-                await r.delete(self._k(username))
-        except (RedisError, OSError) as exc:
-            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
+    async def delete(self, username: str, *, lease: _ChatLock) -> None:
+        self._check_lease(lease)
+        await lease._write_state(self._k(username), None)
         _MEM.pop(self._k(username), None)
 
     async def name_taken(self, upstream_name: str) -> bool:
@@ -109,6 +107,20 @@ if redis.call('get', KEYS[1]) == ARGV[1] then
 end
 return 0
 """
+_SET_STATE = """
+if redis.call('get', KEYS[1]) ~= ARGV[1] then
+    return 0
+end
+redis.call('set', KEYS[2], ARGV[2])
+return 1
+"""
+_DELETE_STATE = """
+if redis.call('get', KEYS[1]) ~= ARGV[1] then
+    return 0
+end
+redis.call('del', KEYS[2])
+return 1
+"""
 
 
 class _ChatLock:
@@ -121,6 +133,25 @@ class _ChatLock:
         self._owner: asyncio.Task[object] | None = None
         self._heartbeat: asyncio.Task[None] | None = None
         self._lease_lost = False
+        self._held = False
+
+    async def _write_state(self, key: str, raw: str | None) -> None:
+        """Change state only while this lease owns the chat, atomically with the owner check."""
+        if not self._held or self._lease_lost:
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock ownership lost")
+        client = self._redis_client
+        if client is None:  # The process-local lock protects the development-only memory store.
+            return
+        script = _DELETE_STATE if raw is None else _SET_STATE
+        args = () if raw is None else (raw,)
+        try:
+            written = await asyncio.wait_for(client.eval(script, 2, self.key, key, self.token, *args), timeout=self.ttl / 3)
+        except (RedisError, OSError, TimeoutError) as exc:
+            self._lease_lost = True
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: shared purchase state unavailable") from exc
+        if not written:
+            self._lease_lost = True
+            raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: chat lock ownership lost before state update")
 
     async def ensure_owned(self) -> None:
         if self._lease_lost:
@@ -172,12 +203,14 @@ class _ChatLock:
                         await asyncio.sleep(min(0.5, remaining))
             except (RedisError, OSError) as exc:
                 raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: distributed chat lock unavailable") from exc
+            self._held = True
             return self
         except BaseException:
             self._local.release()
             raise
 
     async def __aexit__(self, *exc):
+        self._held = False
         try:
             if self._heartbeat is not None:
                 self._heartbeat.cancel()
