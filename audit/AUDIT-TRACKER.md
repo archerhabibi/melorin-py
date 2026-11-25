@@ -40,6 +40,7 @@
 | 2026-11-25 | INT-011 follows PR #200; upstream-bot renewals use a stable order identity, and unresolved outcomes go to review rather than another payment or an automatic refund. | AI-00 |
 | 2026-11-25 | INT-012 follows PR #201; purchase state writes and deletes are fenced by the active chat lease. | AI-00 |
 | 2026-11-25 | INT-013 follows PR #202; vision OCR responses have a size cap and an overall deadline. | AI-00 |
+| 2026-11-25 | WRK-002 follows PR #203; each worker skips overlapping poll ticks, preserves heartbeats, and waits for sibling work on failure or cancellation. | AI-00 |
 
 ## Status
 | Team | Phase | State |
@@ -50,7 +51,7 @@
 | AI-03 | 3 | DB-001..DB-007 fixed; order, bank-SMS and consolidation/refund concurrency tested; broader ledger reconciliation and CHECK constraints still to review |
 | AI-04 | 3 | INT-001..INT-013 fixed; remaining panel adapter paths, bank SMS and Redis durability still to review |
 | AI-05 | 3 | FE-001..FE-008 addressed; the reconciled recovery and atomic retry follow-ups are included in the integration branch; frontend audit continues |
-| AI-06 | 3 | WRK-001 fixed; worker and bot review continues |
+| AI-06 | 3 | WRK-001 and WRK-002 fixed; worker and bot review continues |
 | AI-07 | 3 | OPS-001 through OPS-003 fixed; CI and operations review continues |
 | AI-08 | 3 | QA-001..QA-004 fixed; broader test strategy, integration and performance review continues |
 
@@ -82,3 +83,4 @@
 - 2026-11-25 INT-011 changes order provisioning and upstream-bot renewal safety (AI-01/AI-04) and adds adapter and service regressions (AI-08).
 - 2026-11-25 INT-012 adds real Redis and adapter race regressions (AI-08) alongside the upstream-bot integration fix (AI-04).
 - 2026-11-25 INT-013 updates the admin OCR connection test (AI-01) and adds provider response regressions (AI-08).
+- 2026-11-25 WRK-002 adds worker overlap, failure, cancellation and heartbeat regressions (AI-08).

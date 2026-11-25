@@ -51,6 +51,7 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | FE-007 | High | Concurrent or delayed wallet topup responses and receipts can overwrite a newer retry key | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | FE-008 | High | Loyalty reward retries can spend points twice after an ambiguous response or reload | AI-05 | Fixed | audit/reports/frontend/REPORT.md |
 | WRK-001 | Medium | Outbox database errors can leave events leased without retry accounting or commit partial work | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
+| WRK-002 | Medium | Overlapping poll ticks exceed the per-worker concurrency limit and failed ticks leave sibling work running | AI-06 | Fixed | audit/reports/telegram-workers/REPORT.md |
 | OPS-001 | Medium | CI skips the empty-database migration and ledger immutability integration tests | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | OPS-002 | High | A failed or overlapping restore drill can delete another database or overwrite its dump | AI-07 | Fixed | audit/reports/devops/REPORT.md |
 | OPS-003 | High | Backup retention can delete unrelated files and other backup types | AI-07 | Fixed | audit/reports/devops/REPORT.md |
