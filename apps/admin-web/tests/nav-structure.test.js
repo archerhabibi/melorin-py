@@ -25,6 +25,11 @@ describe('admin menu structure (architecture audit §5-§6)', () => {
     expect(SECTION_AREA['دکمه‌های تلگرام']).toBe('system');
     expect(sectionAllowed(['communications:rw'], 'دکمه‌های تلگرام')).toBe(false);
   });
+  it('keeps mandatory channel membership next to the Telegram buttons (same «system» permission)', () => {
+    expect(where('عضویت اجباری کانال')).toBe('سیستم و امنیت');
+    expect(SECTION_AREA['عضویت اجباری کانال']).toBe('system');
+    expect(sectionAllowed(['communications:rw'], 'عضویت اجباری کانال')).toBe(false);
+  });
   it('gives every menu entry a route, a unique slug and an explicit permission area', () => {
     const slugs = flat.map((x) => x[2]);
     expect(new Set(slugs).size).toBe(slugs.length);

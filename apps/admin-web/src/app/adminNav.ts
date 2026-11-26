@@ -21,6 +21,7 @@ import {
   UserRound,
   BellRing,
   Megaphone,
+  UserCheck,
   UserPlus,
   Gift,
   Award,
@@ -91,6 +92,7 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     [
       ['تنظیمات', Settings, 'settings'],
       ['دکمه‌های تلگرام', Paintbrush, 'button-styles'], // «system» permission (owner), so it lives with the owner-only settings
+      ['عضویت اجباری کانال', UserCheck, 'channel-join'], // «system» permission, like the Telegram buttons
       ['ممیزی', ScrollText, 'audit'],
       ['تیم مدیریت', UsersRound, 'admin-team'],
       ['حساب من', UserRound, 'my-account'],

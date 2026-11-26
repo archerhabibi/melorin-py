@@ -2063,6 +2063,78 @@
         "title": "ChangePlanIn",
         "type": "object"
       },
+      "ChannelCheckOut": {
+        "properties": {
+          "bot_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bot Status"
+          },
+          "chat": {
+            "title": "Chat",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "telegram_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Title"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat",
+          "title",
+          "url",
+          "ok"
+        ],
+        "title": "ChannelCheckOut",
+        "type": "object"
+      },
       "ChannelIn": {
         "properties": {
           "chat": {
@@ -2101,6 +2173,87 @@
         "title": "ChannelIn",
         "type": "object"
       },
+      "ChannelJoinCheck": {
+        "properties": {
+          "bot_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bot Username"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelCheckOut"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "channels"
+        ],
+        "title": "ChannelJoinCheck",
+        "type": "object"
+      },
+      "ChannelJoinConfigOut": {
+        "properties": {
+          "cache_seconds": {
+            "title": "Cache Seconds",
+            "type": "integer"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelOut"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "channels",
+          "message",
+          "cache_seconds"
+        ],
+        "title": "ChannelJoinConfigOut",
+        "type": "object"
+      },
+      "ChannelJoinDefaultsOut": {
+        "properties": {
+          "cache_seconds": {
+            "title": "Cache Seconds",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "cache_seconds"
+        ],
+        "title": "ChannelJoinDefaultsOut",
+        "type": "object"
+      },
       "ChannelJoinIn": {
         "properties": {
           "cache_seconds": {
@@ -2137,6 +2290,72 @@
           }
         },
         "title": "ChannelJoinIn",
+        "type": "object"
+      },
+      "ChannelJoinLimitsOut": {
+        "properties": {
+          "max_cache_seconds": {
+            "title": "Max Cache Seconds",
+            "type": "integer"
+          },
+          "max_channels": {
+            "title": "Max Channels",
+            "type": "integer"
+          },
+          "max_message": {
+            "title": "Max Message",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_channels",
+          "max_message",
+          "max_cache_seconds"
+        ],
+        "title": "ChannelJoinLimitsOut",
+        "type": "object"
+      },
+      "ChannelJoinView": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/ChannelJoinConfigOut"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/ChannelJoinDefaultsOut"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ChannelJoinLimitsOut"
+          }
+        },
+        "required": [
+          "config",
+          "defaults",
+          "limits"
+        ],
+        "title": "ChannelJoinView",
+        "type": "object"
+      },
+      "ChannelOut": {
+        "properties": {
+          "chat": {
+            "title": "Chat",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat",
+          "title",
+          "url"
+        ],
+        "title": "ChannelOut",
         "type": "object"
       },
       "CommissionRuleIn": {
@@ -20950,7 +21169,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelJoinView"
+                }
               }
             },
             "description": "Successful Response"
@@ -20982,7 +21203,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelJoinView"
+                }
               }
             },
             "description": "Successful Response"
@@ -21026,7 +21249,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelJoinCheck"
+                }
               }
             },
             "description": "Successful Response"

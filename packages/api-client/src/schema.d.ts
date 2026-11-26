@@ -7889,6 +7889,25 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ChannelCheckOut */
+        ChannelCheckOut: {
+            /** Bot Status */
+            bot_status?: string | null;
+            /** Chat */
+            chat: string;
+            /** Ok */
+            ok: boolean;
+            /** Problem */
+            problem?: string | null;
+            /** Telegram Title */
+            telegram_title?: string | null;
+            /** Title */
+            title: string;
+            /** Type */
+            type?: string | null;
+            /** Url */
+            url: string;
+        };
         /** ChannelIn */
         ChannelIn: {
             /** Chat */
@@ -7897,6 +7916,33 @@ export interface components {
             title?: string | null;
             /** Url */
             url?: string | null;
+        };
+        /** ChannelJoinCheck */
+        ChannelJoinCheck: {
+            /** Bot Username */
+            bot_username?: string | null;
+            /** Channels */
+            channels: components["schemas"]["ChannelCheckOut"][];
+            /** Ok */
+            ok: boolean;
+        };
+        /** ChannelJoinConfigOut */
+        ChannelJoinConfigOut: {
+            /** Cache Seconds */
+            cache_seconds: number;
+            /** Channels */
+            channels: components["schemas"]["ChannelOut"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Message */
+            message: string;
+        };
+        /** ChannelJoinDefaultsOut */
+        ChannelJoinDefaultsOut: {
+            /** Cache Seconds */
+            cache_seconds: number;
+            /** Message */
+            message: string;
         };
         /** ChannelJoinIn */
         ChannelJoinIn: {
@@ -7914,6 +7960,30 @@ export interface components {
             enabled: boolean;
             /** Message */
             message?: string | null;
+        };
+        /** ChannelJoinLimitsOut */
+        ChannelJoinLimitsOut: {
+            /** Max Cache Seconds */
+            max_cache_seconds: number;
+            /** Max Channels */
+            max_channels: number;
+            /** Max Message */
+            max_message: number;
+        };
+        /** ChannelJoinView */
+        ChannelJoinView: {
+            config: components["schemas"]["ChannelJoinConfigOut"];
+            defaults: components["schemas"]["ChannelJoinDefaultsOut"];
+            limits: components["schemas"]["ChannelJoinLimitsOut"];
+        };
+        /** ChannelOut */
+        ChannelOut: {
+            /** Chat */
+            chat: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** CommissionRuleIn */
         CommissionRuleIn: {
@@ -17256,7 +17326,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChannelJoinView"];
                 };
             };
         };
@@ -17280,7 +17350,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChannelJoinView"];
                 };
             };
             /** @description Validation Error */
@@ -17313,7 +17383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChannelJoinCheck"];
                 };
             };
             /** @description Validation Error */

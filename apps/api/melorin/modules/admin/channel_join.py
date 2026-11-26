@@ -32,6 +32,50 @@ class ChannelJoinIn(BaseModel):
     cache_seconds: int = Field(default=cj.DEFAULT["cache_seconds"], ge=cj.MIN_CACHE_SECONDS, le=cj.MAX_CACHE_SECONDS)
 
 
+class ChannelOut(BaseModel):
+    chat: str
+    title: str
+    url: str
+
+
+class ChannelJoinConfigOut(BaseModel):
+    enabled: bool
+    channels: list[ChannelOut]
+    message: str
+    cache_seconds: int
+
+
+class ChannelJoinDefaultsOut(BaseModel):
+    message: str
+    cache_seconds: int
+
+
+class ChannelJoinLimitsOut(BaseModel):
+    max_channels: int
+    max_message: int
+    max_cache_seconds: int
+
+
+class ChannelJoinView(BaseModel):
+    config: ChannelJoinConfigOut
+    defaults: ChannelJoinDefaultsOut
+    limits: ChannelJoinLimitsOut
+
+
+class ChannelCheckOut(ChannelOut):
+    ok: bool
+    problem: str | None = None
+    telegram_title: str | None = None
+    type: str | None = None
+    bot_status: str | None = None
+
+
+class ChannelJoinCheck(BaseModel):
+    bot_username: str | None = None
+    ok: bool
+    channels: list[ChannelCheckOut]
+
+
 def _normalize(body: ChannelJoinIn, **override) -> dict:
     try:
         return cj.normalize({**body.model_dump(), **override})
@@ -47,12 +91,12 @@ def _view(cfg: dict) -> dict:
     }
 
 
-@router.get("/telegram/channel-join")
+@router.get("/telegram/channel-join", response_model=ChannelJoinView)
 async def get_channel_join(_: AdminUser, session: Session):
     return _view(await gate.load(session))
 
 
-@router.put("/telegram/channel-join")
+@router.put("/telegram/channel-join", response_model=ChannelJoinView)
 async def put_channel_join(body: ChannelJoinIn, admin: AdminUser, session: Session):
     cfg = _normalize(body)
     before = await gate.load(session)
@@ -70,7 +114,7 @@ async def put_channel_join(body: ChannelJoinIn, admin: AdminUser, session: Sessi
     return _view(cfg)
 
 
-@router.post("/telegram/channel-join/check")
+@router.post("/telegram/channel-join/check", response_model=ChannelJoinCheck)
 async def check_channel_join(body: ChannelJoinIn, _: AdminUser, session: Session):
     cfg = _normalize(body, enabled=False)  # checking never requires the switch; an empty list is simply "nothing to check"
     if not cfg["channels"]:

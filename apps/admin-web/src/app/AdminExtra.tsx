@@ -13,6 +13,7 @@ const PaymentsView = lazy(() => import('../features/payments/PaymentsView.tsx'))
 const ResellerOnboardingView = lazy(() => import('../features/stores/ResellerOnboardingView.tsx'));
 const BroadcastView = lazy(() => import('../features/broadcast/BroadcastView.tsx'));
 const ButtonStylesView = lazy(() => import('../features/settings/ButtonStylesView.tsx'));
+const ChannelJoinView = lazy(() => import('../features/settings/ChannelJoinView.tsx'));
 const EventCenterView = lazy(() => import('../features/event-center/EventCenterView.tsx'));
 const AdminTeamView = lazy(() => import('../features/settings/AdminTeamView.tsx'));
 const MyAccountView = lazy(() => import('../features/settings/MyAccountView.tsx'));
@@ -45,6 +46,7 @@ export const extraRoutes = {
   'درخواست‌های نمایندگی': ResellerOnboardingView, // + tab «اقدامات تکمیلی» (the old «کارهای دستی» screen)
   'پیام همگانی': BroadcastView,
   'دکمه‌های تلگرام': ButtonStylesView,
+  'عضویت اجباری کانال': ChannelJoinView,
   'مرکز رویداد': EventCenterView,
   'پایش و سلامت': InfraHealthView,
   'عملیات مدیریتی': InfraOpsHubView,
