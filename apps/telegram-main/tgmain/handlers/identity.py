@@ -343,7 +343,7 @@ class IdentityMixin:
     async def cmd_referral(self, ctx, arg):
         data = await self.api(ctx, "GET", "/api/v1/me/referrals")
         bot = await self.tg("getMe", {})
-        username = bot.get("username", "MelorinBot")
+        username = bot.get("username")  # THIS bot's own name; never a guessed one (a link to someone else's bot is worse than none)
         code = data.get("referral_code") or ctx.user["id"]
-        text = referral_text(data, f"https://t.me/{username}?start=ref_{code}")
+        text = referral_text(data, f"https://t.me/{username}?start=ref_{code}" if username else None)
         await self.send(ctx.chat_id, text, html=True)

@@ -1,8 +1,11 @@
 // Site footer (split out of App.jsx, T-R11).
 import { Logo, NAV } from './landing.tsx';
+import { useStoreBrand } from './storeBrand.tsx';
 import type { Json } from './types';
 
 export function SiteFooter({ inApp, goAccount, accessToken }: { inApp?: Json; goAccount?: Json; accessToken?: Json }) {
+  const { name, loading } = useStoreBrand();
+  const year = new Intl.NumberFormat('fa-IR', { useGrouping: false }).format(new Date().getFullYear());
   return (
     <footer className="border-t border-line bg-surface/50">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
@@ -43,7 +46,7 @@ export function SiteFooter({ inApp, goAccount, accessToken }: { inApp?: Json; go
         </div>
       </div>
       <div className="border-t border-line py-5 text-center text-xs text-muted">
-        © ۲۰۲۶ ملورین · تمامی حقوق محفوظ است
+        © {year} {loading ? '' : name} · تمامی حقوق محفوظ است
       </div>
     </footer>
   );

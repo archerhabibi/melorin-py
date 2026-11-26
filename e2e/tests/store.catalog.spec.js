@@ -6,7 +6,7 @@ test('storefront shows the bundles served by Core for the main store', async ({ 
   await mockCore(page, {
     'GET /api/v1/auth/telegram/config': { enabled: false },
     'GET /api/v1/auth/google/config': { enabled: false },
-    'GET /api/v1/stores/main': { id: 'store-main', bot_username: null },
+    'GET /api/v1/stores/main': { id: 'store-main', name: 'E2E Shop', bot_username: null },
     // The bundle picker is rendered only when the store sells more than one bundle (a single one is auto-selected).
     'GET /api/v1/stores/store-main/bundles': [
       { id: 'b1', name: 'E2E Bundle', mode: 'fixed' },
@@ -16,7 +16,8 @@ test('storefront shows the bundles served by Core for the main store', async ({ 
     'GET /api/v1/stores/store-main/bundles/b2/packages': [],
   });
   await page.goto('/');
-  await expect(page).toHaveTitle(/ملورین/);
+  // ADR-R3: the page is titled with the store's own name (never the platform's by assumption)
+  await expect(page).toHaveTitle(/E2E Shop/);
   await expect(page.getByRole('button', { name: 'E2E Bundle' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'E2E Second Bundle' })).toBeVisible();
   assertNoErrors();

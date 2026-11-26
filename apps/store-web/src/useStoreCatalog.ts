@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { publicGet } from './coreApi.ts';
 import type { Json } from './types';
+import { cleanStoreName } from './storeBrand.tsx';
 
 export function useStoreCatalog(coreFetch: Json, reloadKey: Json) {
   const [catalog, setCatalog] = useState<Json>([]);
@@ -12,6 +13,7 @@ export function useStoreCatalog(coreFetch: Json, reloadKey: Json) {
   const [apiState, setApiState] = useState('در حال اتصال به Core');
   const [storeId, setStoreId] = useState('');
   const [hasBot, setHasBot] = useState(false);
+  const [storeName, setStoreName] = useState('');
   useEffect(() => {
     setCatalogLoading(true);
     // A reseller's own domain shows that reseller's store; any other host (main domain, localhost) shows the main store.
@@ -23,6 +25,7 @@ export function useStoreCatalog(coreFetch: Json, reloadKey: Json) {
       .then((store: Json) => {
         setStoreId(store.id);
         setHasBot(Boolean(store.bot_username));
+        setStoreName(cleanStoreName(store.name));
         return publicGet(`/api/v1/stores/${store.id}/bundles`);
       })
       .then((data: Json) => {
@@ -50,5 +53,5 @@ export function useStoreCatalog(coreFetch: Json, reloadKey: Json) {
       live = false;
     };
   }, [storeId, bundleId, reloadKey]);
-  return { catalog, catalogLoading, bundles, bundleId, setBundleId, pkgLoading, apiState, storeId, hasBot };
+  return { catalog, catalogLoading, bundles, bundleId, setBundleId, pkgLoading, apiState, storeId, hasBot, storeName };
 }

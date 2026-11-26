@@ -148,7 +148,7 @@ export function PlansSection({
             </div>
           ) : catalog.length ? (
             catalog.map((p: Json) => {
-              const name = p.name || p.title || p.code || 'Melorin';
+              const name = p.name || p.title || p.code || 'سرویس';
               const on = active === name;
               return (
                 <button
