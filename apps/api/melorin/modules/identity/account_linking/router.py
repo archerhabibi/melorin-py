@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, Response
 
+from melorin.core import brand
 from melorin.core.deps import CurrentUser, Session, main_store
 from melorin.core.errors import AppError
 from melorin.core.limits import MAX_OFFSET
@@ -83,9 +84,9 @@ async def link_google(body: GoogleLinkIn, user: CurrentUser, session: Session, r
 
 
 @router.post("/link/email/start")
-async def link_email_start(body: EmailStartIn, user: CurrentUser, session: Session):
+async def link_email_start(body: EmailStartIn, user: CurrentUser, session: Session, request: Request):
     await _limit(user, "email-start", 5, 300)
-    dev_code = await service.request_email_code(session, str(body.email))
+    dev_code = await service.request_email_code(session, str(body.email), brand=await brand.site_brand(session, request))
     return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
 
 
@@ -114,9 +115,9 @@ async def reauth_method(user: CurrentUser, session: Session):
 
 
 @router.post("/reauth/email/start")
-async def reauth_email_start(user: CurrentUser, session: Session):
+async def reauth_email_start(user: CurrentUser, session: Session, request: Request):
     await _limit(user, "reauth-start", 5, 300)
-    dev_code = await reauth.start_email_code(session, user)
+    dev_code = await reauth.start_email_code(session, user, brand=await brand.site_brand(session, request))
     return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
 
 

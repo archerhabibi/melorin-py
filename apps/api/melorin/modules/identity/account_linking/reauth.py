@@ -20,6 +20,7 @@ from melorin.core import audit as platform_audit, events
 from melorin.core.email import email_available, send_email
 from melorin.core.errors import AppError
 from melorin.core.security import new_numeric_code, token_hash, verify_password, safe_equal
+from melorin.core.brand import brand_or_product
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.kernel.models.identity import Identity, User, VerificationCode
@@ -58,7 +59,7 @@ async def _store_code(session: AsyncSession, user: User) -> str:
     return code
 
 
-async def start_email_code(session: AsyncSession, user: User) -> str | None:
+async def start_email_code(session: AsyncSession, user: User, *, brand: str | None = None) -> str | None:
     """Mail a one-time code to the verified primary e-mail. Returns the code only in dev."""
     if await method_for(session, user) != "email_code" or not user.email:
         raise AppError("REAUTH_NOT_APPLICABLE", "برای این حساب کد ایمیلی لازم نیست.", 400)
@@ -66,7 +67,7 @@ async def start_email_code(session: AsyncSession, user: User) -> str | None:
         raise AppError("EMAIL_DISABLED", "ارسال ایمیل در حال حاضر فعال نیست.", 503)
     code = await _store_code(session, user)
     await session.commit()
-    await send_email(user.email, "کد تأیید تغییر روش ورود Melorin", f"کد شما: {code}\nاعتبار: ۱۰ دقیقه")
+    await send_email(user.email, f"کد تأیید تغییر روش ورود {brand_or_product(brand)}", f"کد شما: {code}\nاعتبار: ۱۰ دقیقه")
     return code if get_settings().is_dev else None
 
 

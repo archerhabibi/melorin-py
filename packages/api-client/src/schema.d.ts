@@ -2872,6 +2872,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stores/main": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename Main Store
+         * @description Rename the main store (a reseller's name is edited through ``PATCH /admin/resellers/{id}``).
+         *
+         *     The installer only names the store once, at bootstrap; this is how the operator changes it afterwards. The slug (``main``)
+         *     is an identifier and never changes.
+         */
+        patch: operations["rename_main_store_api_v1_admin_stores_main_patch"];
+        trace?: never;
+    };
     "/api/v1/admin/stores/{store_id}/bank-sms": {
         parameters: {
             query?: never;
@@ -10131,6 +10154,14 @@ export interface components {
              */
             suspend_policy: "none" | "disable_accounts";
         };
+        /**
+         * StoreRename
+         * @description Rename the main store. The name is the brand customers see (website, e-mails, payment page), so it is the operator's choice.
+         */
+        StoreRename: {
+            /** Name */
+            name: string;
+        };
         /** StoreRoleIn */
         StoreRoleIn: {
             bootstrap?: components["schemas"]["BootstrapIn"] | null;
@@ -16487,6 +16518,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    rename_main_store_api_v1_admin_stores_main_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreRename"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

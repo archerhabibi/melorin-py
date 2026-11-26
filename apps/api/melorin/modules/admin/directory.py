@@ -5,10 +5,13 @@ import uuid
 from fastapi import APIRouter, Query
 from fastapi.responses import Response
 from sqlalchemy import select
+from melorin.core import audit
+from melorin.core.brand import normalize_store_name
 from melorin.core.deps import AdminUser, Session
-from melorin.core.errors import NotFound
+from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
+from melorin.modules.admin.schemas import StoreRename
 from melorin.modules.catalog import allocation
 from melorin.modules.vpn_accounts import inquiry, live
 from melorin.core.limits import MAX_OFFSET
@@ -45,21 +48,52 @@ async def reseller_store_prices(store_id: uuid.UUID, _: AdminUser, session: Sess
 @router.get("/stores", response_model=list[dict])
 async def stores(_: AdminUser, session: Session):
     rows = (await session.scalars(select(Store).order_by(Store.created_at.desc()).limit(500))).all()
-    return [
-        {
-            "id": s.id,
-            "name": s.name,
-            "slug": s.slug,
-            "kind": s.kind,
-            "status": s.status,
-            "currency": s.currency,
-            "owner_user_id": s.owner_user_id,
-            "domain": s.domain,
-            "parent_store_id": s.parent_store_id,
-            "bot_username": s.bot_username,
-        }
-        for s in rows
-    ]
+    return [_store_row(s) for s in rows]
+
+
+def _store_row(s: Store) -> dict:
+    return {
+        "id": s.id,
+        "name": s.name,
+        "slug": s.slug,
+        "kind": s.kind,
+        "status": s.status,
+        "currency": s.currency,
+        "owner_user_id": s.owner_user_id,
+        "domain": s.domain,
+        "parent_store_id": s.parent_store_id,
+        "bot_username": s.bot_username,
+    }
+
+
+@router.patch("/stores/main", response_model=dict)
+async def rename_main_store(body: StoreRename, admin: AdminUser, session: Session):
+    """Rename the main store (a reseller's name is edited through ``PATCH /admin/resellers/{id}``).
+
+    The installer only names the store once, at bootstrap; this is how the operator changes it afterwards. The slug (``main``)
+    is an identifier and never changes.
+    """
+    try:
+        name = normalize_store_name(body.name)
+    except ValueError as exc:
+        raise AppError("INVALID_STORE_NAME", str(exc), 422) from exc
+    st = await session.scalar(select(Store).where(Store.kind == "main").with_for_update())
+    if st is None:
+        raise NotFound("فروشگاه اصلی")
+    if name != st.name:
+        before, st.name = st.name, name
+        audit.record(
+            session,
+            "store.renamed",
+            actor_id=admin.id,
+            actor_type="admin",
+            entity_type="store",
+            entity_id=st.id,
+            store_id=st.id,
+            data={"before": {"name": before}, "after": {"name": name}},
+        )
+        await session.commit()
+    return _store_row(st)
 
 
 @router.get("/vpn-accounts", response_model=list[dict])

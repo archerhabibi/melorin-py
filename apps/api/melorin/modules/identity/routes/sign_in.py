@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
-from melorin.core import audit, channel, flags, integrations
+from melorin.core import audit, brand, channel, flags, integrations
 from melorin.core.crypto import decrypt
 from melorin.core.config import get_settings
 from melorin.core.deps import BotAuth, Session, main_store
@@ -68,8 +68,8 @@ async def _require_valid_totp(session, user: User, code: str | None, *, via: str
 
 
 @auth.post("/email/request-code")
-async def email_request_code(body: EmailCodeRequest, session: Session):
-    dev_code = await service.request_email_code(session, body.email)
+async def email_request_code(body: EmailCodeRequest, session: Session, request: Request):
+    dev_code = await service.request_email_code(session, body.email, brand=await brand.site_brand(session, request))
     return {"sent": True, **({"dev_code": dev_code} if dev_code else {})}
 
 

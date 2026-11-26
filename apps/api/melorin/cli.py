@@ -15,6 +15,7 @@ from melorin.core.db import session_factory
 from melorin.core.security import hash_password
 from melorin.core.crypto import encrypt
 from melorin.core import admin_telegram, settings_store
+from melorin.core.brand import DEFAULT_MAIN_STORE_NAME, normalize_store_name
 from melorin.core.errors import AppError
 from melorin import models  # noqa: F401
 from melorin.kernel.models.catalog import Product, StoreProduct
@@ -48,13 +49,17 @@ async def bootstrap() -> None:
         base64.b32decode(totp_secret + "=" * (-len(totp_secret) % 8), casefold=True)
     except (binascii.Error, ValueError) as exc:
         raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET is required for the first admin bootstrap") from exc
+    try:
+        main_store_name = normalize_store_name(getattr(settings, "bootstrap_main_store_name", None) or DEFAULT_MAIN_STORE_NAME)
+    except ValueError as exc:
+        raise SystemExit(f"MELORIN_BOOTSTRAP_MAIN_STORE_NAME is not usable: {exc}") from exc
     async with session_factory()() as session:
         email = settings.bootstrap_admin_email.strip().lower()
         user = await session.scalar(select(User).where(User.email == email))
         if user is None:
             user = User(
                 email=email,
-                display_name="Melorin Admin",
+                display_name="Admin",
                 password_hash=await hash_password(settings.bootstrap_admin_password),
                 is_super_admin=True,
                 admin_roles=["owner"],
@@ -87,7 +92,7 @@ async def bootstrap() -> None:
 
         store = await session.scalar(select(Store).where(Store.kind == "main"))
         if store is None:
-            store = Store(kind="main", name="Melorin Main Store", slug="main", currency=settings.default_currency, status="active")
+            store = Store(kind="main", name=main_store_name, slug="main", currency=settings.default_currency, status="active")
             session.add(store)
             await session.flush()
         membership = await session.scalar(

@@ -71,6 +71,27 @@ async def test_create_intent_converts_toman_to_rial_and_returns_redirect(gateway
     assert res.instructions == {"type": "redirect", "redirect_url": "https://payment.zarinpal.com/pg/StartPay/A0001"}
 
 
+async def test_gateway_description_names_the_store_the_customer_is_paying_not_the_platform(gateway):
+    """ADR-R3: the customer reads this on Zarinpal's page. It is the store's own name (``store_payment_settings`` puts it in)."""
+    fake = gateway(**{"request.json": (200, {"data": {"code": 100, "authority": "A9"}})})
+    settings = {**SETTINGS, "store": {"name": "Paris VPN"}}
+    await adapter.create_payment_intent(payment(), callback_url="u", settings=settings)
+    assert fake.calls[0][2]["description"] == "Paris VPN pay-1"
+    assert "melorin" not in fake.calls[0][2]["description"].lower()
+
+
+async def test_gateway_description_falls_back_to_the_product_name_only_without_a_store_name(gateway):
+    fake = gateway(**{"request.json": (200, {"data": {"code": 100, "authority": "A10"}})})
+    await adapter.create_payment_intent(payment(), callback_url="u", settings=SETTINGS)
+    assert fake.calls[0][2]["description"] == "Melorin pay-1"
+
+
+async def test_gateway_description_truncates_an_overlong_store_name(gateway):
+    fake = gateway(**{"request.json": (200, {"data": {"code": 100, "authority": "A11"}})})
+    await adapter.create_payment_intent(payment(), callback_url="u", settings={**SETTINGS, "store": {"name": "x" * 200}})
+    assert fake.calls[0][2]["description"] == "x" * 80 + " pay-1"
+
+
 async def test_create_intent_keeps_rial_amounts_unconverted(gateway):
     fake = gateway(**{"request.json": (200, {"data": {"code": 100, "authority": "A2"}})})
     await adapter.create_payment_intent(payment(currency="IRR", amount=500_000), callback_url="u", settings=SETTINGS)

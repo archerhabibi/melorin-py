@@ -8,6 +8,11 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-27
 
+### Store identity is no longer the product name (ADR-R3)
+- "Melorin" is the platform's name, not any store's. The main store is named at install (`MELORIN_BOOTSTRAP_MAIN_STORE_NAME`, installer question, `MAIN_STORE_NAME`; empty = «فروشگاه اصلی») and renamed later with the new audited `PATCH /admin/stores/main`; a bootstrap re-run never renames it. The bootstrap admin is `Admin`, not `Melorin Admin`.
+- Customer-facing text carries the store's own name: login-code, link-e-mail and re-authentication e-mails (store of the website the request came through; product name only when no store can be determined) and the Zarinpal payment description. `core/brand.py` is the single place for the name rules.
+- Breaking (pre-release): the Zarinpal description changes from `Melorin <id>` to `<store name> <id>`; the OpenAPI snapshot and generated types carry `PATCH /admin/stores/main`.
+
 ### Admin web: payments screen redesigned as a four-tab hub
 - The «پرداخت‌ها» menu was one endless page (KPIs, review queue, list, bank-SMS settings and inbox, fast receipt review, duplicate-picture policy, gateway settings, OCR). It is now a hub with four tabs, split by what the admin is doing: **تراکنش‌ها** (KPIs, receipts waiting for a decision, filters, list, refunds), **رسیدها** (fast review and provisional approval, duplicate-picture policy, OCR), **پیامک بانک** (automatic card-to-card verification) and **درگاه‌ها** (card and Zarinpal of the main store, forms always open instead of an accordion at the bottom).
 - Deep links: `#/payments`, `#/payments?tab=receipts|sms|gateways` (an unknown tab falls back to transactions). The transactions tab shows how many receipts wait for a decision and the receipts tab how many provisional charges wait for a final one, so urgent work is visible from any tab.

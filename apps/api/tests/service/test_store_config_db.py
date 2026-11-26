@@ -63,6 +63,27 @@ async def test_main_store_uses_its_own_configuration():
         assert got["card.info"]["card_number"] == "6037"
 
 
+async def test_store_payment_settings_carry_the_stores_own_name_for_adapters():
+    """ADR-R3: adapters put the STORE's name where a customer reads it (the gateway page); the name is public, never a secret."""
+    async with open_session() as s:
+        main = await make_store(s, kind="main")
+        main.name = "Paris VPN"
+        await store_config.upsert(
+            s,
+            store_id=main.id,
+            provider="zarinpal",
+            is_enabled=True,
+            public_config={"sandbox": False},
+            secret={"merchant_id": "m-1", "access_token": "S3CR3T-VALUE"},
+            actor_id=ACTOR,
+            actor_type="admin",
+        )
+        await s.flush()
+        got = await pay.store_payment_settings(s, main, "zarinpal")
+        assert got["store"] == {"name": "Paris VPN"}
+        assert "S3CR3T-VALUE" not in str(got["store"]) and "S3CR3T-VALUE" not in str(got["destination.zarinpal"])
+
+
 async def test_zarinpal_edit_keeps_the_stored_access_token_and_view_hides_secrets():
     async with open_session() as s:
         main = await make_store(s, kind="main")
