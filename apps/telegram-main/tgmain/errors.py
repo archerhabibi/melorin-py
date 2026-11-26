@@ -4,6 +4,7 @@
 class CoreError(Exception):
     """A Core 4xx answer (or a user-level validation problem) that is shown to the user instead of being retried."""
 
-    def __init__(self, status: int, message: str, code: str | None = None):
+    def __init__(self, status: int, message: str, code: str | None = None, details: dict | None = None):
         super().__init__(message)
         self.status, self.message, self.code = status, message, code
+        self.details = details if isinstance(details, dict) else {}

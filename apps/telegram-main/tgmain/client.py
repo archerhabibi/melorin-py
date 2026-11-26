@@ -319,6 +319,16 @@ class TransportMixin:
             return None
 
     @staticmethod
+    def _details(r: httpx.Response) -> dict:
+        try:
+            d = r.json()
+            e = d.get("error", d) if isinstance(d, dict) else {}
+            details = e.get("details") if isinstance(e, dict) else None
+            return details if isinstance(details, dict) else {}
+        except Exception:  # noqa: BLE001
+            return {}
+
+    @staticmethod
     def _err(r: httpx.Response) -> str:
         try:
             d = r.json()
@@ -357,6 +367,9 @@ class TransportMixin:
         if r.status_code == 403 and self._code(r) == "ADMIN_USE_PANEL":
             # The Telegram ID of the main admin (given at install time) is only an alert address: admins never get a store session.
             raise CoreError(403, self._err(r), "ADMIN_USE_PANEL")
+        if r.status_code == 403 and self._code(r) == "CHANNEL_JOIN_REQUIRED":
+            # Mandatory channel membership: Core names the channels still to join; the runner shows the join screen.
+            raise CoreError(403, self._err(r), "CHANNEL_JOIN_REQUIRED", self._details(r))
         r.raise_for_status()
         return r.json()
 

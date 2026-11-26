@@ -32,12 +32,13 @@ from tgmain.handlers.accounts import AccountsMixin
 from tgmain.handlers.tools import ToolsMixin
 from tgmain.handlers.reseller import ResellerMixin
 from tgmain.handlers.tickets import TicketsMixin
+from tgmain.handlers.channel_join import ChannelJoinMixin
 from tgmain.ui import *  # noqa: E402,F401,F403  (re-exported: the reseller runner uses money/keyboard/esc/BOT_COMMANDS)
 
 log = logging.getLogger("melorin.telegram.main")
 
 
-class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, WalletMixin, AccountsMixin, ToolsMixin, ResellerMixin, TicketsMixin):
+class TelegramRunner(TransportMixin, ChannelJoinMixin, IdentityMixin, LoyaltyMixin, PlansMixin, WalletMixin, AccountsMixin, ToolsMixin, ResellerMixin, TicketsMixin):
     """Composition root: wiring (commands/callbacks), update dispatch and the long-poll loop. Feature handlers live in ``tgmain.handlers``."""
 
     channel = "main"
@@ -117,6 +118,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
             "atrc": self.cb_tool_rotate_a,
             "adr": self.cb_tool_devices_ask_a,
             "adrc": self.cb_tool_devices_a,
+            "join": self.cb_join_check,
         }
 
     # ---------- dispatch ----------
@@ -126,7 +128,8 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
         message = update.get("message")
         callback = update.get("callback_query")
         if callback:
-            await self.tg("answerCallbackQuery", {"callback_query_id": callback["id"]})
+            if callback.get("data") != JOIN_CHECK_DATA:  # the join check answers with its own pop-up text
+                await self.tg("answerCallbackQuery", {"callback_query_id": callback["id"]})
             message = callback.get("message")
             if message is not None:
                 message = {**message, "_telegram_from": callback.get("from") or {}}
@@ -138,6 +141,8 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
         try:
             pair = await self.core_login(message, referral)
         except CoreError as exc:
+            if exc.code == "CHANNEL_JOIN_REQUIRED":
+                return await self.show_join_gate(message, callback, text, arg, exc)
             if exc.code != "ADMIN_USE_PANEL":
                 raise
             return await self.send(message["chat"]["id"], ADMIN_NOTICE)  # the admin's alert address: say so instead of staying silent

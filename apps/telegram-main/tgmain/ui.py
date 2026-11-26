@@ -43,6 +43,19 @@ ADMIN_NOTICE = (
     "مدیریت فروشگاه فقط از پنل مدیریت انجام می‌شود؛ این ربات مخصوص مشتریان است."
 )
 
+# Mandatory channel membership (Core answers CHANNEL_JOIN_REQUIRED): the join screen's texts and its check button.
+JOIN_CHECK_DATA = "join:check"
+JOIN_CHECK_BUTTON = "✅ عضو شدم"
+JOIN_NOT_YET = "هنوز عضویت شما در همهٔ کانال‌ها تأیید نشده است. ابتدا عضو شوید، سپس دوباره بزنید."
+JOIN_CONFIRMED = "✅ عضویت شما تأیید شد. خوش آمدید!"
+
+
+def join_rows(channels) -> list:
+    """One URL button per channel still to join, then the check button. ``channels`` items are ``{title, url}`` from Core."""
+    rows = [[(f"📢 {str(c.get('title') or 'کانال')[:48]}", str(c["url"]))] for c in channels]
+    return [*rows, [(JOIN_CHECK_BUTTON, JOIN_CHECK_DATA)]]
+
+
 # Core error codes of the reseller details step that mean "send the domain again" / "send the token again".
 RESELLER_DOMAIN_ERRORS = {
     "INVALID_DOMAIN",
