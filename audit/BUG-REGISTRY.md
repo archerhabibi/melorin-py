@@ -60,6 +60,8 @@ Full finding records live in `audit/reports/<team>/REPORT.md`; this table is the
 | QA-002 | Medium | PostgreSQL wallet property test silently skips because Hypothesis is missing from CI dependencies | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-003 | Medium | Order idempotency concurrency contract is always skipped | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
 | QA-004 | Medium | Storefront tests race unfinished storage work and asynchronous wallet notifications | AI-08 | Fixed | audit/reports/qa-performance/REPORT.md |
+| QA-005 | Medium | Provisioning tests insert 8/10-char order numbers into the VARCHAR(6) `orders.number` column; SQLite passes and PostgreSQL fails | AI-08 | Fixed | audit/FINAL-REPORT.md |
+| QA-006 | Medium | TOTP enable test reads `time()` again after the request and fails when the RFC 6238 30 s window rolls over mid-test | AI-08 | Fixed | audit/FINAL-REPORT.md |
 
 ## Pre-existing, already fixed on `main` (do not re-report without re-verifying)
 AUD-001 payment intent retry, AUD-002 refund availability, AUD-003 Zarinpal refund credentials UI, AUD-007 worker lock fail-open, AUD-008 worker metrics scrape (`docs/audits/2026-11-19-deep-technical-audit.fa.md`; fixing branches are ancestors of `main`).
