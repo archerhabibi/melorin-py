@@ -482,6 +482,13 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+###### 2026-11-26 - Claude (with owner) - Mandatory channel membership (force join) for the main bot
+- **Before:** every Telegram user got a Core session from `POST /auth/telegram/bot`; there was no way to require joining the store's channel.
+- **Problem:** the owner wants main-bot users to join one or more channels first, switchable from the admin panel.
+- **Action:** pure rules in `domain/channel_join.py`; new module `modules/channel_gate` (getChatMember with the main bot token, positive answers cached per user + channel set, negatives never cached, fail-open on unreadable channels / Telegram outage with metrics); the bot sign-in keeps the sign-up and referral but answers `403 CHANNEL_JOIN_REQUIRED` with `{title, url}` of the missing channels; reseller bots never gated. Admin `GET/PUT /admin/telegram/channel-join` (audited) + `POST .../check` with typed response models; bot join screen + "✅ عضو شدم" with deep-link replay; admin-web page «عضویت اجباری کانال» (switch, up to 5 channels, ordering, message, cache, live preview, Telegram check before enabling). Decision: enforcement in Core (not the runner) so it cannot be bypassed and the runner stays transport-only.
+- **After:** API: `test_channel_join_domain.py`, `test_channel_join_http.py`, contracts, admin access, lint-imports pass; telegram-main/reseller suites pass; admin-web 48 files / 370+ tests, lint, typecheck, build pass. NOT tested against live Telegram.
+- **Ref:** branch `feat/channel-join-gate`
+
 ###### 2026-11-09 - Claude (with owner) - PG-12 per-store subscription branding
 - **Before:** every store's subscription page carried the shared panel branding; `stores.branding` was free-form JSON replaced wholesale by the owner patch.
 - **Problem:** a reseller could not show its own name, support link or logo; a free-form value that a panel page may print is an injection risk.

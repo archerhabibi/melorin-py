@@ -8,6 +8,11 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Telegram: mandatory channel membership (force join) for the main bot
+- Admin switch «عضویت اجباری کانال» (system area): up to 5 public or private channels, custom message, membership cache, live preview and a Telegram check (bot must be a channel admin).
+- Enforced by Core at `POST /auth/telegram/bot`: `403 CHANNEL_JOIN_REQUIRED` with the channels still to join; sign-up and referral are kept; fail-open when a channel cannot be read; reseller bots are never gated.
+- Main bot shows a join screen with one link button per channel and «✅ عضو شدم»; a `/start` deep link received while gated is replayed after joining.
+
 ### Bank SMS: end-to-end typed API (admin-web + API contract)
 - Core declares response models for every admin and reseller bank-SMS route (`BankSmsOverviewOut`, `BankSmsSourceSavedOut`, `BankSmsMessageOut`, `BankSmsTokenOut`, `BankSmsReconcileOut`); the OpenAPI snapshot and generated TS types now carry real bodies instead of `{}`, and `status` / `direction` / `matched_by` are literal unions. The save body types the tuning knobs (`BankSmsSettingsIn`); ranges and unknown keys are still rejected by `clean_settings` with `BANK_SMS_SETTING_INVALID`.
 - admin-web `BankSmsPanel` reads every response from the generated types (no `Json`, no casts); `@melorin/web-kit/bankSms` has real `BankSmsForm` / `BankSmsSourceBody` types; shared `errMsg()` in `shared/kit.tsx` (also understands FastAPI 422 lists).
