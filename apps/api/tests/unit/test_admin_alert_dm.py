@@ -1,17 +1,24 @@
-"""Telegram alert to super admins when provisioning fails (worker side), on a real SQLite DB."""
+"""The admin's bot DM (worker side of ``admin.alert``), on a real SQLite DB.
+
+Only panel/node failures and customers' payments are DM kinds (``domain.messaging_policy``); the worker re-checks the policy, so a
+payload of any other kind is dropped instead of messaging the admin.
+"""
 
 import types
 import uuid
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
+from melorin.domain.notification_dedup import EVENT_ID_FIELD
 from melorin.kernel.models.identity import Identity, User
 from melorin.kernel.models.notifications import Notification
-from melorin.kernel.models.orders import Order
 from melorin.worker import runner
+
+PANEL_TEXT = "🔴 پنل «Panel-A» ناسالم شد\nخطا: timeout"
 
 
 @pytest.fixture
@@ -53,64 +60,67 @@ def _user(s, *, admin: bool, active: bool = True, chat_id: str | None = None):
     return u
 
 
-def _order(s, *, number: str, status: str):
-    o = Order(
-        number=number,
-        user_id=uuid.uuid4(),
-        store_id=uuid.uuid4(),
-        product_id=uuid.uuid4(),
-        status=status,
-        payment_method="wallet",
-        currency="IRT",
-        unit_price=1,
-        total=1,
-        pricing_snapshot={},
-        product_snapshot={},
-    )
-    s.add(o)
-    return o
+def _alert(kind="panel_unhealthy", text=PANEL_TEXT, event_id=None):
+    return {"kind": kind, "text": text, EVENT_ID_FIELD: event_id or str(uuid.uuid4())}
 
 
-async def test_only_active_super_admins_with_telegram_get_the_alert(session, sent):
+async def test_only_active_super_admins_with_telegram_get_the_dm(session, sent):
     _user(session, admin=True, chat_id="111")
     _user(session, admin=True, active=False, chat_id="222")  # inactive admin
     _user(session, admin=False, chat_id="333")  # customer
     _user(session, admin=True)  # admin without telegram -> skipped, no error
-    order = _order(session, number="AB23CD", status="refunded")
     await session.commit()
 
-    await runner._notify_admins_provisioning_failed(session, {"order_id": order.id, "error": "panel down"})
+    await runner._notify_admins(session, _alert())
     await session.commit()
 
-    assert [chat for chat, _ in sent] == ["111"]
-    text = sent[0][1]
-    assert "AB23CD" in text and "panel down" in text and "برگشت داده شد" in text
+    assert sent == [("111", PANEL_TEXT)]  # first line is the title, the rest the body: the text arrives unchanged
 
 
-async def test_retry_does_not_resend_to_admins_already_notified(session, sent):
+async def test_an_outbox_retry_does_not_resend_to_admins_already_notified(session, sent):
     _user(session, admin=True, chat_id="111")
-    order = _order(session, number="ZZ99YY", status="refunded")
     await session.commit()
-    payload = {"order_id": order.id, "error": "x"}
+    payload = _alert("payment_succeeded", "💳 پرداخت موفق\nمبلغ: 1,000 تومان")
 
-    await runner._notify_admins_provisioning_failed(session, payload)
+    await runner._notify_admins(session, payload)
     await session.commit()
-    await runner._notify_admins_provisioning_failed(session, payload)
+    await runner._notify_admins(session, payload)  # same event id: the retry
     await session.commit()
 
     assert len(sent) == 1
-    from sqlalchemy import select
-
     rows = (await session.scalars(select(Notification))).all()
-    assert len(rows) == 1 and rows[0].telegram_status == "sent"
+    assert len(rows) == 1 and rows[0].telegram_status == "sent" and rows[0].kind == "payment_succeeded"
 
 
-async def test_message_says_manual_check_when_auto_refund_did_not_happen(session, sent):
+async def test_a_different_event_is_a_new_dm(session, sent):
     _user(session, admin=True, chat_id="111")
-    order = _order(session, number="KK55MM", status="provisioning_failed")
+    await session.commit()
+    await runner._notify_admins(session, _alert())
+    await runner._notify_admins(session, _alert())
+    await session.commit()
+    assert len(sent) == 2
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "provisioning_failed",
+        "panel_recovered",
+        "node_recovered",
+        "backup_failed",
+        "outbox_failure",
+        "admin_reseller_application",
+        "payment_failed",
+        "nope",
+        "",
+    ],
+)
+async def test_a_kind_outside_the_dm_set_never_messages_the_admin(session, sent, kind):
+    _user(session, admin=True, chat_id="111")
     await session.commit()
 
-    await runner._notify_admins_provisioning_failed(session, {"order_id": order.id, "error": "boom"})
+    await runner._notify_admins(session, _alert(kind, "x\ny"))
+    await session.commit()
 
-    assert len(sent) == 1
-    assert "دستی" in sent[0][1] and "برگشت داده شد" not in sent[0][1]
+    assert sent == []
+    assert (await session.scalars(select(Notification))).all() == []

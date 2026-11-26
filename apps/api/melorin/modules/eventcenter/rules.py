@@ -14,8 +14,11 @@ from sqlalchemy import func, select
 
 from melorin.core.fmt import format_amount
 from melorin.core import events
+from melorin.domain import messaging_policy
+from melorin.domain.order_state import OrderStatus
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
+from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.modules.eventcenter import service, topics
@@ -24,8 +27,9 @@ log = logging.getLogger("melorin.eventcenter")
 
 OUTBOX_FAILURE_THRESHOLD = 5  # an outbox event that failed this many times is reported once to the errors topic
 
-Rule = Callable[[object, OutboxEvent, dict], Awaitable[tuple[uuid.UUID | None, str, str] | None]]
-# A rule returns (store_id, topic, text) or None when the event is not worth a message.
+Rule = Callable[[object, OutboxEvent, dict], Awaitable[tuple | None]]
+# A rule returns (store_id, topic, text) or None when the event is not worth a message. An optional 4th item is the notice ``kind``
+# (``domain.messaging_policy``): the policy, not the rule, decides whether the notice also reaches the admin's bot DM.
 
 
 def _uuid(value: object) -> uuid.UUID | None:
@@ -65,20 +69,21 @@ async def _refunded(session, e, p):
     return await _order_rule(session, "↩️ سفارش بازگشت وجه شد", p)
 
 
-async def _payment(session, label: str, p: dict) -> tuple[uuid.UUID | None, str, str] | None:
+async def _payment(session, label: str, p: dict, kind: str) -> tuple[uuid.UUID | None, str, str, str] | None:
     pid = _uuid(p.get("payment_id"))
     pay = await session.get(Payment, pid) if pid else None
     if pay is None:
         return None
-    return pay.store_id, topics.PAYMENTS, f"{label}\nمبلغ: {format_amount(pay.amount, pay.currency)}\nروش: {pay.provider}\nشناسه: {pay.id}"
+    text = f"{label}\nمبلغ: {format_amount(pay.amount, pay.currency)}\nروش: {pay.provider}\nشناسه: {pay.id}"
+    return pay.store_id, topics.PAYMENTS, text, kind
 
 
 async def _pay_ok(session, e, p):
-    return await _payment(session, "💳 پرداخت موفق", p)
+    return await _payment(session, "💳 پرداخت موفق", p, "payment_succeeded")
 
 
 async def _pay_failed(session, e, p):
-    return await _payment(session, "⚠️ پرداخت ناموفق", p)
+    return await _payment(session, "⚠️ پرداخت ناموفق", p, "payment_failed")
 
 
 async def _debt(session, e, p):
@@ -93,12 +98,23 @@ async def _debt(session, e, p):
     return None
 
 
+def provisioning_outcome(order: Order) -> str:
+    """The line that says what became of the customer's money. The event is emitted with a short delay so an auto-refund has
+    finished by the time this is read; it is part of the group notice because a provisioning failure no longer pings the admin's DM."""
+    if order.status == OrderStatus.REFUNDED:
+        return "\n✅ مبلغ به‌صورت خودکار به کیف پول مشتری برگشت داده شد."
+    if order.status in (OrderStatus.PROVISIONING_FAILED, OrderStatus.REFUND_PENDING):
+        return "\n❌ بازگشت خودکار وجه انجام نشد؛ لطفاً سفارش را دستی بررسی کنید."
+    return ""
+
+
 async def _provisioning_failed(session, e, p):
     order = await _order(session, p)
     if order is None:
         return None
     error = str(p.get("error") or "نامشخص")[:300]
-    return order.store_id, topics.ERRORS, f"❗ ساخت اکانت ناموفق بود\nسفارش: {order.number}\nخطا: {error}"
+    text = f"❗ ساخت اکانت ناموفق بود\nسفارش: {order.number}\nخطا: {error}{provisioning_outcome(order)}"
+    return order.store_id, topics.ERRORS, text, "provisioning_failed"
 
 
 async def _ticket(session, e, p):
@@ -120,11 +136,12 @@ async def _ticket(session, e, p):
 
 
 async def _manual(session, e, p):
-    """Events written straight for the Event Center (``eventcenter.send``): payload carries store_id / topic / text."""
+    """Events written straight for the Event Center (``eventcenter.send``): payload carries store_id / topic / text and, for an
+    admin notice, its ``kind`` (``events.emit_admin_notice``)."""
     topic, text = str(p.get("topic") or ""), str(p.get("text") or "")
     if topic not in topics.TOPICS or not text:
         return None
-    return _uuid(p.get("store_id")), topic, text
+    return _uuid(p.get("store_id")), topic, text, (str(p["kind"]) if p.get("kind") else None)
 
 
 RULES: dict[str, Rule] = {
@@ -140,8 +157,20 @@ RULES: dict[str, Rule] = {
 }
 
 
+async def _platform_scope(session, store_id: uuid.UUID | None) -> bool:
+    """Is this notice about the platform itself (no store, or the Main Store)? A reseller store's events belong to that reseller."""
+    if store_id is None:
+        return True
+    store = await session.get(Store, store_id)
+    return store is None or store.kind != "reseller"
+
+
 async def tap(session, e: OutboxEvent) -> int:
-    """Queue the Telegram deliveries for one processed outbox event. Never raises; returns how many were queued."""
+    """Queue the Telegram deliveries for one processed outbox event. Never raises; returns how many group deliveries were queued.
+
+    The group delivery is always queued. The admin's bot DM is queued ONLY when the notice's kind is a DM kind in
+    ``domain.messaging_policy`` (panel/node failures and customers' payments) and the notice is about the platform's own scope.
+    """
     rule = RULES.get(e.topic)
     if rule is None:
         return 0
@@ -150,8 +179,17 @@ async def tap(session, e: OutboxEvent) -> int:
             hit = await rule(session, e, e.payload or {})
             if hit is None:
                 return 0
-            store_id, topic, text = hit
-            return await service.publish(session, store_id=store_id, topic=topic, text=text, source_key=str(e.id))
+            store_id, topic, text, *rest = hit
+            kind = rest[0] if rest else None
+            queued = await service.publish(session, store_id=store_id, topic=topic, text=text, source_key=str(e.id))
+            if kind and messaging_policy.admin_dm(kind) and await _platform_scope(session, store_id):
+                await events.emit(
+                    session,
+                    events.ADMIN_ALERT,
+                    {"kind": kind, "text": text, "store_id": store_id},
+                    dedup_key=f"adm:{e.id}",
+                )
+            return queued
     except Exception:
         log.exception("event-center rule failed topic=%s event=%s", e.topic, e.id)
         return 0

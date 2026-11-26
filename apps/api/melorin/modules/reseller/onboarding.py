@@ -9,12 +9,10 @@ Texts are Persian because both audiences are; the domain is interpolated so the 
 
 from __future__ import annotations
 
-import uuid
 
 from sqlalchemy import select
 
 from melorin.core import events
-from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import AdminTask, ResellerApplication
 
 REVIEW = "review_application"
@@ -53,14 +51,10 @@ def _domain_tasks(domain: str) -> list[tuple[str, str, str]]:
     ]
 
 
-async def _super_admin_ids(session) -> list[uuid.UUID]:
-    return list((await session.scalars(select(User.id).where(User.is_super_admin.is_(True), User.is_active.is_(True)))).all())
-
-
 async def alert_admins(session, *, kind: str, title: str, body: str, key: str) -> None:
-    """One notification per active super admin (own dedup key, so an outbox retry never repeats it)."""
-    for admin_id in await _super_admin_ids(session):
-        await events.emit_user_notice(session, admin_id, None, kind, title, body, payload_dedup_key=f"{key}:{admin_id}")
+    """Tell the admins about a reseller-application event: ONE notice in the group's admin topic (not a bot DM: the admin's DM is
+    reserved for panel/node failures and customers' payments, ``domain.messaging_policy``). ``key`` dedups the event itself."""
+    await events.emit_admin_notice(session, kind, f"{title}\n{body}", dedup_key=f"admin_notice:{key}")
 
 
 async def _add_task(session, a: ResellerApplication, kind: str, title: str, detail: str) -> AdminTask | None:

@@ -68,8 +68,8 @@ async def _candidates(
     return out, by_id
 
 
-async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit_store_notice(session, store_id, "payments", text)
+async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str, kind: str) -> None:
+    await events.emit_admin_notice(session, kind, text, store_id=store_id)
 
 
 async def _link(
@@ -122,7 +122,7 @@ async def _link(
         await session.rollback()
         raise
     if by == "auto":
-        await _notify(session, p.store_id, f"✅ شارژ خودکار با پیامک بانک\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+        await _notify(session, p.store_id, f"✅ شارژ خودکار با پیامک بانک\nمبلغ: {p.amount:,}\nشناسه: {p.id}", "payment_sms_matched")
         await session.commit()
     return True
 
@@ -172,7 +172,7 @@ async def _confirm_provisional(
         store_id=p.store_id,
         data={"sms_id": str(sms.id), "by": by},
     )
-    await _notify(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+    await _notify(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}", "payment_sms_confirmed")
     await session.commit()
     return True
 
@@ -216,7 +216,10 @@ async def match_message(session: AsyncSession, sms: BankSmsMessage, source: Bank
         await session.commit()
         if newly:
             await _notify(
-                session, sms.store_id, f"⚠️ چند رسید هم‌مبلغ برای یک پیامک بانکی؛ نیاز به بررسی دستی\nمبلغ: {sms.amount_rial:,} ریال"
+                session,
+                sms.store_id,
+                f"⚠️ چند رسید هم‌مبلغ برای یک پیامک بانکی؛ نیاز به بررسی دستی\nمبلغ: {sms.amount_rial:,} ریال",
+                "payment_sms_ambiguous",
             )
             await session.commit()
     elif sms.status == "ambiguous":
