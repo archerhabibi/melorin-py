@@ -1,7 +1,7 @@
 # ارتباطات و پشتیبانی / Communication & Support
 
 > **وضعیت / Status:** مرجع جاری / Current canonical
-> **آخرین بازبینی / Last review:** 2026-11-16
+> **آخرین بازبینی / Last review:** 2026-11-26
 > **فهرست / Index:** [00](00-DOCUMENTATION-INDEX.md)
 
 ## بخش فارسی
@@ -14,7 +14,7 @@
 
 **Purpose:** Tickets, Notifications, Event Center, Broadcast and support.
 
-**In the panel:** the combined group "Notifications, Communication & Support" holds Broadcast, Event Center and Tickets; the Tickets backend domain stays independent. Event Center posts admin events to a Telegram group with automatic Topics and a nightly report. The coloured/premium Telegram buttons live in "System & Security" and are editable only with `system` access. Channel specifications (panel, web, bots, Reseller API) are in the merged material.
+**In the panel:** the combined group "Notifications, Communication & Support" holds Broadcast, Event Center and Tickets; the Tickets backend domain stays independent. Event Center posts admin events to a Telegram group with automatic Topics and a nightly report. **Admin notice routing (2026-11-26):** the admin's bot DM is reserved for panel/node failures and customers' payments; every other admin notice goes to a Topic of the supergroup, and DM kinds are mirrored in the group so it stays the complete journal. `domain/messaging_policy.py` is the single table (call sites state a notice `kind` via `events.emit_admin_notice`, never a channel); an undeclared kind is group-only, and the DM set (`panel_unhealthy`, `node_failed`, `payment_succeeded`, `payment_receipt_review`, `payment_grace_credited`) is pinned by a test. A reseller store's events never DM the platform admin. Personal notices (customer, store owner, applicant) are unchanged. The coloured/premium Telegram buttons live in "System & Security" and are editable only with `system` access. Channel specifications (panel, web, bots, Reseller API) are in the merged material.
 
 ## مواد ادغام‌شده / Merged source material
 
@@ -29,12 +29,13 @@
 
 ##### تصمیم‌های طراحی
 1. **مدل موجود** `telegram_event_destinations` (`store_id NULL` = ادمین، وگرنه فروشگاه نماینده). فقط سه ستون وضعیت اضافه می‌شود (`last_sent_at`, `last_error`, `last_error_at`) تا پنل بتواند سلامت اتصال را نشان دهد (migration 0031).
-2. **Topics** (۹ تا؛ الهام از Topicهای گزارش در mirzabot): `payments`، `orders`، `debt`، `tickets`، `errors`، `daily` (گزارش شبانه)، `affiliate` (کمیسیون و معرف)، `tests` (اکانت تست)، `backup` (پشتیبان‌گیری). گروه **ادمین** هر ۹ تا را دارد؛ گروه **نماینده** فقط ۷ Topic سطح فروشگاه را (`affiliate` و `backup` مخصوص ادمین‌اند: بکاپ سطح پلتفرم است و رفرال فقط در Main Store وجود دارد، پس Topic نماینده همیشه خالی می‌ماند). ذخیرهٔ شناسهٔ Topic ادمینی برای نماینده 422 می‌دهد و UI نماینده آن را نشان نمی‌دهد. هر کدام به `message_thread_id` نگاشت می‌شود؛ اگر Topic تنظیم نشده باشد پیام به General گروه می‌رود. اگر Topic در تلگرام حذف شده باشد، یک‌بار بدون thread ارسال می‌شود.
+2. **Topics** (۱۱ تا؛ الهام از Topicهای گزارش در mirzabot): `payments`، `orders`، `debt`، `tickets`، `errors`، `panels` (پنل‌ها و نودها)، `admin` (مدیریت و درخواست‌ها)، `daily` (گزارش شبانه)، `affiliate` (کمیسیون و معرف)، `tests` (اکانت تست)، `backup` (پشتیبان‌گیری). گروه **ادمین** هر ۱۱ تا را دارد؛ گروه **نماینده** فقط ۷ Topic سطح فروشگاه را (`affiliate`، `backup`، `panels` و `admin` مخصوص ادمین‌اند: بکاپ، پنل‌ها و میز درخواست‌های نمایندگی سطح پلتفرم‌اند و رفرال فقط در Main Store وجود دارد، پس Topic نماینده همیشه خالی می‌ماند). ذخیرهٔ شناسهٔ Topic ادمینی برای نماینده 422 می‌دهد و UI نماینده آن را نشان نمی‌دهد. هر کدام به `message_thread_id` نگاشت می‌شود؛ اگر Topic تنظیم نشده باشد پیام به General گروه می‌رود. اگر Topic در تلگرام حذف شده باشد، یک‌بار بدون thread ارسال می‌شود.
 3. **Fan-out در Outbox**: `publish()` برای هر مقصد یک رویداد `eventcenter.deliver` می‌نویسد (کلید dedup = رویداد منبع + مقصد). بنابراین retry فقط همان مقصدِ ناموفق را دوباره می‌فرستد و ارسال تکراری نداریم.
 4. **Tap مرکزی** در `process_event`: بعد از اجرای handler هر رویداد Outbox، قوانین `rules.py` اجرا می‌شود (داخل SAVEPOINT و best-effort). handlerهای مالی/سفارش دست نمی‌خورند.
 5. **Isolation**: رویداد فروشگاه نماینده فقط به مقصد همان فروشگاه می‌رود. نسخه‌ی ادمین فقط برای `debt` و `errors` (با پیشوند نام فروشگاه). رویداد Main Store به مقصد ادمین می‌رود.
 6. **امنیت**: ربات نماینده فقط با **توکن ربات خود نماینده** پیام می‌فرستد (جلوگیری از سوءاستفاده از ربات اصلی برای اسپم). ادمین با ربات اصلی. `chat_id` فقط عددی (`-100…`) و اعتبارسنجی‌شده است. تغییرات در Audit ثبت می‌شود.
 7. **خطای دائمی** (400/403/404 تلگرام: ربات حذف شده، گروه نامعتبر) ثبت در `last_error` و بدون retry؛ خطای موقت (429/5xx/شبکه) با backoff Outbox دوباره تلاش می‌شود.
+8. **مسیردهی اعلان‌های ادمین (۱۴۰۵/۰۹/۰۵ = 2026-11-26):** پیام مستقیم (DM) ربات به ادمین **فقط** برای «خرابی پنل/نود» و «پرداخت‌های مشتریان» است؛ هر اعلان ادمین دیگر (خطای ساخت اکانت، درخواست نمایندگی، بکاپ، رانش تنظیمات، ظرفیت، سفارش، تیکت، بدهی، …) فقط در Topic مربوطه‌ی سوپرگروه می‌آید. موارد DM در سوپرگروه هم تکرار می‌شوند تا گروه یک ژورنال کامل و منظم بماند و DM فقط «الان نگاه کن» باشد. تنها منبع حقیقت `domain/messaging_policy.py` است: هر `kind` یک مسیر دارد و نقطه‌های ارسال فقط kind را می‌گویند (`events.emit_admin_notice`)، نه کانال را. kindِ اعلام‌نشده همیشه «فقط گروه» است، پس نوع جدید اعلان هرگز ناخواسته ادمین را DM نمی‌کند. مجموعهٔ DM با تست قفل شده است: `panel_unhealthy`، `node_failed`، `payment_succeeded`، `payment_receipt_review`، `payment_grace_credited`. `tap` مرکزی سیاست را اعمال می‌کند: ارسال گروه همیشه صف می‌شود؛ DM (رویداد Outbox `admin.alert`، یک dedup برای هر ادمین) فقط برای kind از نوع DM و فقط برای دامنهٔ خود پلتفرم (بدون store یا Main Store) — پرداخت فروشگاه نماینده فقط در گروه همان نماینده می‌ماند. DM و گروه مستقل‌اند: بدون گروه تنظیم‌شده هم خرابی پنل در ربات می‌رسد. اعلان‌های شخصی (مشتری، صاحب فروشگاه، متقاضی) بدون تغییر با `notification.send` به خود آن شخص DM می‌شوند.
 
 ##### API
 Admin: `GET/PUT/DELETE /admin/event-center`، `POST /admin/event-center/test`، `POST …/check`، `POST …/provision`
@@ -43,11 +44,13 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
 ##### رویدادها
 | Topic | منبع |
 |---|---|
-| payments | رسید در انتظار بررسی، پرداخت موفق/ناموفق |
+| payments | رسید در انتظار بررسی (DM)، پرداخت موفق (DM)، تأیید موقت پس از مهلت بدون بررسی (DM)، پرداخت ناموفق، یادداشت‌های پیامک بانکی |
 | orders | سفارش پرداخت‌شده/تکمیل‌شده/بازگشت‌خورده |
 | debt | `reseller.debt` (نزدیک سقف / رسیدن به سقف) |
 | tickets | تیکت جدید و پاسخ مشتری |
-| errors | خطای ساخت اکانت، پنل unhealthy، رویداد Outbox با شکست مکرر |
+| errors | خطای ساخت اکانت (با نتیجهٔ بازگشت وجه)، رویداد Outbox با شکست مکرر |
+| panels (فقط ادمین) | پنل ناسالم (DM) و نودهای خراب (DM)؛ بازگشت پنل/نود، حالت degraded، رانش تنظیمات، ظرفیت و خروج مقصد از فروش (فقط گروه) |
+| admin (فقط ادمین) | درخواست نمایندگی جدید، تأیید خودکار/هویت، کارهای دستی نصب نماینده، درخواست تغییر ادمین پنل |
 | tests | اکانت تست ساخته‌شد (`order.kind = test` هنگام تکمیل)؛ پرداخت/استرداد سفارش تست ساکت است و در «سفارش‌ها» نمی‌آید |
 | affiliate (فقط ادمین) | معرف جدید، پاداش اولین خرید / کمیسیون واریزشده، برگشت کمیسیون هنگام استرداد (و بدهی باقی‌ماندهٔ معرف) |
 | backup (فقط ادمین) | نتیجهٔ هر اجرای `backup_job`: موفق (با/بدون کپی S3)، ناقص (محلی OK ولی S3 ناموفق)، ناموفق. مسیر فایل روی سرور هرگز ارسال نمی‌شود |
@@ -57,9 +60,9 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
 `worker.jobs_reports.daily_report_job` با cron ساعت 20:30 UTC (= ۰۰:۰۰ تهران) اجرا می‌شود و برای هر گروهِ فعال یک خلاصهٔ ۲۴ ساعت گذشته می‌سازد (`eventcenter/report.py`): فروش (به‌تفکیک ارز، بدون اکانت تست)، پرداخت موفق/ناموفق، اکانت تست، تیکت جدید، و آنچه الان منتظر شماست (رسید در انتظار، تیکت باز، سفارش نیازمند بررسی). گروه ادمین اعداد کل پلتفرم + معرف و کمیسیون را می‌گیرد؛ گروه نماینده فقط اعداد فروشگاه خودش را (بدون خط معرف). کلید dedup = `daily:<تاریخ تهران>:<store|admin>`، پس اجرای دوبارهٔ cron یا ری‌استارت ورکر یک شب را دوبار نمی‌فرستد. اگر ورکر با ساعت غیر UTC اجرا شود cron باید متناسب تنظیم شود.
 
 ##### وضعیت پیاده‌سازی
-- Backend: `modules/eventcenter/{service,rules,routes,schemas,topics}.py`، migration `0031`، handler `eventcenter.deliver` در worker، tap مرکزی پس از هر handler.
+- Backend: `modules/eventcenter/{service,rules,routes,schemas,topics}.py`، `domain/messaging_policy.py` (مسیردهی)، `core/events.py::emit_admin_notice`، migration `0031`، handlerهای `eventcenter.deliver` و `admin.alert` در worker، tap مرکزی پس از هر handler.
 - UI: صفحهٔ «مرکز رویداد» در پنل ادمین و تب «مرکز رویداد» در پنل نماینده (ذخیره، تست واقعی هر Topic، وضعیت سلامت، حذف).
-- تست: `apps/api/tests/test_event_center.py`، `test_event_center_extra_topics.py` (Topicهای جدید) و `apps/admin-web/tests/event-center.test.jsx`.
+- تست: `apps/api/tests/test_event_center.py`، `test_event_center_extra_topics.py` (Topicهای جدید)، `tests/service/test_admin_notice_routing.py` (مسیردهی DM/گروه)، `tests/unit/test_messaging_policy.py`، `tests/unit/test_admin_alert_dm.py` و `apps/admin-web/tests/event-center.test.jsx`.
 - «پنل unhealthy» اکنون قانون جدا دارد: `rules.notify_panel_health` در job سلامت پنل (هر ۵ دقیقه) و بررسی دستی ادمین فراخوانی می‌شود و **فقط هنگام تغییر وضعیت** (سالم به ناسالم، و بازگشت به سالم) به Topic «خطاها»ی گروه ادمین پیام می‌دهد؛ پنلی که ناسالم می‌ماند پیام تکراری نمی‌فرستد.
 - تیکت: فقط پیام خود مشتری اعلام می‌شود (رویداد `ticket.updated` شناسهٔ `message_id` را دارد)؛ تغییر وضعیت/اولویت، پاسخ پشتیبان و یادداشت داخلی ساکت‌اند.
 - باقی‌مانده: خطای ساخت اکانت (`provisioning.failed`) و شکست مکرر Outbox از قبل در Topic «خطاها» می‌آید؛ مورد دیگری باز نیست.

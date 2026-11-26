@@ -3,7 +3,7 @@
 #   DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com \
 #   bash scripts/install_server.sh
 # Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), ADMIN_TELEGRAM_ID (numeric Telegram ID of the main admin:
-# admin alerts are delivered to it by the main bot), REPO_URL, REPO_REF, APP_DIR,
+# panel/node failure and customer-payment alerts are delivered to it by the main bot), REPO_URL, REPO_REF, APP_DIR,
 # SKIP_BOT_PROMPT=1 (never ask for the token / Telegram ID; used by the melorin menu, which asks them itself),
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
 # Idempotent: an existing .env is never overwritten. New environments are
@@ -119,7 +119,7 @@ normalize_tg_id() { # normalize_tg_id VALUE -> prints ASCII digits or nothing
 }
 
 if [ ! -f .env ]; then
-  # --- numeric Telegram ID of the main admin: where the admin alerts are delivered ---
+  # --- numeric Telegram ID of the main admin: where the panel/node failure and customer-payment alerts are delivered ---
   ADMIN_TG="$(normalize_tg_id "${ADMIN_TELEGRAM_ID:-}")"
   if [ -z "$ADMIN_TG" ] && [ -t 0 ] && [ -z "${SKIP_BOT_PROMPT:-}" ]; then
     read -r -p "Numeric Telegram ID of the main admin (from @userinfobot, Enter to skip): " RAW_TG || RAW_TG=""
