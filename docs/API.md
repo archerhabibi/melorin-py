@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (189)
+### `admin` (192)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -214,6 +214,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/telegram/button-styles` | Get Button Styles |
 | PUT | `/api/v1/admin/telegram/button-styles` | Put Button Styles |
 | POST | `/api/v1/admin/telegram/button-styles/preview` | Preview Button Styles |
+| GET | `/api/v1/admin/telegram/channel-join` | Get Channel Join |
+| PUT | `/api/v1/admin/telegram/channel-join` | Put Channel Join |
+| POST | `/api/v1/admin/telegram/channel-join/check` | Check Channel Join |
 | GET | `/api/v1/admin/tickets` | Tickets |
 | POST | `/api/v1/admin/tickets/attachments` | Ticket Upload Attachment |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |

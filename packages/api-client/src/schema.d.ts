@@ -3244,6 +3244,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/telegram/channel-join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Channel Join */
+        get: operations["get_channel_join_api_v1_admin_telegram_channel_join_get"];
+        /** Put Channel Join */
+        put: operations["put_channel_join_api_v1_admin_telegram_channel_join_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/telegram/channel-join/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Channel Join */
+        post: operations["check_channel_join_api_v1_admin_telegram_channel_join_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/tickets": {
         parameters: {
             query?: never;
@@ -7853,6 +7888,32 @@ export interface components {
             product_id: string;
             /** Reason */
             reason: string;
+        };
+        /** ChannelIn */
+        ChannelIn: {
+            /** Chat */
+            chat: string;
+            /** Title */
+            title?: string | null;
+            /** Url */
+            url?: string | null;
+        };
+        /** ChannelJoinIn */
+        ChannelJoinIn: {
+            /**
+             * Cache Seconds
+             * @default 300
+             */
+            cache_seconds: number;
+            /** Channels */
+            channels?: components["schemas"]["ChannelIn"][];
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Message */
+            message?: string | null;
         };
         /** CommissionRuleIn */
         CommissionRuleIn: {
@@ -17157,6 +17218,92 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ButtonStylesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_channel_join_api_v1_admin_telegram_channel_join_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    put_channel_join_api_v1_admin_telegram_channel_join_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelJoinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_channel_join_api_v1_admin_telegram_channel_join_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelJoinIn"];
             };
         };
         responses: {

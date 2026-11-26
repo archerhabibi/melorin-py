@@ -2063,6 +2063,82 @@
         "title": "ChangePlanIn",
         "type": "object"
       },
+      "ChannelIn": {
+        "properties": {
+          "chat": {
+            "maxLength": 128,
+            "title": "Chat",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "chat"
+        ],
+        "title": "ChannelIn",
+        "type": "object"
+      },
+      "ChannelJoinIn": {
+        "properties": {
+          "cache_seconds": {
+            "default": 300,
+            "maximum": 3600,
+            "minimum": 0,
+            "title": "Cache Seconds",
+            "type": "integer"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelIn"
+            },
+            "maxItems": 5,
+            "title": "Channels",
+            "type": "array"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "title": "ChannelJoinIn",
+        "type": "object"
+      },
       "CommissionRuleIn": {
         "properties": {
           "is_active": {
@@ -20862,6 +20938,116 @@
           }
         ],
         "summary": "Preview Button Styles",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/telegram/channel-join": {
+      "get": {
+        "operationId": "get_channel_join_api_v1_admin_telegram_channel_join_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Channel Join",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_channel_join_api_v1_admin_telegram_channel_join_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelJoinIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Channel Join",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/telegram/channel-join/check": {
+      "post": {
+        "operationId": "check_channel_join_api_v1_admin_telegram_channel_join_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelJoinIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Check Channel Join",
         "tags": [
           "admin"
         ]

@@ -20,16 +20,16 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class ChannelIn(BaseModel):
-    chat: str | int
-    title: str | None = None
-    url: str | None = None
+    chat: str = Field(max_length=128)  # @username, t.me link or -100... id; the domain canonicalises it
+    title: str | None = Field(default=None, max_length=256)
+    url: str | None = Field(default=None, max_length=256)
 
 
 class ChannelJoinIn(BaseModel):
     enabled: bool = False
     channels: list[ChannelIn] = Field(default_factory=list, max_length=cj.MAX_CHANNELS)
-    message: str | None = None
-    cache_seconds: int = cj.DEFAULT["cache_seconds"]
+    message: str | None = Field(default=None, max_length=4 * cj.MAX_MESSAGE)  # the exact limit is the domain's (Persian error)
+    cache_seconds: int = Field(default=cj.DEFAULT["cache_seconds"], ge=cj.MIN_CACHE_SECONDS, le=cj.MAX_CACHE_SECONDS)
 
 
 def _normalize(body: ChannelJoinIn, **override) -> dict:
