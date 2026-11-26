@@ -21,6 +21,7 @@ GOOGLE_KEY = PREFIX + "google_login"
 TELEGRAM_KEY = PREFIX + "telegram_login"
 RECEIPT_OCR_KEY = PREFIX + "receipt_ocr"
 BUTTON_STYLES_KEY = PREFIX + "telegram_button_styles"
+CHANNEL_JOIN_KEY = PREFIX + "telegram_channel_join"  # mandatory channel membership of the main bot (domain/channel_join.py)
 
 EMAIL_DEFAULT: dict = {
     "enabled": False,

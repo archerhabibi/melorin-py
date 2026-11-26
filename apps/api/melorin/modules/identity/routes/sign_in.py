@@ -9,6 +9,7 @@ from melorin.core.deps import BotAuth, Session, main_store
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, client_ip, hit
 from melorin.core.security import hash_password, needs_rehash, new_opaque_token, normalize_digits, totp_counter, verify_password
+from melorin.modules.channel_gate import service as channel_gate
 from melorin.modules.identity import google as google_signin, service
 from melorin.kernel.models.identity import User
 from melorin.modules.identity.schemas import (
@@ -228,6 +229,12 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
     user, created = await service.login_with_telegram(session, body)
     _refuse_admin_on_customer_channel(user)
     await _after_signup(session, user, created, chan.store_id, body.referral_code)
+    missing = await channel_gate.missing_channels(session, chan, body.telegram_id)
+    if missing:
+        # Mandatory channel membership (main bot only): keep the sign-up and its referral, but open no session until the user
+        # has joined. The runner shows the join screen from this error's details.
+        await session.commit()
+        raise await channel_gate.join_required(session, missing)
     pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
     await session.commit()
     return pair

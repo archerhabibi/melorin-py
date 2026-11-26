@@ -39,6 +39,7 @@ from melorin.modules.admin.identity_reviews import router as identity_reviews_ro
 from melorin.modules.admin.identity_auto import router as identity_auto_router
 from melorin.modules.admin.identity_persons import router as identity_persons_router
 from melorin.modules.admin.button_styles import router as button_styles_router
+from melorin.modules.admin.channel_join import router as channel_join_router
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 router.include_router(integrations_router)
@@ -75,5 +76,6 @@ for _family in (
     identity_auto_router,
     identity_persons_router,
     button_styles_router,
+    channel_join_router,
 ):
     router.routes.extend(_family.routes)

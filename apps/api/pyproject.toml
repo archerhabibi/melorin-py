@@ -89,7 +89,7 @@ layers = [
   "melorin.modules.orders | melorin.modules.payments | melorin.modules.identity",
   "melorin.modules.panelops",
   "melorin.modules.catalog | melorin.modules.referral | melorin.modules.loyalty | melorin.modules.tickets",
-  "melorin.modules.vpn_accounts | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.eventcenter | melorin.modules.broadcast",
+  "melorin.modules.vpn_accounts | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.eventcenter | melorin.modules.broadcast | melorin.modules.channel_gate",
   "melorin.modules.panel_integrations",
 ]
 
