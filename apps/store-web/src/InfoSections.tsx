@@ -1,7 +1,8 @@
-// Static "how it works" and "why Melorin" sections (split out of App.jsx, T-R11).
+// Static "how it works" and "why this store" sections (split out of App.jsx, T-R11).
 import type { Json } from './types';
 import { ChevronDown } from 'lucide-react';
 import { STEPS, WHY } from './landing.tsx';
+import { useStoreBrand } from './storeBrand.tsx';
 
 export function HowSection() {
   return (
@@ -25,18 +26,19 @@ export function HowSection() {
 }
 
 export function WhySection() {
+  const { name } = useStoreBrand();
   return (
     <section id="why" className="mx-auto max-w-6xl px-5 pb-24">
       <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
         <div>
-          <div className="eyebrow">چرا ملورین؟</div>
+          <div className="eyebrow">چرا {name}؟</div>
           <h2 className="mt-3 text-4xl font-black leading-tight">
             کمتر تنظیم کن.
             <br />
             بیشتر وصل باش.
           </h2>
           <p className="mt-5 max-w-sm leading-8 text-muted">
-            ملورین برای کسی ساخته شده که فقط می‌خواهد سرویسش کار کند، بدون پیچیدگی و بدون غافلگیری در صورتحساب.
+            {name} برای کسی ساخته شده که فقط می‌خواهد سرویسش کار کند، بدون پیچیدگی و بدون غافلگیری در صورتحساب.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -12,6 +12,7 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 - "Melorin" is the platform's name, not any store's. The main store is named at install (`MELORIN_BOOTSTRAP_MAIN_STORE_NAME`, installer question, `MAIN_STORE_NAME`; empty = «فروشگاه اصلی») and renamed later with the new audited `PATCH /admin/stores/main`; a bootstrap re-run never renames it. The bootstrap admin is `Admin`, not `Melorin Admin`.
 - Customer-facing text carries the store's own name: login-code, link-e-mail and re-authentication e-mails (store of the website the request came through; product name only when no store can be determined) and the Zarinpal payment description. `core/brand.py` is the single place for the name rules.
 - Breaking (pre-release): the Zarinpal description changes from `Melorin <id>` to `<store name> <id>`; the OpenAPI snapshot and generated types carry `PATCH /admin/stores/main`.
+- Storefront (`store-web`) renders the store's own name in the header, footer, page title and description, the sign-in dialog and the "why us" section (neutral placeholder while loading or when Core is down); the static HTML shell is neutral. The admin «فروشگاه‌ها» drawer gets a rename form for the main store. The Telegram bot greets in the store's name and no longer falls back to a guessed `MelorinBot` link in the referral screen (it shows the referral code instead).
 
 ## [Unreleased] - 2026-11-19
 

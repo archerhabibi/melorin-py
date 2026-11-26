@@ -1,17 +1,20 @@
 // Stores screen — main store + reseller stores with KPI filters, search, table / card views and a detail drawer.
-// Data: GET /api/v1/admin/stores (+ /users to resolve owners). Read-only; reseller management lives in «نمایندگان».
-import { useMemo, useState } from 'react';
+// Data: GET /api/v1/admin/stores (+ /users to resolve owners). Read-only except the MAIN store's name (PATCH /admin/stores/main,
+// ADR-R3: the name customers see is the operator's choice); reseller management lives in «نمایندگان».
+import { useEffect, useMemo, useState } from 'react';
 import { Bot, Building2, Globe, Store, StoreIcon, Users } from 'lucide-react';
 import {
   Drawer,
   Empty,
   ErrorBar,
+  Field,
   KpiBar,
   Paginator,
   SearchBox,
   SortSelect,
   Stat,
   ViewToggle,
+  errText,
   tint,
   useRows,
 } from '../../shared/kit.tsx';
@@ -31,7 +34,7 @@ import {
   pageOf,
   useCall,
 } from '../../shared/dataKit.tsx';
-import type { Json, Rec } from '../../shared/types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const FILTERS: Rec = {
   all: () => true,
@@ -59,7 +62,7 @@ const Kind = ({ s }: { s?: Json }) =>
     </span>
   );
 
-export default function StoresView({ api }: { api?: Json }) {
+export default function StoresView({ api, toast }: { api?: Json; toast?: Toast }) {
   const call = useCall(api);
   const stores = useRows(call, '/api/v1/admin/stores');
   const users = useRows(call, '/api/v1/admin/users');
@@ -97,6 +100,16 @@ export default function StoresView({ api }: { api?: Json }) {
     setPage(0);
   };
   const toggle = (k: Json) => reset(setFilter)(filter === k ? 'all' : k);
+  const renameMain = async (name: string) => {
+    const r = await call('/api/v1/admin/stores/main', { method: 'PATCH', body: JSON.stringify({ name }) });
+    if (!r.ok) {
+      toast?.(`ناموفق: ${await errText(r, 'تغییر نام انجام نشد.')}`);
+      return false;
+    }
+    toast?.('نام فروشگاه تغییر کرد');
+    await stores.load();
+    return true;
+  };
   const filtersOn = filter !== 'all' || q.trim() !== '';
 
   const exportCsv = () =>
@@ -276,7 +289,13 @@ export default function StoresView({ api }: { api?: Json }) {
       )}
       <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={size} />
       {sel && (
-        <StoreDrawer s={sel} owner={owner(sel)} parent={storeMap[sel.parent_store_id]} onClose={() => setSelId(null)} />
+        <StoreDrawer
+          s={sel}
+          owner={owner(sel)}
+          parent={storeMap[sel.parent_store_id]}
+          onClose={() => setSelId(null)}
+          onRename={sel.kind === 'main' ? renameMain : undefined}
+        />
       )}
     </div>
   );
@@ -294,7 +313,48 @@ const EmptyStores = ({ filtersOn }: { filtersOn?: Json }) => (
   />
 );
 
-function StoreDrawer({ s, owner, parent, onClose }: { s?: Json; owner?: Json; parent?: Json; onClose?: Json }) {
+/** The main store's name: what customers see on the website, in e-mails and on the payment page (never assumed to be the platform's). */
+function RenameMain({ name, onRename }: { name: string; onRename: (name: string) => Promise<boolean> }) {
+  const [value, setValue] = useState(name);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setValue(name), [name]);
+  const clean = value.replace(/\s+/g, ' ').trim();
+  const save = async () => {
+    setBusy(true);
+    try {
+      await onRename(clean);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="card space-y-3 p-4">
+      <Field
+        label="نام فروشگاه"
+        hint="نامی که مشتری‌ها در وب‌سایت، ایمیل‌ها و صفحهٔ پرداخت می‌بینند. «ملورین» نام پلتفرم است و لازم نیست نام فروشگاه باشد."
+      >
+        <input className="inp" maxLength={200} value={value} onChange={(e) => setValue(e.target.value)} />
+      </Field>
+      <button className="btn btn-p !py-2 !text-xs" disabled={busy || !clean || clean === name} onClick={save}>
+        ذخیرهٔ نام
+      </button>
+    </div>
+  );
+}
+
+function StoreDrawer({
+  s,
+  owner,
+  parent,
+  onClose,
+  onRename,
+}: {
+  s?: Json;
+  owner?: Json;
+  parent?: Json;
+  onClose?: Json;
+  onRename?: (name: string) => Promise<boolean>;
+}) {
   return (
     <Drawer
       title={s.name}
@@ -310,6 +370,7 @@ function StoreDrawer({ s, owner, parent, onClose }: { s?: Json; owner?: Json; pa
         <Badge s={s.status} />
         <Kind s={s} />
       </div>
+      {onRename && <RenameMain name={s.name} onRename={onRename} />}
       <Facts
         items={[
           { label: 'نام', value: s.name },

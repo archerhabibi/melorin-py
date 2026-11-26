@@ -182,7 +182,15 @@ def _reward_line(label: str, plan: dict | None, currency) -> str | None:
     return f"• {label}: <b>{amount}</b>"
 
 
-def referral_text(data: dict, fallback_link: str) -> str:
+NEUTRAL_STORE_NAME = "فروشگاه"
+
+
+def store_display_name(store: dict | None) -> str:
+    """The name this store's customers know it by (ADR-R3): what its owner called it, never the platform's name by assumption."""
+    return " ".join(str((store or {}).get("name") or "").split()) or NEUTRAL_STORE_NAME
+
+
+def referral_text(data: dict, fallback_link: str | None) -> str:
     """Referral screen of THIS store, built only from ``/me/referrals`` (programme, link, invited count, earnings)."""
     link = ((data.get("links") or {}).get("telegram")) or fallback_link
     program = data.get("program") or {}
@@ -197,7 +205,10 @@ def referral_text(data: dict, fallback_link: str) -> str:
         lines += ["این فروشگاه برای دعوت دوستان به شما پاداش می‌دهد:", *rewards, ""]
     else:
         lines += ["فعلاً برنامه‌ی پاداش دعوت در این فروشگاه فعال نیست.", ""]
-    lines += [f"لینک اختصاصی شما:\n{esc(link)}", ""]
+    if link:
+        lines += [f"لینک اختصاصی شما:\n{esc(link)}", ""]
+    elif data.get("referral_code"):  # no link to build (not even this bot's username): the code alone is still true and usable
+        lines += [f"کد دعوت شما:\n<code>{esc(data['referral_code'])}</code>", ""]
     count = data.get("referred_count", data.get("count", data.get("total", 0)))
     lines.append(f"تعداد زیرمجموعه‌ها: <b>{count}</b>")
     if data.get("earned") is not None:  # Core sums every commission of this store; the list below is only the latest ones
