@@ -8125,6 +8125,22 @@
         "title": "StorePolicyIn",
         "type": "object"
       },
+      "StoreRename": {
+        "description": "Rename the main store. The name is the brand customers see (website, e-mails, payment page), so it is the operator's choice.",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "StoreRename",
+        "type": "object"
+      },
       "StoreRoleIn": {
         "properties": {
           "bootstrap": {
@@ -19527,6 +19543,54 @@
           }
         ],
         "summary": "Stores",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/main": {
+      "patch": {
+        "description": "Rename the main store (a reseller's name is edited through ``PATCH /admin/resellers/{id}``).\n\nThe installer only names the store once, at bootstrap; this is how the operator changes it afterwards. The slug (``main``)\nis an identifier and never changes.",
+        "operationId": "rename_main_store_api_v1_admin_stores_main_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreRename"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Rename Main Store Api V1 Admin Stores Main Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rename Main Store",
         "tags": [
           "admin"
         ]

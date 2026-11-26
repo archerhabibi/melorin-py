@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (189)
+### `admin` (190)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -190,6 +190,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/store-admins/refresh` | Governance Refresh |
 | PATCH | `/api/v1/admin/store-admins/{row_id}` | Governance Update |
 | GET | `/api/v1/admin/stores` | Stores |
+| PATCH | `/api/v1/admin/stores/main` | Rename Main Store |
 | GET | `/api/v1/admin/stores/{store_id}/bank-sms` | Bank Sms Overview |
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/reconcile` | Bank Sms Reconcile |
 | PUT | `/api/v1/admin/stores/{store_id}/bank-sms/source` | Bank Sms Save Source |

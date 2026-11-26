@@ -3,7 +3,9 @@
 #   DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com \
 #   bash scripts/install_server.sh
 # Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), ADMIN_TELEGRAM_ID (numeric Telegram ID of the main admin:
-# admin alerts are delivered to it by the main bot), REPO_URL, REPO_REF, APP_DIR,
+# admin alerts are delivered to it by the main bot), MAIN_STORE_NAME (the name customers see on your store; empty = a neutral
+# default, and the admin panel renames it any time. It is never assumed to be "Melorin", which is only the platform's name),
+# REPO_URL, REPO_REF, APP_DIR,
 # SKIP_BOT_PROMPT=1 (never ask for the token / Telegram ID; used by the melorin menu, which asks them itself),
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
 # Idempotent: an existing .env is never overwritten. New environments are
@@ -118,6 +120,16 @@ normalize_tg_id() { # normalize_tg_id VALUE -> prints ASCII digits or nothing
   return 0
 }
 
+# Name of the main store: the brand customers see. One line, without the characters Compose's .env syntax would reinterpret
+# (\$ interpolation, # comments, quotes, backticks, backslashes), at most 200 bytes (the API limit is 200 characters).
+normalize_store_name() { # normalize_store_name VALUE -> prints the cleaned name or nothing
+  local v="${1:-}" c
+  v="${v//$'\r'/ }"; v="${v//$'\n'/ }"; v="${v//$'\t'/ }"
+  for c in '"' "'" '`' '$' '#' '\'; do v="${v//"$c"/}"; done
+  printf '%s' "$v" | tr -s ' ' | sed 's/^ //; s/ $//' | cut -b1-200 | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; }
+  return 0
+}
+
 if [ ! -f .env ]; then
   # --- numeric Telegram ID of the main admin: where the admin alerts are delivered ---
   ADMIN_TG="$(normalize_tg_id "${ADMIN_TELEGRAM_ID:-}")"
@@ -127,6 +139,13 @@ if [ ! -f .env ]; then
     [ -n "$RAW_TG" ] && [ -z "$ADMIN_TG" ] && echo "That is not a numeric Telegram ID; skipping it (set it later in Admin or with: melorin -> Edit .env)." >&2
   elif [ -n "${ADMIN_TELEGRAM_ID:-}" ] && [ -z "$ADMIN_TG" ]; then
     echo "ADMIN_TELEGRAM_ID is not a numeric Telegram ID; skipping it (set it later in Admin or with: melorin -> Edit .env)." >&2
+  fi
+
+  # --- the main store's name: what customers see (not the product name; rename it later in the admin panel) ---
+  STORE_NAME="$(normalize_store_name "${MAIN_STORE_NAME:-}")"
+  if [ -z "$STORE_NAME" ] && [ -t 0 ] && [ -z "${SKIP_BOT_PROMPT:-}" ]; then
+    read -r -p "Name of your store as customers will see it (Enter for the default; changeable later in the admin panel): " RAW_NAME || RAW_NAME=""
+    STORE_NAME="$(normalize_store_name "$RAW_NAME")"
   fi
 
   # --- main Telegram bot token: the only bot configured at install time ---
@@ -168,6 +187,8 @@ if [ ! -f .env ]; then
   set_kv MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET "$BOOTSTRAP_TOTP"
   # Not a secret: kept in .env so a repair run of the installer re-links it. Empty = the admin sets it later in the panel.
   set_kv MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID "$ADMIN_TG"
+  # Not a secret. Only the FIRST bootstrap reads it (an existing main store is never renamed); empty = the neutral default.
+  set_kv MELORIN_BOOTSTRAP_MAIN_STORE_NAME "$STORE_NAME"
   set_kv MELORIN_DOMAIN "$DOMAIN"
   set_kv MELORIN_ADMIN_DOMAIN "$ADMIN_DOMAIN"
   set_kv MELORIN_STORE_WEB_URL "https://${DOMAIN}"

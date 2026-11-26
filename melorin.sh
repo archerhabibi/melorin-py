@@ -131,6 +131,10 @@ ask_token() { # sets REPLY_TOKEN (may be empty = skipped)
 
 valid_tg_id() { [[ "$1" =~ ^[1-9][0-9]{4,14}$ ]]; }
 fold_digits() { printf '%s' "$1" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g' | tr -d '[:space:]'; }
+ask_store_name() { # sets REPLY_STORE_NAME (may be empty = the neutral default; the installer cleans it)
+  read -r -p "${1:-6)} Store name as customers will see it (Enter for the default; changeable later in the admin panel): " REPLY_STORE_NAME || REPLY_STORE_NAME=""
+}
+
 ask_admin_tg() { # sets REPLY_TG (may be empty = skipped). $1 = prompt number/label
   local t
   while true; do
@@ -189,7 +193,7 @@ EOF
 
 # ---------------------------------------------------------------- 1) Install
 do_install() {
-  local DOMAIN ADMIN_DOMAIN BOT ADMIN_EMAIL ADMIN_TG="" ext="$EXTERNAL_PROXY" uname
+  local DOMAIN ADMIN_DOMAIN BOT ADMIN_EMAIL ADMIN_TG="" STORE_NAME="" ext="$EXTERNAL_PROXY" uname
 
   if installed; then
     warn "Melorin is already installed (.env exists); it will never be overwritten."
@@ -198,7 +202,7 @@ do_install() {
     ADMIN_EMAIL="$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)"; BOT=""; ADMIN_TG="$(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID)"
   else
     echo
-    echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID."
+    echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID (plus an optional store name)."
     echo "Both domains must already point (A record) to this server."
     echo
     ask_domain "1) Store (sales site) domain, e.g. shop.example.com" || return 1; DOMAIN="$REPLY_DOMAIN"
@@ -222,6 +226,7 @@ do_install() {
     else
       warn "No Telegram ID: admin alerts stay in the panel only (set it later: menu 3 -> Admin Telegram ID, or in the Admin panel)."
     fi
+    ask_store_name "6)"; STORE_NAME="$REPLY_STORE_NAME"
     echo
     info "Checking DNS..."
     check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1
@@ -238,13 +243,14 @@ do_install() {
     echo "  Admin e-mail : $ADMIN_EMAIL"
     echo "  Bot token    : $([ -n "$BOT" ] && echo set || echo not set)"
     echo "  Admin TG ID  : ${ADMIN_TG:-not set}"
+    echo "  Store name   : ${STORE_NAME:-default (rename it in the admin panel)}"
     echo "  Proxy mode   : $([ "$ext" = true ] && echo 'external (loopback ports 18080/18081/18000)' || echo 'bundled Caddy (automatic TLS)')"
     echo
     confirm "Start the installation?" y || return 0
   fi
 
   [ -x "$APP_DIR/scripts/install_server.sh" ] || chmod +x "$APP_DIR/scripts/install_server.sh"
-  MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" SKIP_BOT_PROMPT=1 \
+  MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" MAIN_STORE_NAME="$STORE_NAME" SKIP_BOT_PROMPT=1 \
   DOMAIN="$DOMAIN" ADMIN_DOMAIN="$ADMIN_DOMAIN" ADMIN_EMAIL="$ADMIN_EMAIL" \
   EXTERNAL_PROXY="$ext" REPO_URL="$REPO_URL" REPO_REF="$REPO_REF" APP_DIR="$APP_DIR" \
     bash "$APP_DIR/scripts/install_server.sh"

@@ -1,5 +1,6 @@
 """Zarinpal v4 adapter (optional; online gateway for V1 not yet chosen)."""
 
+from melorin.core.brand import brand_or_product
 from melorin.core.errors import AppError
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
@@ -23,6 +24,11 @@ class ZarinpalAdapter:
         return m
 
     @staticmethod
+    def _brand(s: dict) -> str:
+        """What the customer reads on the gateway's page: the name of the store they are paying (``store_payment_settings``)."""
+        return brand_or_product(((s.get("store") or {}).get("name") or "")[:80])
+
+    @staticmethod
     def _gateway_amount(payment) -> int:
         # Melorin stores IRT as the user-facing canonical unit. Zarinpal's
         # contract is rial-denominated, so convert only at this adapter edge.
@@ -35,7 +41,7 @@ class ZarinpalAdapter:
             "merchant_id": self._merchant(settings),
             "amount": self._gateway_amount(payment),
             "currency": "IRR",
-            "description": f"Melorin {payment.id}",
+            "description": f"{self._brand(settings)} {payment.id}",
             "callback_url": callback_url,
             "metadata": {"order_id": str(payment.id), "melorin_currency": payment.currency},
         }

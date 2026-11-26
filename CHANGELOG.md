@@ -6,6 +6,13 @@ All notable changes to Melorin. The detailed, dated engineering log lives in
 [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) ("Melorin Change Log"); this file is the short,
 release-oriented summary. The project is pre-release: breaking changes are allowed.
 
+## [Unreleased] - 2026-11-26
+
+### Store identity is no longer the product name (ADR-R3)
+- "Melorin" is the platform's name, not any store's. The main store is named at install (`MELORIN_BOOTSTRAP_MAIN_STORE_NAME`, installer question, `MAIN_STORE_NAME`; empty = «فروشگاه اصلی») and renamed later with the new audited `PATCH /admin/stores/main`; a bootstrap re-run never renames it. The bootstrap admin is `Admin`, not `Melorin Admin`.
+- Customer-facing text carries the store's own name: login-code, link-e-mail and re-authentication e-mails (store of the website the request came through; product name only when no store can be determined) and the Zarinpal payment description. `core/brand.py` is the single place for the name rules.
+- Breaking (pre-release): the Zarinpal description changes from `Melorin <id>` to `<store name> <id>`; the OpenAPI snapshot and generated types carry `PATCH /admin/stores/main`.
+
 ## [Unreleased] - 2026-11-19
 
 ### Bank SMS: end-to-end typed API (admin-web + API contract)
