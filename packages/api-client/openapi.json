@@ -9852,6 +9852,11 @@
             "title": "Access Token",
             "type": "string"
           },
+          "admin_account": {
+            "default": false,
+            "title": "Admin Account",
+            "type": "boolean"
+          },
           "channel": {
             "anyOf": [
               {
