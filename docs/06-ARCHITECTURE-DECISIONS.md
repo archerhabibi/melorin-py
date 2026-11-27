@@ -341,6 +341,21 @@ Pre-release defaults, recorded so schema and API match; any of them can change b
 
 `npm audit` failed the quality gate on GHSA-fc5q-39xc-vjpf (picomatch ReDoS, <=4.0.7, no fixed version published). It is reachable only through dev tooling (vite, vitest, eslint); runtime dependencies report 0 vulnerabilities. Policy: runtime audit (`--omit=dev`) blocks at `high`; dev-tooling audit blocks at `critical`. Revisit when picomatch publishes a fix (then restore `high` for both).
 
+#### ADR-R3 (2026-11-26): "Melorin" is the platform's name, never a store's
+
+Before this decision the product name and the store name were one string: the installer created the main store as `Melorin Main Store`, the storefront hard-coded «ملورین» in its header, footer, title and login button, and the login-code e-mail and the Zarinpal payment description said "Melorin" no matter whose store the customer was in. A reseller's customers therefore saw the platform's brand, and the main store could not be given its own name.
+
+| Topic | Decision |
+|---|---|
+| Two identities | **Product identity** = Melorin (software, admin panel, operator documentation, admin invitations, the admin's TOTP issuer). **Store identity** = `Store.name`, chosen by the store's owner; it is the brand a customer sees. Nothing assumes a store is called Melorin (a store may choose that name; it is just not the default). |
+| One module | `melorin.core.brand` holds `PRODUCT_NAME`, `DEFAULT_MAIN_STORE_NAME`, the single validation `normalize_store_name` (whitespace collapsed, control characters refused, ZWNJ kept, <= 200) and the lookups used by customer-facing text. |
+| Naming the main store | `MELORIN_BOOTSTRAP_MAIN_STORE_NAME` (installer question / `MAIN_STORE_NAME`); empty = the neutral default «فروشگاه اصلی». Only the first bootstrap reads it: a re-run never renames an existing store. Renaming later: `PATCH /admin/stores/main` (audited `store.renamed`; resellers keep `PATCH /admin/resellers/{id}`). The slug `main` is an identifier and never changes. |
+| Customer-facing text | The login-code, link-e-mail and re-authentication e-mails are sent in the name of the store whose website the request came through (`site_brand`; it never raises, and falls back to the product name only when no store can be determined). The Zarinpal request description is `<store name> <payment id>`; the store name reaches the adapter through `store_payment_settings` (public, never a secret). |
+| Customer 2FA and notices | A customer's authenticator app shows the store they signed in to (`POST /me/2fa/setup`: issuer and label are percent-encoded by `brand.otpauth_url`); the admin panel and a session with no store keep the product name. A worker notice that carries no title is headed by its store's name. |
+| Installer | `melorin install --store-name NAME` / `MAIN_STORE_NAME` / the sixth interactive question; the name is cleaned of characters Compose's `.env` syntax would reinterpret and cut on a UTF-8 boundary before it is written. |
+| Storefront | `store-web` renders the store's own name (from `GET /stores/by-domain/...` or `/stores/main`) in the header, footer, page title and sign-in text; the static HTML shell is neutral. |
+| Not changed | The admin panel keeps the product name: it belongs to the operator of the platform, not to a store. Internal identifiers (`MELORIN_*`, `@melorin/*`, the `melorin_brand_name` panel custom variable) are the project's namespace, not a brand shown to customers. |
+
 #### Melorin Change Log
 
 Every change to the project (by anyone: owner, Claude, contractors) is recorded here,

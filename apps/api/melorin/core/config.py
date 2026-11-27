@@ -208,6 +208,9 @@ class Settings(BaseSettings):
     bootstrap_admin_totp_secret: str | None = None
     # Numeric Telegram ID of the main admin (asked by the installer): the very important alerts (panel/node failures, failed provisioning, customer payments) are delivered to it by the main bot.
     bootstrap_admin_telegram_id: str | None = None
+    # What the first bootstrap names the main store (asked by the installer). The name is the brand customers see, so it is the
+    # operator's choice: empty = the neutral default. A re-run never renames an existing main store (use the admin panel).
+    bootstrap_main_store_name: str | None = None
     seed_demo_data: bool = False
 
     worker_poll_interval: float = 2.0

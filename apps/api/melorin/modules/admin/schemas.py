@@ -225,3 +225,9 @@ class BundleProductIn(BaseModel):
     reseller_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
     is_listed: bool = True
     sort: int = Field(default=0, ge=-MAX_COUNT, le=MAX_COUNT)
+
+
+class StoreRename(BaseModel):
+    """Rename the main store. The name is the brand customers see (website, e-mails, payment page), so it is the operator's choice."""
+
+    name: str = Field(min_length=1, max_length=200)

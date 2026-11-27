@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.invariants import require
 from melorin.core import audit
+from melorin.core.brand import brand_or_product
 from melorin.core.channel import Channel
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
@@ -180,14 +181,15 @@ def _norm_email(e: str) -> str:
     return e.strip().lower()
 
 
-async def request_email_code(session: AsyncSession, email: str) -> str | None:
+async def request_email_code(session: AsyncSession, email: str, *, brand: str | None = None) -> str | None:
+    """Mail a one-time login code. ``brand`` is the name of the store the customer is signing in to (``core.brand``)."""
     email = _norm_email(email)
     if not await email_available():
         raise AppError("EMAIL_DISABLED", "ورود با کد ایمیلی در حال حاضر فعال نیست. از روش‌های دیگر ورود استفاده کنید.", 503)
     code = new_numeric_code()
     session.add(VerificationCode(purpose="email_login", target=email, code_hash=token_hash(email + code), expires_at=utcnow() + CODE_TTL))
     await session.commit()
-    await send_email(email, "کد ورود Melorin", f"کد ورود شما: {code}\nاعتبار: ۱۰ دقیقه")
+    await send_email(email, f"کد ورود {brand_or_product(brand)}", f"کد ورود شما: {code}\nاعتبار: ۱۰ دقیقه")
     return code if get_settings().is_dev else None
 
 

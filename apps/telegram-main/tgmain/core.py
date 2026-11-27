@@ -273,7 +273,7 @@ class TelegramRunner(TransportMixin, ChannelJoinMixin, IdentityMixin, LoyaltyMix
         if arg.startswith("wl_"):
             return await self.cmd_web_login(ctx, arg[3:])
         store = await self.store_info()
-        await self.send_main_menu(ctx.chat_id, f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید.")
+        await self.send_main_menu(ctx.chat_id, f"به {store_display_name(store)} خوش آمدید 👋\nاز منوی زیر شروع کنید.")
         await self.cmd_home(ctx, "")
 
     async def cmd_home(self, ctx, arg):

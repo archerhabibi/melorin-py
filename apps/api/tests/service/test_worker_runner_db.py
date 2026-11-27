@@ -236,14 +236,34 @@ async def test_notify_handler_fans_expiry_notifications_out_to_webhooks(maker, m
 
     monkeypatch.setattr(runner, "_notify", fake_notify)
     monkeypatch.setattr(runner, "_webhook", fake_webhook)
-    sid = str(uuid.uuid4())
-    await runner._on_notify(None, {"kind": "vpn_expired", "store_id": sid, "dedup_key": "k1"})
-    await runner._on_notify(None, {"kind": "general", "store_id": sid})
+    async with maker() as s:
+        store = await make_store(s)
+        store.name = "Tehran Net"
+        await s.commit()
+        sid = str(store.id)
+        await runner._on_notify(s, {"kind": "vpn_expired", "store_id": sid, "dedup_key": "k1"})
+        await runner._on_notify(s, {"kind": "general", "store_id": sid})
+    # a notice with no title is headed by its store's name (ADR-R3), never by the product name
     assert calls == [
-        ("notify", "vpn_expired", "Melorin", ""),
+        ("notify", "vpn_expired", "Tehran Net", ""),
         ("hook", "vpn_account.expired", "vpn_expired:k1"),
-        ("notify", "general", "Melorin", ""),
+        ("notify", "general", "Tehran Net", ""),
     ]
+
+
+async def test_notify_handler_title_falls_back_without_a_usable_store(maker, monkeypatch):
+    calls = []
+
+    async def fake_notify(session, p, kind, title, body):
+        calls.append(title)
+
+    monkeypatch.setattr(runner, "_notify", fake_notify)
+    async with maker() as s:
+        await runner._on_notify(s, {"kind": "general", "title": "Own title"})  # an explicit title always wins
+        await runner._on_notify(s, {"kind": "general"})  # no store at all -> the product name
+        await runner._on_notify(s, {"kind": "general", "store_id": "not-a-uuid"})  # malformed id never fails the job
+        await runner._on_notify(s, {"kind": "general", "store_id": str(uuid.uuid4())})  # unknown store
+    assert calls == ["Own title", "Melorin", "Melorin", "Melorin"]
 
 
 async def test_simple_handlers_delegate_to_their_collaborators(maker, monkeypatch):

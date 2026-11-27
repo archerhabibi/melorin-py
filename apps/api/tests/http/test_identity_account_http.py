@@ -232,7 +232,10 @@ async def test_totp_setup_then_enable_requires_a_real_code_and_arms_the_second_f
         setup = await c.post(f"{ME}/2fa/setup", headers=a["headers"])
         assert setup.status_code == 200
         secret = setup.json()["secret"]
-        assert setup.json()["otpauth_url"].startswith("otpauth://totp/Melorin:user@example.com?secret=" + secret)
+        # The authenticator app shows the store the customer signed in to, never the product name (ADR-R3).
+        url = setup.json()["otpauth_url"]
+        assert url.startswith("otpauth://totp/main%20store:user@example.com?secret=" + secret)
+        assert url.endswith("&issuer=main%20store") and "Melorin" not in url
         async with maker() as s:
             assert (await s.get(User, a["user"].id)).totp_enabled is False  # set-up alone enables nothing
 

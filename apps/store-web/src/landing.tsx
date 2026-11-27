@@ -1,11 +1,12 @@
 // Static landing-page pieces split out of App.jsx (T-R11/T-W14): copy, constants and presentational components only.
 import { KeyRound, LayoutGrid, LifeBuoy, Link2, Send, ShieldCheck, Wallet as WalletIcon, Zap } from 'lucide-react';
 import type { Json } from './types';
+import { storeMonogram, useStoreBrand } from './storeBrand.tsx';
 
 export const NAV = [
   ['#plans', 'سرویس‌ها'],
   ['#how', 'نحوه خرید'],
-  ['#why', 'چرا ملورین؟'],
+  ['#why', 'چرا ما؟'],
   ['#faq', 'سوالات'],
 ];
 export const STEPS = [
@@ -31,20 +32,26 @@ export const WHY = [
 ];
 
 export function Logo() {
+  const { name, loading } = useStoreBrand();
   return (
-    <a href="#/" className="flex items-center gap-3" aria-label="ملورین؛ صفحه اصلی">
-      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-hero text-xl font-extrabold text-[#f7c85c] shadow-soft">
-        م
+    <a href="#/" className="flex items-center gap-3" aria-label={`${name}؛ صفحه اصلی`}>
+      <span
+        className="grid h-10 w-10 place-items-center rounded-2xl bg-hero text-xl font-extrabold text-[#f7c85c] shadow-soft"
+        aria-hidden="true"
+      >
+        {loading ? '' : storeMonogram(name)}
       </span>
-      <span className="leading-tight">
-        <span className="block text-lg font-extrabold">ملورین</span>
-        <span className="latin block text-[10px] font-semibold tracking-[.22em] text-muted">MELORIN</span>
-      </span>
+      {loading ? (
+        <span className="block h-5 w-24 animate-pulse rounded bg-ink/10" role="presentation" />
+      ) : (
+        <span className="block max-w-[11rem] truncate text-lg font-extrabold leading-tight">{name}</span>
+      )}
     </a>
   );
 }
 
 export function HeroVisual() {
+  const { name, loading } = useStoreBrand();
   return (
     <div className="relative mx-auto w-full max-w-sm" aria-hidden="true">
       <div className="absolute -inset-6 rounded-full bg-accent/30 blur-3xl" />
@@ -52,7 +59,7 @@ export function HeroVisual() {
         <div className="absolute -left-10 -top-14 h-44 w-44 rounded-full bg-[#f7c85c] opacity-70 blur-3xl" />
         <div className="relative flex items-center justify-between text-xs">
           <span className="rounded-full bg-white/10 px-3 py-1">سرویس شما</span>
-          <span className="latin tracking-widest text-[#f7c85c]">MELORIN</span>
+          <span className="max-w-[9rem] truncate font-bold text-[#f7c85c]">{loading ? '' : name}</span>
         </div>
         <div className="relative mt-10 grid place-items-center">
           <span className="absolute h-36 w-36 animate-ping rounded-full bg-[#86e0b8]/15" />

@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
-from melorin.core import events
+from melorin.core import brand, events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
 from melorin.domain import messaging_policy
@@ -120,7 +120,14 @@ async def _on_vpn_renewal_rollback(session, p: dict):
 
 async def _on_notify(session, p: dict):
     kind = p.get("kind")
-    await _notify(session, p, p.get("kind", "general"), p.get("title", "Melorin"), p.get("body", ""))
+    title = p.get("title")
+    if not title:  # a notice with no title is headed by the name of the store it belongs to (the product name only without one)
+        try:
+            store_id = uuid.UUID(str(p["store_id"])) if p.get("store_id") else None
+        except ValueError:
+            store_id = None
+        title = await brand.store_brand(session, store_id)
+    await _notify(session, p, p.get("kind", "general"), title, p.get("body", ""))
     if p.get("store_id") and kind in ("vpn_expired", "vpn_near_expiry"):
         await _webhook(
             session,

@@ -12,7 +12,7 @@ function baseHandlers(extra = {}) {
   return {
     'GET /api/v1/auth/telegram/config': { enabled: false },
     'GET /api/v1/auth/google/config': { enabled: false },
-    'GET /api/v1/stores/main': { id: 'store-main', bot_username: null },
+    'GET /api/v1/stores/main': { id: 'store-main', name: 'E2E Shop', bot_username: null },
     'GET /api/v1/stores/store-main/bundles': [{ id: 'b1', name: 'E2E Bundle', selection_mode: 'auto' }],
     'GET /api/v1/stores/store-main/bundles/b1/packages': [PKG],
     'POST /api/v1/auth/refresh': { status: 401, body: { detail: 'no session' } },
@@ -164,7 +164,7 @@ test('an expired handoff link opens the sign-in dialog instead of a blank page',
     baseHandlers({ 'POST /api/v1/auth/web-handoff/redeem': { status: 400, body: { detail: 'expired' } } }),
   );
   await page.goto('/#/auth/handoff?t=old-token');
-  await expect(page.getByRole('dialog').getByText('ورود به ملورین')).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('ورود به E2E Shop')).toBeVisible();
   assertNoErrors();
 });
 

@@ -81,7 +81,8 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
     )
     _check_currency(provider, store.currency)
     if cfg is not None:
-        return _store_configured_settings(cfg, provider, require_enabled=require_enabled)
+        # ``store.name`` is public: adapters put it where a customer reads it (a gateway's payment page), never the product name.
+        return {**_store_configured_settings(cfg, provider, require_enabled=require_enabled), "store": {"name": store.name}}
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
 
 

@@ -67,6 +67,47 @@ async def test_bootstrap_refuses_an_admin_email_the_login_validator_rejects(make
         assert (await session.scalar(select(User).where(User.email == f"admin@{domain}"))) is None
 
 
+# --- bootstrap: the main store's name is the operator's choice (ADR-R3) -------------------------------------------------
+
+
+async def test_bootstrap_names_the_main_store_with_the_operators_choice(maker, use_settings):
+    use_settings(bootstrap_main_store_name="  فروشگاه   پارس  ")
+    await cli.bootstrap()
+    async with maker() as session:
+        store = await session.scalar(select(Store).where(Store.kind == "main"))
+        assert store.name == "فروشگاه پارس" and store.slug == "main"
+
+
+async def test_bootstrap_without_a_name_uses_a_neutral_default_that_is_not_the_product_name(maker, use_settings):
+    await cli.bootstrap()
+    async with maker() as session:
+        store = await session.scalar(select(Store).where(Store.kind == "main"))
+        admin = await session.scalar(select(User).where(User.email == "admin@example.com"))
+        assert store.name == "فروشگاه اصلی"
+        assert "melorin" not in store.name.casefold() and "melorin" not in admin.display_name.casefold()
+
+
+async def test_bootstrap_rerun_never_renames_an_existing_main_store(maker, use_settings):
+    """The admin may have renamed it in the panel; a repair run of the installer must not undo that."""
+    use_settings(bootstrap_main_store_name="First Name")
+    await cli.bootstrap()
+    use_settings(bootstrap_main_store_name="Second Name")
+    await cli.bootstrap()
+    async with maker() as session:
+        stores = (await session.scalars(select(Store).where(Store.kind == "main"))).all()
+        assert [s.name for s in stores] == ["First Name"]
+
+
+@pytest.mark.parametrize("bad", ["x" * 201, "a\x00b"])
+async def test_bootstrap_refuses_an_unusable_store_name_before_touching_the_database(maker, use_settings, bad):
+    use_settings(bootstrap_main_store_name=bad)
+    with pytest.raises(SystemExit, match="MAIN_STORE_NAME"):
+        await cli.bootstrap()
+    async with maker() as session:
+        assert (await session.scalar(select(Store))) is None
+        assert (await session.scalar(select(User))) is None
+
+
 # --- bootstrap: refusals -------------------------------------------------------------------------------------------
 
 

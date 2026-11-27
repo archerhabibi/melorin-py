@@ -1,12 +1,13 @@
 import type { Rec } from './types';
-// Subject + plan: Melorin storefront for VPN customers. A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
+// Subject + plan: a VPN store's storefront for its customers (shown under the store's own name, ADR-R3). A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
 // Design system v2: tokens live in styles.css (light + dark), shared primitives in ui.jsx.
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { clearTokens, getAccessToken, setTokens } from './auth.ts';
 import { publicGetOrNull } from './coreApi.ts';
 import { useCoreFetch } from './useCoreFetch.ts';
 import { submitOrder } from './orderRequest.ts';
 import { useStoreCatalog } from './useStoreCatalog.ts';
+import { NEUTRAL_STORE_NAME, StoreBrandProvider, useDocumentBrand } from './storeBrand.tsx';
 import { googleSignOut } from './GoogleSignIn.tsx';
 import TelegramLogin from './TelegramLogin.tsx';
 import { PurchaseResult } from './Subscription.tsx';
@@ -71,8 +72,14 @@ export default function App() {
   };
   const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
   const coreFetch = useCoreFetch(base, accessToken, setAccessToken);
-  const { catalog, catalogLoading, bundles, bundleId, setBundleId, pkgLoading, apiState, storeId, hasBot } =
+  const { catalog, catalogLoading, bundles, bundleId, setBundleId, pkgLoading, apiState, storeId, hasBot, storeName } =
     useStoreCatalog(coreFetch, reloadKey);
+  // ADR-R3: the store's own name is the brand; the platform's name is never assumed. Neutral until the store is known.
+  const brand = useMemo(
+    () => ({ name: storeName || NEUTRAL_STORE_NAME, loading: catalogLoading && !storeName }),
+    [storeName, catalogLoading],
+  );
+  useDocumentBrand(brand);
   const tgBot = hasBot && (tgCfg ? tgCfg.bot_login : true);
   const tgOidc = Boolean(tgCfg?.oidc_login && storeId);
   const showTg = tgBot || tgOidc;
@@ -325,7 +332,7 @@ export default function App() {
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const inApp = onDash || onReseller;
 
-  return (
+  const page = (
     <div className="min-h-screen" dir="rtl">
       <a
         href="#main"
@@ -420,7 +427,7 @@ export default function App() {
           onClose={() => setModal('')}
           title={
             {
-              login: 'ورود به ملورین',
+              login: `ورود به ${brand.name}`,
               telegram: 'ورود با تلگرام',
               code: 'کد ورود را وارد کن',
               checkout: `پیش‌فاکتور ${active}`,
@@ -486,4 +493,5 @@ export default function App() {
       <Toast message={notice} />
     </div>
   );
+  return <StoreBrandProvider value={brand}>{page}</StoreBrandProvider>;
 }
