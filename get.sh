@@ -63,7 +63,7 @@ get.sh options:
   --dir PATH     install location (default /opt/melorin)
   --repo URL     git remote (default: the official repository)
   --force        downgrade RAM / disk / OS-version failures to warnings
-Environment: REPO_REF REPO_COMMIT REPO_ALLOW_MAIN=1 APP_DIR REPO_URL MELORIN_FORCE=1 MAIN_BOT_TOKEN ADMIN_TELEGRAM_ID
+Environment: REPO_REF REPO_COMMIT REPO_ALLOW_MAIN=1 APP_DIR REPO_URL MELORIN_FORCE=1 MAIN_BOT_TOKEN ADMIN_TELEGRAM_ID MAIN_STORE_NAME
 EOF
 }
 

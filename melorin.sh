@@ -15,8 +15,8 @@
 # Unattended install (no questions; for automation, ssh without a terminal, cloud-init):
 #   melorin install --domain shop.example.com --admin-domain admin.example.com --email you@example.com --yes
 #   bot token: MAIN_BOT_TOKEN=... in the environment, or --bot-token-file FILE (never on the command line: it would sit in
-#   `ps` and the shell history).  Also: --admin-tg ID  --external-proxy  --skip-dns-check  --force.  Environment equivalents:
-#   DOMAIN ADMIN_DOMAIN ADMIN_EMAIL ADMIN_TELEGRAM_ID EXTERNAL_PROXY.
+#   `ps` and the shell history).  Also: --admin-tg ID  --store-name NAME  --external-proxy  --skip-dns-check  --force.  Environment equivalents:
+#   DOMAIN ADMIN_DOMAIN ADMIN_EMAIL ADMIN_TELEGRAM_ID MAIN_STORE_NAME EXTERNAL_PROXY.
 #   The install itself runs detached (own session, log in /var/log/melorin-install.log): an SSH drop cannot kill it halfway.
 # Deliberately WITHOUT -e (unlike get.sh): the interactive menu must survive a failed action and return to the prompt; every
 # step that matters checks its own status (`|| { err ...; return 1; }`). Audit V-036.
@@ -43,7 +43,7 @@ HAVE_TTY=0
 if [ -t 0 ]; then HAVE_TTY=1; elif has_tty; then exec </dev/tty; HAVE_TTY=1; fi
 NONINTERACTIVE="${MELORIN_NONINTERACTIVE:-0}"; [ "$HAVE_TTY" = 1 ] || NONINTERACTIVE=1
 # Inputs of an unattended install: the environment first, flags (parse_install_args) override.
-OPT_DOMAIN="${DOMAIN:-}"; OPT_ADMIN_DOMAIN="${ADMIN_DOMAIN:-}"; OPT_EMAIL="${ADMIN_EMAIL:-}"; OPT_TG="${ADMIN_TELEGRAM_ID:-}"
+OPT_DOMAIN="${DOMAIN:-}"; OPT_ADMIN_DOMAIN="${ADMIN_DOMAIN:-}"; OPT_EMAIL="${ADMIN_EMAIL:-}"; OPT_TG="${ADMIN_TELEGRAM_ID:-}"; OPT_STORE_NAME="${MAIN_STORE_NAME:-}"
 OPT_TOKEN_FILE=""; OPT_SKIP_DNS=0; OPT_EXT="${EXTERNAL_PROXY:-}"; ASSUME_YES=0
 
 C0=$'\033[0m'; CB=$'\033[1m'; CG=$'\033[1;32m'; CR=$'\033[1;31m'; CY=$'\033[1;33m'; CC=$'\033[1;36m'
@@ -137,6 +137,10 @@ ask_token() { # sets REPLY_TOKEN (may be empty = skipped)
   done
 }
 
+ask_store_name() { # sets REPLY_STORE_NAME (may be empty = the neutral default; install_server.sh cleans it)
+  read -r -p "${1:-6)} Store name as customers will see it (Enter for the default; changeable later in the admin panel): " REPLY_STORE_NAME || REPLY_STORE_NAME=""
+}
+
 valid_tg_id() { [[ "$1" =~ ^[1-9][0-9]{4,14}$ ]]; }
 fold_digits() { printf '%s' "$1" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g' | tr -d '[:space:]'; }
 ask_admin_tg() { # sets REPLY_TG (may be empty = skipped). $1 = prompt number/label
@@ -203,6 +207,8 @@ Usage: melorin install [options]            (no options = the interactive questi
   --admin-domain A      admin panel domain, e.g. admin.example.com              [env ADMIN_DOMAIN]
   --email E             login e-mail of the first admin                          [env ADMIN_EMAIL]
   --admin-tg ID         numeric Telegram ID of the main admin (optional)         [env ADMIN_TELEGRAM_ID]
+  --store-name NAME     name customers see on the store (optional; empty = neutral default,
+                        renamable later in the admin panel; never assumed to be "Melorin") [env MAIN_STORE_NAME]
   --bot-token-file F    file whose first line is the Telegram bot token (optional; or env MAIN_BOT_TOKEN)
   --external-proxy      ports 80/443 belong to your own reverse proxy; Melorin listens on 127.0.0.1:18080/18081/18000
   --skip-dns-check      do not refuse when the domains do not resolve to this server (CDN / proxy in front)
@@ -217,6 +223,7 @@ set_install_opt() {
     --admin-domain) OPT_ADMIN_DOMAIN="$2" ;;
     --email) OPT_EMAIL="$2" ;;
     --admin-tg) OPT_TG="$2" ;;
+    --store-name) OPT_STORE_NAME="$2" ;;
     --bot-token-file) OPT_TOKEN_FILE="$2" ;;
   esac
 }
@@ -228,10 +235,10 @@ parse_install_args() { # returns 2 on a usage error
       --external-proxy) OPT_EXT=true ;;
       --force) MELORIN_FORCE=1; export MELORIN_FORCE ;;
       -h|--help) install_usage; exit 0 ;;
-      --domain|--admin-domain|--email|--admin-tg|--bot-token-file)
+      --domain|--admin-domain|--email|--admin-tg|--store-name|--bot-token-file)
         [ $# -ge 2 ] || { err "$1 needs a value"; return 2; }
         set_install_opt "$1" "$2"; shift ;;
-      --domain=*|--admin-domain=*|--email=*|--admin-tg=*|--bot-token-file=*) set_install_opt "${1%%=*}" "${1#*=}" ;;
+      --domain=*|--admin-domain=*|--email=*|--admin-tg=*|--store-name=*|--bot-token-file=*) set_install_opt "${1%%=*}" "${1#*=}" ;;
       --bot-token|--bot-token=*) err "The bot token must not be given on the command line (it would show up in 'ps' and the shell history): use MAIN_BOT_TOKEN=... or --bot-token-file FILE."; return 2 ;;
       *) err "Unknown install option: $1"; install_usage >&2; return 2 ;;
     esac
@@ -286,7 +293,7 @@ run_install_detached() {
 }
 
 do_install() {
-  local DOMAIN ADMIN_DOMAIN BOT="" ADMIN_EMAIL ADMIN_TG="" ext="$EXTERNAL_PROXY" uname owner p bad=0 rc
+  local DOMAIN ADMIN_DOMAIN BOT="" ADMIN_EMAIL ADMIN_TG="" STORE_NAME="" ext="$EXTERNAL_PROXY" uname owner p bad=0 rc
   [ -n "$OPT_EXT" ] && ext="$OPT_EXT"
 
   if installed; then
@@ -310,7 +317,7 @@ do_install() {
         [ -r "$OPT_TOKEN_FILE" ] || { err "--bot-token-file: cannot read $OPT_TOKEN_FILE"; return 2; }
         BOT="$(head -n1 "$OPT_TOKEN_FILE")"
       fi
-      BOT="${BOT//[[:space:]]/}"; ADMIN_TG="$(fold_digits "$OPT_TG")"
+      BOT="${BOT//[[:space:]]/}"; ADMIN_TG="$(fold_digits "$OPT_TG")"; STORE_NAME="$OPT_STORE_NAME"
       valid_domain "$DOMAIN"       || { err "--domain: '${OPT_DOMAIN}' is not a valid domain (example: shop.example.com)"; bad=1; }
       valid_domain "$ADMIN_DOMAIN" || { err "--admin-domain: '${OPT_ADMIN_DOMAIN}' is not a valid domain (example: admin.example.com)"; bad=1; }
       if [ "$DOMAIN" = "$ADMIN_DOMAIN" ] && [ -n "$DOMAIN" ]; then err "--admin-domain must be different from --domain"; bad=1; fi
@@ -326,7 +333,7 @@ do_install() {
     else
       # -------- interactive: the five questions
       echo
-      echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID."
+      echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID (plus an optional store name)."
       echo "Both domains must already point (A record) to this server."
       echo
       ask_domain "1) Store (sales site) domain, e.g. shop.example.com" || return 1; DOMAIN="$REPLY_DOMAIN"
@@ -350,6 +357,7 @@ do_install() {
       else
         warn "No Telegram ID: admin alerts stay in the panel only (set it later: menu 3 -> Admin Telegram ID, or in the Admin panel)."
       fi
+      ask_store_name "6)"; STORE_NAME="$REPLY_STORE_NAME"
       echo
       info "Checking DNS..."
       check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1
@@ -374,6 +382,7 @@ do_install() {
     echo "  Admin e-mail : $ADMIN_EMAIL"
     echo "  Bot token    : $([ -n "$BOT" ] && echo set || echo not set)"
     echo "  Admin TG ID  : ${ADMIN_TG:-not set}"
+    echo "  Store name   : ${STORE_NAME:-default (rename it in the admin panel)}"
     echo "  Proxy mode   : $([ "$ext" = true ] && echo 'external (loopback ports 18080/18081/18000)' || echo 'bundled Caddy (automatic TLS)')"
     echo
     if [ "$NONINTERACTIVE" != 1 ]; then confirm "Start the installation?" y || return 0; fi
@@ -384,7 +393,7 @@ do_install() {
   else info "Installing. This takes about 5-15 minutes (the images are built on this server)."; fi
   info "It runs in the background with a log ($MELORIN_LOG_FILE): even if the connection drops, it carries on."
   (
-    export MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" SKIP_BOT_PROMPT=1 MELORIN_PREFLIGHT_DONE=1 \
+    export MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" MAIN_STORE_NAME="$STORE_NAME" SKIP_BOT_PROMPT=1 MELORIN_PREFLIGHT_DONE=1 \
            DOMAIN="$DOMAIN" ADMIN_DOMAIN="$ADMIN_DOMAIN" ADMIN_EMAIL="$ADMIN_EMAIL" \
            EXTERNAL_PROXY="$ext" REPO_URL="$REPO_URL" REPO_REF="$REPO_REF" APP_DIR="$APP_DIR" \
            MELORIN_FORCE="${MELORIN_FORCE:-0}" MELORIN_LOG_FILE="$MELORIN_LOG_FILE"
