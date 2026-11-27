@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
-from melorin.core import admin_telegram, events
+from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
 from melorin.domain import messaging_policy
@@ -260,12 +260,9 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         )
         session.add(n)
         await session.flush()
-    from melorin.modules.notifications.dispatch import admin_alert_target, telegram_target
+    from melorin.modules.notifications.dispatch import telegram_target
 
-    if p.get("chat_id") is not None:  # an admin alert: the address comes from the admin setting, never from an identity
-        target = await admin_alert_target(get_settings(), p["chat_id"])
-    else:
-        target = await telegram_target(session, user_id, n.store_id, get_settings())
+    target = await telegram_target(session, user_id, n.store_id, get_settings())
     if target is None:
         n.telegram_status = "skipped"
         return
@@ -294,13 +291,10 @@ async def _notify_admins(session, p: dict):
         return
     title, _, body = str(p.get("text") or "").partition("\n")
     admin_ids = (await session.scalars(select(User.id).where(User.is_super_admin.is_(True), User.is_active.is_(True)))).all()
-    addresses = await admin_telegram.alert_addresses(session)
     errors: list[Exception] = []
     for admin_id in admin_ids:
-        # An admin without an alert address is "skipped" (chat_id "" -> no target), exactly like a missing Telegram identity before.
-        payload = {"user_id": admin_id, "chat_id": addresses.get(str(admin_id), ""), EVENT_ID_FIELD: p.get(EVENT_ID_FIELD)}
         try:
-            await _notify(session, payload, kind, title[:200], body)
+            await _notify(session, {"user_id": admin_id, EVENT_ID_FIELD: p.get(EVENT_ID_FIELD)}, kind, title[:200], body)
         except Exception as ex:  # one unreachable admin must not block the others
             errors.append(ex)
     if errors:

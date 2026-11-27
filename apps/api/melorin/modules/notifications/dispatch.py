@@ -34,13 +34,3 @@ async def telegram_target(session: AsyncSession, user_id: uuid.UUID, store_id: u
 
     kind = "reseller" if store and store.kind == "reseller" else "main"
     return TelegramChannel(token, settings.store_web_url, kind), identity.subject
-
-
-async def admin_alert_target(settings: Any, chat_id: str | None) -> tuple[Any, str] | None:
-    """``(channel, chat_id)`` of an admin's alert DM: the main bot writing to the admin's alert address (an admin setting, not an
-    identity of the admin account). ``None`` when there is no address or no main bot token (-> the ``skipped`` status)."""
-    if not chat_id or not settings.main_bot_token:
-        return None
-    from melorin.channels.telegram import TelegramChannel
-
-    return TelegramChannel(settings.main_bot_token, settings.store_web_url, "main"), str(chat_id)

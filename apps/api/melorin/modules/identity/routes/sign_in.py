@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
-from melorin.core import admin_telegram, audit, channel, flags, integrations
+from melorin.core import audit, channel, flags, integrations
 from melorin.core.crypto import decrypt
 from melorin.core.config import get_settings
 from melorin.core.deps import BotAuth, Session, main_store
@@ -236,7 +236,6 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
         await session.commit()
         raise await channel_gate.join_required(session, missing)
     pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
-    pair.admin_alerts = chan.store_kind == "main" and await admin_telegram.is_alert_chat(session, body.telegram_id)  # main bot only
     await session.commit()
     return pair
 

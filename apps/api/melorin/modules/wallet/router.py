@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from melorin.core import telegram_identity
+from melorin.core import admin_telegram
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.pagination import Page, PageParams
 from melorin.modules.wallet import queries, service
@@ -13,7 +13,7 @@ async def my_wallet(ctx: StoreCtx, session: Session):
     w = await service.get_wallet(session, ctx.user.id, ctx.store.id, currency=ctx.store.currency)
     await session.commit()
     out = WalletOut.model_validate(w, from_attributes=True)
-    out.telegram_id = await telegram_identity.current(session, ctx.user.id)
+    out.telegram_id = await admin_telegram.current(session, ctx.user.id)
     return out
 
 
