@@ -49,7 +49,8 @@ GOOGLE_CLIENT_ID_RE = re.compile(r"^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleuserco
 #   * bot approval  (device-authorization flow, docs/08-IDENTITY-ACCOUNT-PERSON.md) - needs only the store's bot;
 #   * OIDC redirect (https://core.telegram.org/bots/telegram-login)       - needs the bot's Client ID + Client Secret
 #     that @BotFather shows under "Login Widget". The secret is stored Fernet-encrypted and never returned.
-# Admins never sign in through Telegram (they use password + TOTP), so there is no admin switch.
+# An admin account signs in through Telegram as an ordinary customer of the main store (never to the admin panel, which is password
+# + TOTP only; domain/admin_access.py), so there is no admin switch.
 TELEGRAM_DEFAULT: dict = {
     "enabled": True,
     "store_login": True,

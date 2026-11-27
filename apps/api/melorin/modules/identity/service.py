@@ -27,6 +27,7 @@ from melorin.core.security import (
 )
 from melorin.kernel.models.identity import IdentityLinkReview, RefreshToken, TermsAcceptance, User, VerificationCode
 from melorin.modules.identity import auto_link
+from melorin.domain import admin_access
 from melorin.domain.account_linking import Evidence
 from melorin.kernel.models.person import Person
 from melorin.modules.identity.account_linking import linking, persons
@@ -65,9 +66,13 @@ async def issue_tokens(
         person = await session.get(Person, user.person_id)
         if person is not None and person.status == "blocked":
             raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
-    if chan.is_admin != bool(user.is_super_admin):
-        # An admin account never gets a customer session through a store channel, and nobody else gets an admin one.
+    if chan.is_admin and not user.is_super_admin:
+        # Nobody but an admin gets an admin session. An admin ACCOUNT may open a plain customer session (bot / store site): the
+        # session is bound to that channel, so it is a customer session with no admin rights (``AuthSession.is_admin_session``).
         raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
+    if user.is_super_admin and not chan.is_admin and not admin_access.may_shop_as_customer(chan.store_kind):
+        # ... but only in the platform's own store: a reseller's customers never include the platform owner (domain/admin_access.py).
+        raise AppError("ADMIN_USE_PANEL", "حساب مدیر فقط در فروشگاه اصلی به‌عنوان مشتری کار می‌کند.", 403)
     chan.ensure_open_for(user)
     access, ttl = create_access_token(user.id, chan.is_admin, store_id=chan.store_id, channel=chan.kind)
     raw = new_opaque_token()
@@ -88,6 +93,7 @@ async def issue_tokens(
         expires_in=ttl,
         user_id=user.id,
         is_admin=chan.is_admin,
+        admin_account=bool(user.is_super_admin),
         channel=chan.kind,
         store_id=chan.store_id,
     )
@@ -357,8 +363,6 @@ async def redeem_web_handoff(session: AsyncSession, token: str, site: Channel) -
     user = await session.get(User, vc.user_id)
     if user is None or not user.is_active:
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
-    if user.is_super_admin:
-        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
     audit.record(session, "auth.web_handoff_redeemed", actor_id=user.id, entity_type="user", entity_id=user.id)
     return user
 

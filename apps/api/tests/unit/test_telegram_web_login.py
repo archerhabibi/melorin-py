@@ -180,14 +180,29 @@ async def test_session_is_bound_to_its_store_and_to_the_first_telegram_account(w
         await web.decide(world.s, st.row.public_id, world.main.id, prof(222), "approve", st.row.match_code)
 
 
-async def test_super_admin_is_refused_like_the_other_storefront_logins(world):
+async def _admin_with_telegram(world, tid="999"):
     admin = User(display_name="Root", is_super_admin=True)
     world.s.add(admin)
     await world.s.flush()
-    world.s.add(Identity(user_id=admin.id, provider="telegram", subject="999", verified_at=utcnow()))
+    world.s.add(Identity(user_id=admin.id, provider="telegram", subject=tid, verified_at=utcnow()))
     await world.s.commit()
+    return admin
+
+
+async def test_an_admin_account_signs_in_to_the_main_store_site_as_a_customer(world):
+    admin = await _admin_with_telegram(world)
     st = await _start(world)
     out = await web.decide(world.s, st.row.public_id, world.main.id, prof(999), "approve", st.row.match_code)
+    assert out["result"] == "approved"
+    polled = await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)
+    assert polled.tokens is not None and polled.tokens.user_id == admin.id
+    assert polled.tokens.is_admin is False and polled.tokens.admin_account is True and polled.tokens.channel == "site"
+
+
+async def test_an_admin_account_is_refused_on_a_resellers_store_site(world):
+    await _admin_with_telegram(world)
+    st = await _start(world, world.other)
+    out = await web.decide(world.s, st.row.public_id, world.other.id, prof(999), "approve", st.row.match_code)
     assert out == {"result": "denied", "reason": "admin_use_panel"}
     assert (await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)).tokens is None
     assert "tg_web_login_admin_refused" in (await world.s.scalars(select(SecurityEvent.kind))).all()

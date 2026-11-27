@@ -224,7 +224,14 @@ r = c.post(
     json={"email": admin_email, "code": admin_code, "accept_terms_version": "1"},
 )
 check(
-    "admin via email code -> ADMIN_USE_PANEL (no admin session)",
+    "admin via email code -> a customer session of the main store, never an admin one",
+    r.status_code == 200 and r.json()["is_admin"] is False and r.json()["channel"] == "site",
+    r.text,
+)
+_admin_cust = {"Authorization": f"Bearer {r.json()['access_token']}"} if r.status_code == 200 else {}
+r = c.post(f"{A}/me/password", json={"password": "Another-Passw0rd!"}, headers=_admin_cust)
+check(
+    "that customer session of the admin cannot re-key the account (ADMIN_USE_PANEL)",
     r.status_code == 403 and r.json()["error"]["code"] == "ADMIN_USE_PANEL",
     r.text,
 )

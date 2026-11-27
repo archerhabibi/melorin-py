@@ -4737,6 +4737,11 @@
       },
       "MeOut": {
         "properties": {
+          "admin_account": {
+            "default": false,
+            "title": "Admin Account",
+            "type": "boolean"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -9851,6 +9856,11 @@
           "access_token": {
             "title": "Access Token",
             "type": "string"
+          },
+          "admin_account": {
+            "default": false,
+            "title": "Admin Account",
+            "type": "boolean"
           },
           "channel": {
             "anyOf": [

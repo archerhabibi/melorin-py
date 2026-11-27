@@ -17,6 +17,8 @@ class TokenPair(BaseModel):
     # Where Core bound this session (informational: Core never trusts the client to say it, see core/channel.py).
     channel: str | None = None
     store_id: uuid.UUID | None = None
+    # The account behind this session is an admin's (recognition only, no extra rights): ``is_admin`` says what THIS session may do.
+    admin_account: bool = False
 
 
 class EmailCodeRequest(BaseModel):
@@ -129,7 +131,10 @@ class MeOut(BaseModel):
     id: uuid.UUID
     display_name: str | None
     email: str | None
+    # The rights of THIS session: true only for an admin-panel session (password + TOTP), false for the same admin in the bot / store.
     is_admin: bool
+    # The account behind the session is an admin (recognition only: the bot / store shows a note, it grants nothing).
+    admin_account: bool = False
     is_guest: bool
     totp_enabled: bool
     referral_code: str

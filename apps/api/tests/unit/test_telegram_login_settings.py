@@ -333,18 +333,29 @@ async def test_rejections_end_in_a_safe_redirect_and_issue_nothing(http, world, 
         assert (await world.s.scalars(select(SecurityEvent).where(SecurityEvent.kind == "tg_oidc_state_mismatch"))).all()
 
 
-async def test_admins_and_inactive_accounts_never_get_a_session(http, world, signer, monkeypatch):
+async def test_inactive_accounts_never_get_a_session(http, world, signer, monkeypatch):
     await save(world.s)
-    for tg_id, reason, flag in ((555001, "admin_use_panel", "is_super_admin"), (555002, "account_disabled", "is_active")):
-        user, _ = await service.login_with_telegram(world.s, TelegramProfile(telegram_id=tg_id, first_name="X"))
-        setattr(user, flag, True if flag == "is_super_admin" else False)
-        await world.s.commit()
-        http.cookies.clear()
-        _, q, flow = await begin(http)
-        stub_exchange(monkeypatch, lambda tg_id=tg_id, flow=flow: signer.make(nonce=flow["nonce"], id=tg_id))
-        r = await http.get(CALLBACK, params={"code": "abc", "state": q["state"]})
-        assert r.headers["location"] == f"http://localhost:3000/?tg_error={reason}"
+    user, _ = await service.login_with_telegram(world.s, TelegramProfile(telegram_id=555002, first_name="X"))
+    user.is_active = False
+    await world.s.commit()
+    _, q, flow = await begin(http)
+    stub_exchange(monkeypatch, lambda: signer.make(nonce=flow["nonce"], id=555002))
+    r = await http.get(CALLBACK, params={"code": "abc", "state": q["state"]})
+    assert r.headers["location"] == "http://localhost:3000/?tg_error=account_disabled"
     assert not (await world.s.scalars(select(RefreshToken))).all()
+
+
+async def test_an_admin_account_gets_a_customer_session_in_the_main_store_and_never_an_admin_one(http, world, signer, monkeypatch):
+    await save(world.s)
+    user, _ = await service.login_with_telegram(world.s, TelegramProfile(telegram_id=555001, first_name="X"))
+    user.is_super_admin = True
+    await world.s.commit()
+    _, q, flow = await begin(http)
+    stub_exchange(monkeypatch, lambda: signer.make(nonce=flow["nonce"], id=555001))
+    r = await http.get(CALLBACK, params={"code": "abc", "state": q["state"]})
+    assert r.headers["location"].endswith("/#/dashboard")
+    rows = (await world.s.scalars(select(RefreshToken).where(RefreshToken.user_id == user.id))).all()
+    assert [(t.channel, t.store_id) for t in rows] == [("site", world.main.id)]  # a store-bound customer session: never the admin channel
 
 
 async def test_closed_registration_blocks_new_accounts_only(http, world, signer, monkeypatch):

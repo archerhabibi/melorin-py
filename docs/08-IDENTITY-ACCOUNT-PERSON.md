@@ -76,8 +76,16 @@ A manual approval is what *earns* trust (`remember`, default on). Trust is per s
 
 ##### Account rules are shared
 `web._complete` is the single approval point for both paths, so disabled accounts, closed registration and the
-"admins use the admin panel" rule apply identically to automatic and manual verification. A silent attempt for an account that is
+admin-account rule (below) apply identically to automatic and manual verification. A silent attempt for an account that is
 no longer eligible revokes the device and falls back to the manual path (which explains the refusal).
+
+##### Admin accounts in the storefront
+One admin account is both a platform admin and an ordinary customer. The rules, in one place:
+* **Where.** An admin account may open a plain *customer* session only in the platform's own (main) store: main bot, Mini App, web handoff, Telegram website login / OIDC and e-mail code. A reseller's bot or website still answers `ADMIN_USE_PANEL`; a reseller is a third party who sees its customers (`domain.admin_access.may_shop_as_customer`, enforced centrally in `service.issue_tokens`). Google sign-in keeps its admin-panel meaning.
+* **What the session is.** Bound to its channel and store like any customer session: `is_admin = false`, no `/admin/*`, no store-owner or admin context. `TokenPair.admin_account` / `MeOut.admin_account` only *recognise* the account (the bot shows a note); `MeOut.is_admin` is what this session may do.
+* **What it can never do.** Change how the account signs in. The session is proven by a Telegram ID or an e-mail code, not by password + TOTP, so `core.deps.credential_user` (`CredentialUser`) answers `403 ADMIN_USE_PANEL` for an admin account unless the session is an admin-panel session: set password, 2FA setup/enable, link/attach/unlink identities, link codes, reauth, consolidation. Each refusal is a `admin_credential_change_refused` security event. Without this, a stolen Telegram session would be a panel takeover.
+* **Fail closed.** `tests/http/test_admin_customer_session_sealed.py` enumerates every mutating `/me` and `/identity` route from the OpenAPI document and requires it sealed unless on a two-entry allow-list (PATCH `/me`, POST `/me/web-handoff`): a route added later without `CredentialUser` fails the build.
+* **Operations.** The admin's Telegram ID is now also the key to the customer side of that account (wallet balance, orders): install-time typos matter, and the Telegram account should have a cloud password / 2-step verification.
 
 ##### Owner control
 * Every automatic login sends the owner a Telegram notice (deduplicated per device per day).

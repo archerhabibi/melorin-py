@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, Response
 
-from melorin.core.deps import CurrentUser, Session, main_store
+from melorin.core.deps import CredentialUser, CurrentUser, Session, main_store
 from melorin.core.errors import AppError
 from melorin.core.limits import MAX_OFFSET
 from melorin.core.ratelimit import hit
@@ -63,7 +63,7 @@ async def unified_orders(
 
 
 @router.post("/link/telegram/start", response_model=TelegramStartOut)
-async def link_telegram_start(user: CurrentUser, session: Session):
+async def link_telegram_start(user: CredentialUser, session: Session):
     await _limit(user, "tg-start")
     op, raw = await telegram.start(session, user)
     store = await main_store(session)
@@ -73,7 +73,7 @@ async def link_telegram_start(user: CurrentUser, session: Session):
 
 
 @router.post("/link/google")
-async def link_google(body: GoogleLinkIn, user: CurrentUser, session: Session, request: Request, response: Response):
+async def link_google(body: GoogleLinkIn, user: CredentialUser, session: Session, request: Request, response: Response):
     """Complete a Google link. Same nonce-cookie binding as Google sign-in (``GET /auth/google/nonce`` is the *start*)."""
     await _limit(user, "google")
     cookies = getattr(request, "cookies", None) or {}
@@ -83,27 +83,27 @@ async def link_google(body: GoogleLinkIn, user: CurrentUser, session: Session, r
 
 
 @router.post("/link/email/start")
-async def link_email_start(body: EmailStartIn, user: CurrentUser, session: Session):
+async def link_email_start(body: EmailStartIn, user: CredentialUser, session: Session):
     await _limit(user, "email-start", 5, 300)
     dev_code = await service.request_email_code(session, str(body.email))
     return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
 
 
 @router.post("/link/email/confirm")
-async def link_email_confirm(body: EmailConfirmIn, user: CurrentUser, session: Session):
+async def link_email_confirm(body: EmailConfirmIn, user: CredentialUser, session: Session):
     await _limit(user, "email-confirm")
     await service.attach_email(session, user, str(body.email), body.code)
     return {"ok": True}
 
 
 @router.post("/link/confirm")
-async def link_confirm(body: ConfirmIn, user: CurrentUser, session: Session):
+async def link_confirm(body: ConfirmIn, user: CredentialUser, session: Session):
     await _limit(user, "confirm", 10, 300)
     return await linking.confirm_person_link(session, user, body.operation_id, keep_telegram=body.keep_telegram)
 
 
 @router.post("/link/reject")
-async def link_reject(body: RejectIn, user: CurrentUser, session: Session):
+async def link_reject(body: RejectIn, user: CredentialUser, session: Session):
     return await linking.reject_operation(session, user, body.operation_id)
 
 
@@ -114,21 +114,21 @@ async def reauth_method(user: CurrentUser, session: Session):
 
 
 @router.post("/reauth/email/start")
-async def reauth_email_start(user: CurrentUser, session: Session):
+async def reauth_email_start(user: CredentialUser, session: Session):
     await _limit(user, "reauth-start", 5, 300)
     dev_code = await reauth.start_email_code(session, user)
     return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
 
 
 @router.post("/reauth/telegram/start")
-async def reauth_telegram_start(user: CurrentUser, session: Session):
+async def reauth_telegram_start(user: CredentialUser, session: Session):
     await _limit(user, "reauth-start", 5, 300)
     dev_code = await reauth.start_telegram_code(session, user)
     return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
 
 
 @router.post("/unlink")
-async def unlink(body: UnlinkIn, user: CurrentUser, session: Session, request: Request, response: Response):
+async def unlink(body: UnlinkIn, user: CredentialUser, session: Session, request: Request, response: Response):
     await _limit(user, "unlink", 10, 300)
     await reauth.require(
         session,
@@ -143,7 +143,7 @@ async def unlink(body: UnlinkIn, user: CurrentUser, session: Session, request: R
 
 
 @router.post("/consolidation")
-async def request_consolidation(body: ConsolidationIn, user: CurrentUser, session: Session):
+async def request_consolidation(body: ConsolidationIn, user: CredentialUser, session: Session):
     await _limit(user, "consolidate", 5, 300)
     op = await consolidation.request(session, user, key=body.idempotency_key)
     await session.commit()

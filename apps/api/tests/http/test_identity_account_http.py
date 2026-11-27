@@ -165,12 +165,15 @@ async def test_web_handoff_falls_back_to_the_configured_store_web_url_and_is_rat
         assert limited.status_code == 429 and _err(limited) == "RATE_LIMITED"
 
 
-async def test_web_handoff_is_refused_for_admin_accounts():
+async def test_web_handoff_works_for_an_admin_accounts_bot_session_but_not_for_its_admin_session():
     async with api_client() as (c, maker, main):
         root = await add_user(maker, email="root@example.com", admin=True, totp=True)
         bot, _ = create_access_token(root.id, False, store_id=main.id, channel="bot")
         r = await c.post(f"{ME}/web-handoff", json={}, headers=_bearer(bot))
-        assert r.status_code == 403 and _err(r) == "ADMIN_USE_PANEL"
+        assert r.status_code == 200, r.text  # the admin is an ordinary customer in the bot, so the account button works too
+        panel, _ = create_access_token(root.id, True)
+        r = await c.post(f"{ME}/web-handoff", json={}, headers=_bearer(panel))
+        assert r.status_code == 403 and _err(r) == "ADMIN_USE_PANEL"  # an admin-panel session is not a bot session
 
 
 # --- e-mail identity --------------------------------------------------------------------------------------------------
