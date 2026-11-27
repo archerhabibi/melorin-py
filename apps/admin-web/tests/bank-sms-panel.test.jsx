@@ -41,7 +41,6 @@ const waiting = {
 };
 
 function setup({ src = source(), messages = [deposit()], put } = {}) {
-  const calls = [];
   const requests = [];
   vi.stubGlobal(
     'fetch',
@@ -59,19 +58,14 @@ function setup({ src = source(), messages = [deposit()], put } = {}) {
       return json({ error: 'n/a' }, 404);
     }),
   );
-  const call = vi.fn(async (path, o = {}) => {
-    calls.push([o.method || 'GET', path, o.body]);
-    if (path.endsWith('/receipt-review')) return json({ error: 'n/a' }, 404);
-    return json({ ok: true });
-  });
   const toast = vi.fn();
   render(
     <>
-      <BankSmsPanel call={call} toast={toast} payments={[waiting, { ...waiting, id: 'p2', amount: 5 }]} />
+      <BankSmsPanel toast={toast} payments={[waiting, { ...waiting, id: 'p2', amount: 5 }]} />
       <DialogHost />
     </>,
   );
-  return { calls, requests, toast };
+  return { requests, toast };
 }
 
 describe('admin bank-SMS auto verification panel', () => {
