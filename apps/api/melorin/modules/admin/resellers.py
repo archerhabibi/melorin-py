@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from melorin.core import audit
+from melorin.core.brand import normalize_store_name
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
@@ -125,8 +126,13 @@ async def edit_reseller(store_id: uuid.UUID, body: ResellerEdit, admin: AdminUse
             return True
         return False
 
-    if body.name is not None and change("name", st.name, body.name.strip()):
-        st.name = body.name.strip()
+    if body.name is not None:
+        try:
+            new_name = normalize_store_name(body.name)  # ADR-R3: the same rules as the main store (customers read this name)
+        except ValueError as exc:
+            raise AppError("INVALID_STORE_NAME", str(exc), 422) from exc
+        if change("name", st.name, new_name):
+            st.name = new_name
     if body.domain is not None:
         domain = identity.normalize_domain(body.domain)
         if domain != st.domain:
