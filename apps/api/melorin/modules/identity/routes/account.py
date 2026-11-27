@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
-from melorin.core import audit, channel
+from melorin.core import audit, brand, channel
 from melorin.domain import password_policy
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.config import get_settings
@@ -172,12 +172,16 @@ async def set_password(body: SetPassword, user: CurrentUser, session: Session):
 
 
 @me.post("/2fa/setup", response_model=TotpSetupOut)
-async def totp_setup(user: CurrentUser, session: Session):
+async def totp_setup(auth: CurrentAuth, session: Session):
+    user, claims = auth.user, auth.claims
     secret = totp_new_secret()
     user.totp_secret_enc = encrypt(secret)
     user.totp_enabled = False
     await session.commit()
-    return TotpSetupOut(secret=secret, otpauth_url=f"otpauth://totp/Melorin:{user.email or user.id}?secret={secret}&issuer=Melorin")
+    # A customer's authenticator app shows the name of the store they signed in to; the admin panel (and a session with no store)
+    # shows the product name.
+    issuer = brand.PRODUCT_NAME if claims.is_admin or claims.store_id is None else await brand.store_brand(session, claims.store_id)
+    return TotpSetupOut(secret=secret, otpauth_url=brand.otpauth_url(issuer, str(user.email or user.id), secret))
 
 
 @me.post("/2fa/enable")

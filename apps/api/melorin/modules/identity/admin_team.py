@@ -19,7 +19,7 @@ import segno
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit
+from melorin.core import audit, brand
 from melorin.core.config import get_settings
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.db import utcnow
@@ -347,7 +347,7 @@ class Enrollment:
 
 
 def otpauth_url(email: str, secret: str) -> str:
-    return f"otpauth://totp/Melorin:{email}?secret={secret}&issuer=Melorin"
+    return brand.otpauth_url(brand.PRODUCT_NAME, email, secret)  # an operator of the platform, not of a store
 
 
 async def start_enrollment(session: AsyncSession, token: str) -> Enrollment:

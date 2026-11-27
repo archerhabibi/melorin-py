@@ -15,6 +15,7 @@ from __future__ import annotations
 import unicodedata
 import uuid
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import select
 
@@ -46,6 +47,14 @@ def normalize_store_name(raw: str | None) -> str:
 def brand_or_product(name: str | None) -> str:
     """A store name for customer-facing text; the product name only when there is no store name to use."""
     return " ".join((name or "").split()) or PRODUCT_NAME
+
+
+def otpauth_url(issuer: str, account: str, secret: str) -> str:
+    """The ``otpauth://`` URI an authenticator app enrols from. ``issuer`` is what the app shows next to the code: the store's
+    name for a customer, the product name for a platform operator. Both parts are percent-encoded (a Persian or spaced store
+    name would otherwise break the URI); ``secret`` is base32 and needs none."""
+    label = f"{quote(issuer, safe='')}:{quote(account, safe='@')}"
+    return f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer, safe='')}"
 
 
 async def store_brand(session: Any, store_id: uuid.UUID | None) -> str:

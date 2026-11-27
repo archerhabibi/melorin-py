@@ -57,3 +57,13 @@ async def test_site_brand_never_raises_when_the_host_is_unknown(monkeypatch):
 
     monkeypatch.setattr(channel, "site_channel", refuse)
     assert await brand.site_brand(object(), object()) == brand.PRODUCT_NAME
+
+
+def test_otpauth_url_encodes_a_persian_or_spaced_store_name_and_keeps_the_account_readable():
+    from melorin.core.brand import otpauth_url
+
+    url = otpauth_url("فروشگاه علی", "user@example.com", "ABCDEF234567")
+    assert url.startswith("otpauth://totp/%D9%81")
+    assert ":user@example.com?secret=ABCDEF234567&issuer=" in url
+    assert " " not in url and "فروشگاه" not in url
+    assert otpauth_url("Melorin", "a@b.co", "S") == "otpauth://totp/Melorin:a@b.co?secret=S&issuer=Melorin"
