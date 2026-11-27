@@ -112,7 +112,12 @@ async def ingest(session: AsyncSession, src: BankSmsSource, text: str, *, sender
             return dup, False
         raise
     if gap:
-        await _notify(session, src.store_id, "⚠️ مانده‌ی پیامک بانک با پیامک قبلی همخوان نیست؛ ممکن است پیامکی دریافت نشده باشد.")
+        await _notify(
+            session,
+            src.store_id,
+            "⚠️ مانده‌ی پیامک بانک با پیامک قبلی همخوان نیست؛ ممکن است پیامکی دریافت نشده باشد.",
+            "payment_sms_balance_gap",
+        )
         await session.commit()
     if m.status == "unmatched" and store is not None:
         await match_message(session, m, src, store)

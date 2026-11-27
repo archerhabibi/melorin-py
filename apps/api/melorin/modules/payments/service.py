@@ -323,14 +323,11 @@ async def attach_receipt(
     payment.meta = meta
     payment.status = P.AWAITING_REVIEW
     note = receipt_fingerprints.warning_text(duplicate)
-    await events.emit(
+    await events.emit_admin_notice(
         session,
-        events.EVENT_CENTER,
-        {
-            "store_id": payment.store_id,
-            "topic": "payments",
-            "text": f"🧾 رسید جدید برای بررسی\nمبلغ: {payment.amount:,}\nشناسه: {payment.id}" + (f"\n{note}" if note else ""),
-        },
+        "payment_receipt_review",
+        f"🧾 رسید جدید برای بررسی\nمبلغ: {payment.amount:,}\nشناسه: {payment.id}" + (f"\n{note}" if note else ""),
+        store_id=payment.store_id,
     )
     await session.commit()
 

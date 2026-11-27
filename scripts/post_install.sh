@@ -63,11 +63,22 @@ if [ "$ENABLE_UFW" = "1" ]; then
   if command -v ufw >/dev/null 2>&1; then
     if ufw status | grep -q 'Status: active'; then ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ok "ufw already active (80/443 ensured)"
     else
-      ssh_ports="$(ss -tlnpH 2>/dev/null | awk '/sshd/ {n=split($4,a,":"); print a[n]}' | sort -u)"; ssh_ports="${ssh_ports:-22}"
-      ufw default deny incoming >/dev/null; ufw default allow outgoing >/dev/null
-      for p in $ssh_ports; do ufw allow "${p}/tcp" >/dev/null; done
-      ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null
-      ufw --force enable >/dev/null && ok "ufw enabled (ssh: $(echo $ssh_ports | tr '\n' ' '), 80, 443)" || warnx "ufw could not be enabled"
+      # SSH ports = every source we have: live listeners, the effective sshd config and THIS session's own server port. A single
+      # source can miss (socket activation, a Port directive in an include, a non-sshd daemon) and ufw would then lock us out.
+      ssh_ports="$( {
+        ss -tlnpH 2>/dev/null | awk '/sshd/ {n=split($4,a,":"); print a[n]}'
+        sshd -T 2>/dev/null | awk '$1=="port" {print $2}'
+        if [ -n "${SSH_CONNECTION:-}" ]; then echo "${SSH_CONNECTION##* }"; fi
+      } | grep -E '^[0-9]+$' | sort -un)"
+      if [ -z "$ssh_ports" ]; then
+        # Nothing says how this server is managed (console, agent, VPN...). Guessing "22" could cut that channel: do nothing.
+        warnx "no SSH listener detected, so ufw was NOT enabled (it could lock you out). Allow your management port, then: ufw allow <port>/tcp && ufw enable"
+      else
+        ufw default deny incoming >/dev/null; ufw default allow outgoing >/dev/null
+        for p in $ssh_ports; do ufw allow "${p}/tcp" >/dev/null; done
+        ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null
+        ufw --force enable >/dev/null && ok "ufw enabled (ssh: $(echo $ssh_ports | tr '\n' ' '), 80, 443)" || warnx "ufw could not be enabled"
+      fi
     fi
   else warnx "ufw not available"; fi
 fi

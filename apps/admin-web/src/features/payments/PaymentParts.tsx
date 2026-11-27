@@ -1,8 +1,6 @@
-// Payments screen — review queue, KPIs, filters, detail drawer and gateway settings.
-// Data comes only from GET /api/v1/admin/payments (+ /settings); actions use the existing
-// /review, /refund and /receipt endpoints, so no backend change is required.
+// Building blocks of the payments hub: row actions, the review queue, the detail drawer and the gateway settings cards.
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Copy, Receipt, Settings2, ShieldAlert, Undo2, X, XCircle } from 'lucide-react';
+import { Check, Copy, Receipt, ShieldAlert, Undo2, X, XCircle } from 'lucide-react';
 
 import { Drawer, Field, Section, Switch, num, tint } from '../../shared/kit.tsx';
 import { Badge, dt, sid } from '../../shared/ui.tsx';
@@ -299,7 +297,6 @@ export const maskCard = (n: Json) => {
 };
 
 export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
-  const [open, setOpen] = useState(false);
   const card = obj.manual_card || {};
   const zp = obj.zarinpal || {};
   const [c, setC] = useState({ card_number: '', holder: '', bank: '', ...card });
@@ -327,124 +324,110 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
   const cardOk = !!(card.card_number && card.holder);
   const zpOk = !!zp.merchant_id;
   return (
-    <section className="card overflow-hidden">
-      <button
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-right"
-        aria-expanded={open}
-        onClick={() => setOpen((x) => !x)}
-      >
-        <span className="flex items-center gap-3">
-          <span className="tile h-10 w-10 bg-[var(--mb)] text-[var(--mu)]">
-            <Settings2 size={18} />
-          </span>
-          <span>
-            <span className="block font-extrabold">درگاه‌ها و روش‌های دریافت</span>
-            <span className="block text-xs text-[var(--mu)]">کارت‌به‌کارت و زرین‌پال فروشگاه اصلی</span>
-          </span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="hidden gap-1.5 sm:flex">
-            <span className={`badge ${cardOk ? 'b-ok' : 'b-mu'}`}>{cardOk ? 'کارت تنظیم شد' : 'کارت: تنظیم نشده'}</span>
-            <span className={`badge ${zpOk ? 'b-ok' : 'b-mu'}`}>{zpOk ? 'زرین‌پال فعال' : 'زرین‌پال: تنظیم نشده'}</span>
-          </span>
-          <ChevronDown size={18} className={`text-[var(--mu)] transition-transform ${open ? 'rotate-180' : ''}`} />
-        </span>
-      </button>
-      {open && (
-        <div className="grid gap-4 border-t border-[var(--ln)] p-5 md:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--ln)] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="font-bold">کارت‌به‌کارت</h4>
-              {maskCard(card.card_number) && (
-                <span dir="ltr" className="font-mono text-[11px] text-[var(--mu)]">
-                  {maskCard(card.card_number)}
-                </span>
-              )}
-            </div>
-            <div className="grid gap-3">
-              <Field label="شماره کارت">
-                <input
-                  dir="ltr"
-                  inputMode="numeric"
-                  className="inp"
-                  value={c.card_number}
-                  onChange={(e) => setC({ ...c, card_number: e.target.value })}
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="نام صاحب کارت">
-                  <input className="inp" value={c.holder} onChange={(e) => setC({ ...c, holder: e.target.value })} />
-                </Field>
-                <Field label="بانک">
-                  <input className="inp" value={c.bank} onChange={(e) => setC({ ...c, bank: e.target.value })} />
-                </Field>
-              </div>
-            </div>
-            <button
-              className="btn mt-4"
-              disabled={!c.card_number.trim() || !c.holder.trim()}
-              onClick={() => save('manual_card', c)}
-            >
-              ذخیره اطلاعات کارت
-            </button>
-          </div>
-          <div className="rounded-2xl border border-[var(--ln)] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="font-bold">زرین‌پال</h4>
-              {z.sandbox && <span className="badge b-in">Sandbox</span>}
-            </div>
-            <div className="grid gap-3">
-              <Field label="Merchant ID">
-                <input
-                  dir="ltr"
-                  className="inp font-mono text-xs"
-                  value={z.merchant_id}
-                  onChange={(e) => setZ({ ...z, merchant_id: e.target.value })}
-                />
-              </Field>
-              <Field label="Access Token (محرمانه و فقط نوشتنی)">
-                <input
-                  dir="ltr"
-                  type="password"
-                  autoComplete="new-password"
-                  className="inp font-mono text-xs"
-                  value={z.access_token}
-                  placeholder={z.has_access_token ? 'توکن ذخیره شده؛ برای حفظ آن خالی بگذارید' : 'توکن دسترسی زرین‌پال'}
-                  onChange={(e) => setZ({ ...z, access_token: e.target.value, clear_access_token: false })}
-                />
-                <span className="mt-1 block text-xs text-[var(--mu)]">
-                  {z.has_access_token
-                    ? 'توکن فعلی ذخیره است و هرگز نمایش داده نمی‌شود؛ استرداد خودکار فعال است.'
-                    : 'هنوز توکنی ذخیره نشده است؛ بدون آن استرداد خودکار زرین‌پال انجام نمی‌شود.'}
-                </span>
-              </Field>
-              {z.has_access_token && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!z.clear_access_token}
-                    onChange={(e) => setZ({ ...z, clear_access_token: e.target.checked, access_token: '' })}
-                  />
-                  حذف توکن ذخیره‌شده
-                </label>
-              )}
-              <div className="flex items-center justify-between rounded-xl bg-[var(--sf2)] px-3.5 py-3 text-sm font-bold">
-                حالت آزمایشی (Sandbox)
-                <Switch checked={!!z.sandbox} onChange={(v: Json) => setZ({ ...z, sandbox: v })} label="حالت Sandbox" />
-              </div>
-            </div>
-            <button
-              className="btn mt-4"
-              disabled={!z.merchant_id.trim() || (!!z.clear_access_token && !!z.access_token.trim())}
-              onClick={() => save('zarinpal', z)}
-            >
-              ذخیره تنظیمات زرین‌پال
-            </button>
-          </div>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-extrabold">روش‌های دریافت فروشگاه اصلی</h3>
+          <p className="text-xs text-[var(--mu)]">
+            کارت‌به‌کارت و زرین‌پال؛ نمایندگان روش‌های دریافت خودشان را در پنل خودشان تنظیم می‌کنند.
+          </p>
         </div>
-      )}
+        <span className="flex flex-wrap gap-1.5">
+          <span className={`badge ${cardOk ? 'b-ok' : 'b-mu'}`}>{cardOk ? 'کارت تنظیم شد' : 'کارت: تنظیم نشده'}</span>
+          <span className={`badge ${zpOk ? 'b-ok' : 'b-mu'}`}>{zpOk ? 'زرین‌پال فعال' : 'زرین‌پال: تنظیم نشده'}</span>
+        </span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--ln)] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="font-bold">کارت‌به‌کارت</h4>
+            {maskCard(card.card_number) && (
+              <span dir="ltr" className="font-mono text-[11px] text-[var(--mu)]">
+                {maskCard(card.card_number)}
+              </span>
+            )}
+          </div>
+          <div className="grid gap-3">
+            <Field label="شماره کارت">
+              <input
+                dir="ltr"
+                inputMode="numeric"
+                className="inp"
+                value={c.card_number}
+                onChange={(e) => setC({ ...c, card_number: e.target.value })}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="نام صاحب کارت">
+                <input className="inp" value={c.holder} onChange={(e) => setC({ ...c, holder: e.target.value })} />
+              </Field>
+              <Field label="بانک">
+                <input className="inp" value={c.bank} onChange={(e) => setC({ ...c, bank: e.target.value })} />
+              </Field>
+            </div>
+          </div>
+          <button
+            className="btn mt-4"
+            disabled={!c.card_number.trim() || !c.holder.trim()}
+            onClick={() => save('manual_card', c)}
+          >
+            ذخیره اطلاعات کارت
+          </button>
+        </div>
+        <div className="rounded-2xl border border-[var(--ln)] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="font-bold">زرین‌پال</h4>
+            {z.sandbox && <span className="badge b-in">Sandbox</span>}
+          </div>
+          <div className="grid gap-3">
+            <Field label="Merchant ID">
+              <input
+                dir="ltr"
+                className="inp font-mono text-xs"
+                value={z.merchant_id}
+                onChange={(e) => setZ({ ...z, merchant_id: e.target.value })}
+              />
+            </Field>
+            <Field label="Access Token (محرمانه و فقط نوشتنی)">
+              <input
+                dir="ltr"
+                type="password"
+                autoComplete="new-password"
+                className="inp font-mono text-xs"
+                value={z.access_token}
+                placeholder={z.has_access_token ? 'توکن ذخیره شده؛ برای حفظ آن خالی بگذارید' : 'توکن دسترسی زرین‌پال'}
+                onChange={(e) => setZ({ ...z, access_token: e.target.value, clear_access_token: false })}
+              />
+              <span className="mt-1 block text-xs text-[var(--mu)]">
+                {z.has_access_token
+                  ? 'توکن فعلی ذخیره است و هرگز نمایش داده نمی‌شود؛ استرداد خودکار فعال است.'
+                  : 'هنوز توکنی ذخیره نشده است؛ بدون آن استرداد خودکار زرین‌پال انجام نمی‌شود.'}
+              </span>
+            </Field>
+            {z.has_access_token && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={!!z.clear_access_token}
+                  onChange={(e) => setZ({ ...z, clear_access_token: e.target.checked, access_token: '' })}
+                />
+                حذف توکن ذخیره‌شده
+              </label>
+            )}
+            <div className="flex items-center justify-between rounded-xl bg-[var(--sf2)] px-3.5 py-3 text-sm font-bold">
+              حالت آزمایشی (Sandbox)
+              <Switch checked={!!z.sandbox} onChange={(v: Json) => setZ({ ...z, sandbox: v })} label="حالت Sandbox" />
+            </div>
+          </div>
+          <button
+            className="btn mt-4"
+            disabled={!z.merchant_id.trim() || (!!z.clear_access_token && !!z.access_token.trim())}
+            onClick={() => save('zarinpal', z)}
+          >
+            ذخیره تنظیمات زرین‌پال
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
-
-// ---------------------------------------------------------------- main view

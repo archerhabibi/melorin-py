@@ -6,7 +6,23 @@ All notable changes to Melorin. The detailed, dated engineering log lives in
 [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) ("Melorin Change Log"); this file is the short,
 release-oriented summary. The project is pre-release: breaking changes are allowed.
 
-## [Unreleased] - 2026-11-19
+## [Unreleased] - 2026-11-27
+
+### Admin web: payments screen redesigned as a four-tab hub
+- The «پرداخت‌ها» menu was one endless page (KPIs, review queue, list, bank-SMS settings and inbox, fast receipt review, duplicate-picture policy, gateway settings, OCR). It is now a hub with four tabs, split by what the admin is doing: **تراکنش‌ها** (KPIs, receipts waiting for a decision, filters, list, refunds), **رسیدها** (fast review and provisional approval, duplicate-picture policy, OCR), **پیامک بانک** (automatic card-to-card verification) and **درگاه‌ها** (card and Zarinpal of the main store, forms always open instead of an accordion at the bottom).
+- Deep links: `#/payments`, `#/payments?tab=receipts|sms|gateways` (an unknown tab falls back to transactions). The transactions tab shows how many receipts wait for a decision and the receipts tab how many provisional charges wait for a final one, so urgent work is visible from any tab.
+- Each tab fetches only its own data (gateway destinations and bank SMS are not requested while the admin looks at transactions); the payments list, the main store lookup and the typed receipt download are shared by the hub (`usePaymentsData.ts`). `BankSmsPanel` no longer embeds `ReceiptReviewPanel`.
+- No API or permission change. Tests: `payments-hub.test.jsx` (tabs, badges, deep links, lazy loading per tab); typing ratchet lowered to 1956.
+
+### Installer: one-line install redesigned (get.sh, melorin.sh, install_server.sh)
+- `get.sh` is a function-wrapped bootstrapper (a truncated download does nothing), re-runs itself through sudo, checks apt/OS/network, installs the prerequisites with a lock- and dialog-safe apt, clones atomically with retries, accepts only strict `vX.Y.Z` release tags and a full 40-char `--commit` pin, and sets `core.fileMode=false` (its own `chmod +x` used to leave the checkout git-dirty).
+- Unattended mode: `melorin install --domain D --admin-domain A --email E --yes` (bot token via `MAIN_BOT_TOKEN` / `--bot-token-file`, never argv); inputs and DNS are validated before anything starts. `melorin doctor` is a read-only check of the server and the installation.
+- No terminal (ssh without `-t`, cloud-init) no longer ends with exit code 0 and nothing installed: the menu explains and exits 2 (`has_tty` really opens `/dev/tty`).
+- The install runs detached (`setsid`, log `/var/log/melorin-install.log`, lock, exit code file) and is followed live; a dropped connection no longer kills it, and the one-time admin password is saved to `/root/melorin-credentials.txt` before the build.
+- Docker: Compose v2 plugin, minimum version and a running daemon are verified; installed from the official apt repository. Image builds stream live, retry network errors and explain Docker Hub rate limits, blocked registries, full disks and out-of-memory.
+- Fixes: a repair re-run of an installed server no longer dies in `bootstrap`; `melorin update` exits 0 when already current and picks only `vX.Y.Z` tags; `ufw` is never enabled without a confirmed SSH port; `uninstall` refuses a non-checkout directory (a copied `melorin.sh` would have deleted its own folder).
+- Not root with a password-protected sudo and no terminal (cloud-init, ssh without `-t`) now gets an actionable message instead of sudo's bare "a terminal is required"; the `doctor` help no longer claims it "installs nothing" (it fetches the project and the download prerequisites, but installs no Melorin component).
+- Tests: `tests/contracts/test_one_line_installer.py` runs the scripts (truncated download, no-tty, validation, retry, port owner, failure hints).
 
 ### Telegram: mandatory channel membership (force join) for the main bot
 - Admin switch «عضویت اجباری کانال» (system area): up to 5 public or private channels, custom message, membership cache, live preview and a Telegram check (bot must be a channel admin).

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.context import correlation_id
 from melorin.core.db import utcnow
 from melorin.core.metrics import inc
+from melorin.domain import messaging_policy
 from melorin.kernel.models.system import OutboxEvent
 
 # Topics
@@ -27,6 +28,7 @@ RESELLER_DEBT = "reseller.debt"
 NOTIFY = "notification.send"
 EVENT_CENTER = "eventcenter.send"
 EVENT_CENTER_DELIVER = "eventcenter.deliver"
+ADMIN_ALERT = "admin.alert"  # the admin's bot DM (only the very important kinds; see domain.messaging_policy)
 VPN_REVOKE = "vpn.revoke"
 VPN_RENEWAL_ROLLBACK = "vpn.renewal_rollback"
 TICKET_UPDATED = "ticket.updated"
@@ -52,8 +54,9 @@ PAYLOAD_SCHEMA: dict[str, tuple[frozenset[str], frozenset[str] | None]] = {
     WALLET_CHANGED: (frozenset({"amount", "balance", "kind", "store_id", "user_id", "wallet_id"}), frozenset()),
     RESELLER_DEBT: (frozenset({"state", "store_id"}), frozenset({"balance", "limit"})),
     NOTIFY: (frozenset({"body", "kind", "title", "user_id"}), frozenset({"store_id", "dedup_key"})),
-    EVENT_CENTER: (frozenset({"store_id", "text", "topic"}), frozenset()),
+    EVENT_CENTER: (frozenset({"store_id", "text", "topic"}), frozenset({"kind"})),
     EVENT_CENTER_DELIVER: (frozenset({"destination_id", "text", "topic"}), frozenset()),
+    ADMIN_ALERT: (frozenset({"kind", "text"}), frozenset({"store_id"})),
     VPN_REVOKE: (frozenset({"vpn_account_id"}), frozenset()),
     VPN_RENEWAL_ROLLBACK: (frozenset({"before", "mode", "vpn_account_id"}), frozenset()),
     TICKET_UPDATED: (frozenset({"store_id", "ticket_id"}), frozenset({"message_id"})),
@@ -115,9 +118,45 @@ def _jsonable(v):
     return str(v)
 
 
-async def emit_store_notice(session, store_id, topic: str, text: str) -> None:
-    """The one way to raise a store-scoped Event Center notice (T04); payments/bank_sms/provisional used private copies."""
-    await emit(session, EVENT_CENTER, {"store_id": store_id, "topic": topic, "text": text})
+async def emit_admin_notice(
+    session,
+    kind: str,
+    text: str,
+    *,
+    store_id=None,
+    topic: str | None = None,
+    dedup_key: str | None = None,
+) -> None:
+    """The one way to raise an ADMIN notice (2026-11-26; replaces the store-notice and alert-the-admins helpers).
+
+    ``kind`` is looked up in ``domain.messaging_policy``: it picks the Event Center Topic (unless ``topic`` is given) and whether the
+    notice ALSO reaches the admin's bot DM, which only the very important kinds do. The call site never chooses a channel.
+    ``store_id`` scopes the group: a reseller store's notice goes to that store's own group, and a DM is only sent for the platform's
+    own scope (no store, or the Main Store) unless the kind says otherwise; the worker's Event Center tap applies that rule.
+    """
+    route = messaging_policy.admin_route(kind)
+    await emit(
+        session,
+        EVENT_CENTER,
+        {"store_id": store_id, "topic": topic or route.topic, "text": text, "kind": kind},
+        dedup_key=dedup_key,
+    )
+
+
+async def emit_admin_dm(
+    session,
+    kind: str,
+    text: str,
+    *,
+    store_id=None,
+    dedup_key: str | None = None,
+) -> bool:
+    """Queue the admin's bot DM for ``kind`` (outbox topic ``admin.alert``). Returns False, and queues nothing, for a kind that the
+    policy does not make a DM kind: this is the single place that decision is taken, so no caller can widen the DM set."""
+    if not messaging_policy.admin_dm(kind):
+        return False
+    await emit(session, ADMIN_ALERT, {"kind": kind, "text": text, "store_id": store_id}, dedup_key=dedup_key)
+    return True
 
 
 async def emit_user_notice(

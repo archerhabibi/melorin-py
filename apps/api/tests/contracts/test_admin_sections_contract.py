@@ -9,7 +9,7 @@ SRC = Path(__file__).parents[4].joinpath("apps", "admin-web", "src")
 # Screens live in dedicated view modules (or, for the thin ones, AdminSections.tsx),
 # so the contract is "route X is requested by the module that renders screen X".
 SCREEN_ROUTES = {
-    "/api/v1/admin/payments": ("AdminSections.tsx", "PaymentsView.tsx"),
+    "/api/v1/admin/payments": ("AdminSections.tsx", "PaymentsView.tsx", "usePaymentsData.ts"),
     "/api/v1/admin/orders": ("OrdersView.tsx",),
     "/api/v1/admin/vpn-accounts": ("VpnAccountsView.tsx",),
     "/api/v1/admin/users": ("UsersView.tsx",),

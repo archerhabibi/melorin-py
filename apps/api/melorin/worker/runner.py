@@ -17,7 +17,6 @@ from melorin.core.metrics import inc
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.notifications import Notification
-from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn_accounts import sync
@@ -77,7 +76,7 @@ async def _on_order_paid(session, p: dict):
 
 
 async def _on_provisioning_failed(session, p: dict):
-    await _notify_admins_provisioning_failed(session, p)
+    # The admin hears about it in the group's errors topic (eventcenter.rules.tap), not in a DM: 2026-11-26 routing rule.
     await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
 
 
@@ -131,6 +130,10 @@ async def _on_notify(session, p: dict):
         )
 
 
+async def _on_admin_alert(session, p: dict):
+    await _notify_admins(session, p)
+
+
 async def _on_event_center(session, p: dict):
     await _event_center(session, p)
 
@@ -165,6 +168,7 @@ _TOPIC_HANDLERS = {
     events.VPN_REVOKE: _on_vpn_revoke,
     events.VPN_RENEWAL_ROLLBACK: _on_vpn_renewal_rollback,
     events.NOTIFY: _on_notify,
+    events.ADMIN_ALERT: _on_admin_alert,
     events.EVENT_CENTER: _on_event_center,
     events.EVENT_CENTER_DELIVER: _on_event_center_deliver,
     events.TICKET_UPDATED: _on_event_center,
@@ -273,42 +277,24 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         raise
 
 
-async def _notify_admins_provisioning_failed(session, p: dict):
-    """Telegram alert to every active super admin that provisioning failed.
+async def _notify_admins(session, p: dict):
+    """Bot DM to every active super admin for one admin notice (``admin.alert``; payload ``kind`` + ``text``).
 
-    The outcome line is read from the order at send time (the event is emitted
-    with a short delay so the auto-refund has finished by then). Each admin has
-    their own dedup key, so an outbox retry never re-sends to admins who already
-    received the message.
+    Only the kinds ``domain.messaging_policy`` marks as DM kinds (panel/node failures, customers' payments) are delivered; anything
+    else is dropped and counted, so a caller cannot widen the DM set by accident. The first line of the text is the title.
+    Each admin has their own dedup key (event id + admin), so an outbox retry never re-sends to admins who already received it,
+    and one unreachable admin does not block the others.
     """
-    from melorin.domain.order_state import OrderStatus
-
-    order_id = uuid.UUID(str(p["order_id"]))
-    order = await session.get(Order, order_id)
-    number = order.number if order else str(order_id)[:8]
-    if order and order.status == OrderStatus.REFUNDED:
-        outcome = "✅ مبلغ به‌صورت خودکار به کیف پول مشتری برگشت داده شد."
-    elif order and order.status in (OrderStatus.PROVISIONING_FAILED, OrderStatus.REFUND_PENDING):
-        outcome = "❌ بازگشت خودکار وجه انجام نشد؛ لطفاً سفارش را دستی بررسی کنید."
-    else:
-        outcome = ""
-    error = (p.get("error") or "نامشخص")[:300]
-    title = "⚠️ ساخت اکانت ناموفق بود"
-    body = f"سفارش: {number}\nخطا: {error}"
-    if outcome:
-        body += f"\n{outcome}"
-
+    kind = str(p.get("kind") or "")
+    if not messaging_policy.admin_dm(kind):
+        inc("melorin_notifications_total", channel="telegram", result="policy_skipped")
+        return
+    title, _, body = str(p.get("text") or "").partition("\n")
     admin_ids = (await session.scalars(select(User.id).where(User.is_super_admin.is_(True), User.is_active.is_(True)))).all()
     errors: list[Exception] = []
     for admin_id in admin_ids:
         try:
-            await _notify(
-                session,
-                {"user_id": admin_id, "dedup_key": f"prov_fail_admin:{order_id}:{admin_id}"},
-                "provisioning_failed",
-                title,
-                body,
-            )
+            await _notify(session, {"user_id": admin_id, EVENT_ID_FIELD: p.get(EVENT_ID_FIELD)}, kind, title[:200], body)
         except Exception as ex:  # one unreachable admin must not block the others
             errors.append(ex)
     if errors:

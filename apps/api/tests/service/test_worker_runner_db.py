@@ -276,7 +276,6 @@ async def test_order_topic_handlers_delegate_to_provisioning_referral_and_delive
     monkeypatch.setattr("melorin.modules.loyalty.service.on_order_refunded", lambda s, i: rec("loyalty_refund"))
     monkeypatch.setattr("melorin.modules.orders.delivery.deliver_order", lambda s, i: rec(f"deliver:{i}"))
     monkeypatch.setattr(runner, "_webhook", lambda s, name, p, eid: rec(f"hook:{eid}"))
-    monkeypatch.setattr(runner, "_notify_admins_provisioning_failed", lambda s, p: rec("admins"))
     p = {"order_id": str(oid)}
     await runner._on_order_paid(None, p)
     await runner._on_order_completed(None, p)
@@ -285,7 +284,7 @@ async def test_order_topic_handlers_delegate_to_provisioning_referral_and_delive
     await runner._on_provisioning_failed(None, p)
     assert log == [
         f"provision:{oid}", "ref_done", "loyalty_done", f"hook:order.completed:{oid}", f"deliver:{oid}",
-        "loyalty_refund", "ref_refund", f"hook:order.refunded:{oid}", "admins", f"hook:order.provisioning_failed:{oid}",
+        "loyalty_refund", "ref_refund", f"hook:order.refunded:{oid}", f"hook:order.provisioning_failed:{oid}",
     ]  # fmt: skip
 
 
@@ -383,53 +382,67 @@ async def test_notify_marks_failure_and_reraises_so_the_outbox_retries_then_rese
     assert len(tg.sent) == 1
 
 
-# --- provisioning-failed admin alert -------------------------------------------------------------------------------
+# --- admin alert (the admin's bot DM) ------------------------------------------------------------------------------
 
 
-async def test_provisioning_failed_alert_reaches_every_active_super_admin_once(maker, tg):
+def _alert(kind="payment_succeeded", text="💳 پرداخت موفق\nمبلغ: 1,000", event_id=None):
+    return {"kind": kind, "text": text, "_event_id": event_id or str(uuid.uuid4())}
+
+
+async def test_admin_alert_reaches_every_active_super_admin_once(maker, tg):
     async with maker() as s:
-        store, buyer, product = await make_store(s), await make_user(s), await make_product(s)
-        order = await make_order(s, user=buyer, store=store, product=product, status="refunded", number="A100")
         a1, a2 = await make_user(s, super_admin=True), await make_user(s, super_admin=True)
         gone = await make_user(s, super_admin=True)
         gone.is_active = False
         for u, chat in ((a1, "1"), (a2, "2"), (gone, "3")):
             s.add(Identity(user_id=u.id, provider="telegram", subject=chat))
         await s.flush()
-        p = {"order_id": str(order.id), "error": "panel timeout"}
-        await runner._notify_admins_provisioning_failed(s, p)
-        await runner._notify_admins_provisioning_failed(s, p)  # outbox retry: nobody is messaged twice
+        p = _alert()
+        await runner._notify_admins(s, p)
+        await runner._notify_admins(s, p)  # outbox retry: nobody is messaged twice
         await s.commit()
     assert sorted(c for _, _, c, _ in tg.sent) == ["1", "2"]
-    text = tg.sent[0][3]
-    assert "A100" in text and "panel timeout" in text and "برگشت داده شد" in text
+    assert tg.sent[0][3] == "💳 پرداخت موفق\nمبلغ: 1,000"
 
 
-async def test_provisioning_failed_alert_reports_unrefunded_orders_and_survives_one_bad_admin(maker, tg):
+async def test_admin_alert_retries_after_a_failed_send_and_does_not_duplicate(maker, tg):
     async with maker() as s:
-        store, buyer, product = await make_store(s), await make_user(s), await make_product(s)
-        order = await make_order(s, user=buyer, store=store, product=product, status="provisioning_failed")
         admin = await make_user(s, super_admin=True)
         s.add(Identity(user_id=admin.id, provider="telegram", subject="9"))
         await s.flush()
+        p = _alert("node_failed", "🟠 نود(های) پنل «P» خطا دارند:\n• n1")
         tg.fail = True
         with pytest.raises(RuntimeError):
-            await runner._notify_admins_provisioning_failed(s, {"order_id": str(order.id)})
-        tg.fail = False
-        await runner._notify_admins_provisioning_failed(s, {"order_id": str(order.id)})
+            await runner._notify_admins(s, p)
         await s.commit()
-    assert "بازگشت خودکار وجه انجام نشد" in tg.sent[0][3] and "نامشخص" in tg.sent[0][3]
+        tg.fail = False
+        await runner._notify_admins(s, p)
+        await s.commit()
+        assert len((await s.scalars(select(Notification))).all()) == 1
+    assert len(tg.sent) == 1
 
 
-async def test_provisioning_failed_alert_for_unknown_order_still_alerts_without_outcome(maker, tg):
+async def test_provisioning_failed_no_longer_dms_the_admin(maker, tg, monkeypatch):
+    """The topic handler only fans out the webhook. The admin's notice (group + bot DM) is queued by the Event Center tap, so a retry of
+    this handler can never message the admin twice (tests/service/test_admin_notice_routing.py)."""
+    hooks = []
+
+    async def hook(s, name, p, eid):
+        hooks.append(eid)
+
+    monkeypatch.setattr(runner, "_webhook", hook)
     async with maker() as s:
         admin = await make_user(s, super_admin=True)
         s.add(Identity(user_id=admin.id, provider="telegram", subject="9"))
         await s.flush()
         oid = uuid.uuid4()
-        await runner._notify_admins_provisioning_failed(s, {"order_id": str(oid), "error": "x"})
+        await runner._on_provisioning_failed(s, {"order_id": str(oid), "error": "x"})
         await s.commit()
-    assert str(oid)[:8] in tg.sent[0][3] and "✅" not in tg.sent[0][3] and "❌" not in tg.sent[0][3]
+    assert tg.sent == [] and hooks == [f"order.provisioning_failed:{oid}"]
+
+
+async def test_the_admin_alert_topic_has_a_handler():
+    assert runner._TOPIC_HANDLERS["admin.alert"] is runner._on_admin_alert
 
 
 # --- revoke / rollback ---------------------------------------------------------------------------------------------

@@ -8,6 +8,19 @@ import { num, tint } from '../../shared/kit.tsx';
 import { dt } from '../../shared/ui.tsx';
 import type { Json, Rec, Toast } from '../../shared/types.ts';
 
+/** A row of GET /api/v1/admin/payments (the OpenAPI schema leaves the list items as a bare object). */
+export interface PaymentRow {
+  id: string;
+  user_id?: string;
+  store_id?: string;
+  provider: string;
+  amount: number;
+  currency: string;
+  status: string;
+  has_receipt: boolean;
+  created_at: string;
+}
+
 export const PAGE = 15;
 export const REVIEWABLE = ['pending', 'review', 'receipt_submitted', 'awaiting_review'];
 

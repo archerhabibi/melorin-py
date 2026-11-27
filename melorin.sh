@@ -10,19 +10,41 @@
 #   7) Uninstall  full removal
 #   0) Exit
 #
-# Shortcuts:  melorin install|update|status|restart|logs|panel
+# Shortcuts:  melorin install|update|status|doctor|restart|logs|panel|help
+#
+# Unattended install (no questions; for automation, ssh without a terminal, cloud-init):
+#   melorin install --domain shop.example.com --admin-domain admin.example.com --email you@example.com --yes
+#   bot token: MAIN_BOT_TOKEN=... in the environment, or --bot-token-file FILE (never on the command line: it would sit in
+#   `ps` and the shell history).  Also: --admin-tg ID  --external-proxy  --skip-dns-check  --force.  Environment equivalents:
+#   DOMAIN ADMIN_DOMAIN ADMIN_EMAIL ADMIN_TELEGRAM_ID EXTERNAL_PROXY.
+#   The install itself runs detached (own session, log in /var/log/melorin-install.log): an SSH drop cannot kill it halfway.
 # Deliberately WITHOUT -e (unlike get.sh): the interactive menu must survive a failed action and return to the prompt; every
 # step that matters checks its own status (`|| { err ...; return 1; }`). Audit V-036.
 set -uo pipefail
 
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 APP_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+# Must be a Melorin checkout. `melorin` has to be a SYMLINK to melorin.sh: a COPY would resolve APP_DIR to its own folder
+# (e.g. /usr/local/bin) and "uninstall" would delete that.
+if [ ! -f "$APP_DIR/docker-compose.yml" ] || [ ! -f "$APP_DIR/scripts/install_server.sh" ] || [ ! -f "$APP_DIR/scripts/lib/common.sh" ]; then
+  echo "melorin.sh must run from inside a Melorin checkout (looked in $APP_DIR). If this is a copy, delete it and run: ln -sf /opt/melorin/melorin.sh /usr/local/bin/melorin" >&2
+  exit 1
+fi
+# shellcheck source=scripts/lib/common.sh
+. "$APP_DIR/scripts/lib/common.sh"
 REPO_URL="${MELORIN_REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 LINK="/usr/local/bin/melorin"
 trap ':' INT   # Ctrl-C stops a running child (e.g. logs) but keeps the menu alive
 
-# When started through a pipe (curl | bash) read answers from the terminal.
-if [ ! -t 0 ] && [ -r /dev/tty ]; then exec </dev/tty; fi
+# Prompts need a terminal. Started through a pipe (curl | bash) answers come from the real terminal; with none at all (ssh
+# without -t, cron, cloud-init) there is nobody to ask: has_tty really opens /dev/tty (the file exists even then, and a failed
+# `exec </dev/tty` used to kill this script with a cryptic message and exit code 0).
+HAVE_TTY=0
+if [ -t 0 ]; then HAVE_TTY=1; elif has_tty; then exec </dev/tty; HAVE_TTY=1; fi
+NONINTERACTIVE="${MELORIN_NONINTERACTIVE:-0}"; [ "$HAVE_TTY" = 1 ] || NONINTERACTIVE=1
+# Inputs of an unattended install: the environment first, flags (parse_install_args) override.
+OPT_DOMAIN="${DOMAIN:-}"; OPT_ADMIN_DOMAIN="${ADMIN_DOMAIN:-}"; OPT_EMAIL="${ADMIN_EMAIL:-}"; OPT_TG="${ADMIN_TELEGRAM_ID:-}"
+OPT_TOKEN_FILE=""; OPT_SKIP_DNS=0; OPT_EXT="${EXTERNAL_PROXY:-}"; ASSUME_YES=0
 
 C0=$'\033[0m'; CB=$'\033[1m'; CG=$'\033[1;32m'; CR=$'\033[1;31m'; CY=$'\033[1;33m'; CC=$'\033[1;36m'
 info() { printf '%s>>%s %s\n' "$CC" "$C0" "$*"; }
@@ -82,11 +104,7 @@ confirm() { # confirm "question" [default y|n]
   a="${a:-$def}"; [[ "$a" =~ ^[Yy] ]]
 }
 
-norm_domain() { # strip scheme, path, port-less, lowercase
-  local d="${1,,}"; d="${d#http://}"; d="${d#https://}"; d="${d%%/*}"; d="${d%.}"; printf '%s' "$d"
-}
-valid_domain() { [[ "$1" =~ ^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$ ]]; }
-valid_token()  { [[ "$1" =~ ^[0-9]+:[A-Za-z0-9_-]{30,}$ ]]; }
+# norm_domain / valid_domain / valid_token / valid_email / server_ip / domain_ip / port_busy live in scripts/lib/common.sh
 
 ask_domain() { # ask_domain "label" -> sets REPLY_DOMAIN
   local raw
@@ -98,16 +116,6 @@ ask_domain() { # ask_domain "label" -> sets REPLY_DOMAIN
   done
 }
 
-# V-004: the application's login validator (email-validator) rejects special-use domains; refuse them here too, otherwise the
-# admin account is created and can never sign in (HTTP 422 on every login).
-valid_email() {
-  [[ "$1" =~ ^[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]] || return 1
-  local d="${1#*@}"
-  case "$d" in
-    *.test|*.local|*.localhost|*.invalid|*.onion|*.arpa|test|local|localhost|invalid) return 1 ;;
-  esac
-  return 0
-}
 ask_email() { # sets REPLY_EMAIL
   local e
   while true; do
@@ -147,9 +155,6 @@ bot_username() { # bot_username TOKEN -> prints @username or nothing (token neve
     | curl -fsS -m 10 -K - 2>/dev/null | sed -n 's/.*"username":"\([^"]*\)".*/@\1/p'
 }
 
-server_ip() { curl -4 -fsS -m 6 https://api.ipify.org 2>/dev/null || curl -4 -fsS -m 6 https://ifconfig.me 2>/dev/null || true; }
-domain_ip() { getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}'; }
-
 check_dns() { # warn when a domain does not point here
   local sip d dip bad=0; sip="$(server_ip)"
   [ -z "$sip" ] && { warn "Could not detect this server's public IP; skipping the DNS check."; return 0; }
@@ -160,12 +165,15 @@ check_dns() { # warn when a domain does not point here
   done
   if [ "$bad" = 1 ]; then
     warn "TLS certificates cannot be issued until the domains point at this server."
+    if [ "$NONINTERACTIVE" = 1 ]; then
+      if [ "$OPT_SKIP_DNS" = 1 ]; then warn "Continuing anyway (--skip-dns-check)."; return 0; fi
+      err "Fix the DNS records first (a wrong record burns Let's Encrypt's 5 certificates/week limit), or pass --skip-dns-check when a CDN/proxy sits in front of the domains."
+      return 1
+    fi
     confirm "Continue anyway?" n || return 1
   fi
   return 0
 }
-
-port_busy() { ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$"; }
 
 banner() {
   clear 2>/dev/null || true
@@ -188,49 +196,177 @@ EOF
 }
 
 # ---------------------------------------------------------------- 1) Install
+install_usage() {
+  cat <<'EOF'
+Usage: melorin install [options]            (no options = the interactive questions)
+  --domain D            store (sales site) domain, e.g. shop.example.com        [env DOMAIN]
+  --admin-domain A      admin panel domain, e.g. admin.example.com              [env ADMIN_DOMAIN]
+  --email E             login e-mail of the first admin                          [env ADMIN_EMAIL]
+  --admin-tg ID         numeric Telegram ID of the main admin (optional)         [env ADMIN_TELEGRAM_ID]
+  --bot-token-file F    file whose first line is the Telegram bot token (optional; or env MAIN_BOT_TOKEN)
+  --external-proxy      ports 80/443 belong to your own reverse proxy; Melorin listens on 127.0.0.1:18080/18081/18000
+  --skip-dns-check      do not refuse when the domains do not resolve to this server (CDN / proxy in front)
+  --force               downgrade RAM / disk / OS-version failures to warnings
+  -y, --yes             never ask: use the values above (also implied when there is no terminal)
+EOF
+}
+
+set_install_opt() {
+  case "$1" in
+    --domain) OPT_DOMAIN="$2" ;;
+    --admin-domain) OPT_ADMIN_DOMAIN="$2" ;;
+    --email) OPT_EMAIL="$2" ;;
+    --admin-tg) OPT_TG="$2" ;;
+    --bot-token-file) OPT_TOKEN_FILE="$2" ;;
+  esac
+}
+parse_install_args() { # returns 2 on a usage error
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -y|--yes|--non-interactive) ASSUME_YES=1; NONINTERACTIVE=1 ;;
+      --skip-dns-check) OPT_SKIP_DNS=1 ;;
+      --external-proxy) OPT_EXT=true ;;
+      --force) MELORIN_FORCE=1; export MELORIN_FORCE ;;
+      -h|--help) install_usage; exit 0 ;;
+      --domain|--admin-domain|--email|--admin-tg|--bot-token-file)
+        [ $# -ge 2 ] || { err "$1 needs a value"; return 2; }
+        set_install_opt "$1" "$2"; shift ;;
+      --domain=*|--admin-domain=*|--email=*|--admin-tg=*|--bot-token-file=*) set_install_opt "${1%%=*}" "${1#*=}" ;;
+      --bot-token|--bot-token=*) err "The bot token must not be given on the command line (it would show up in 'ps' and the shell history): use MAIN_BOT_TOKEN=... or --bot-token-file FILE."; return 2 ;;
+      *) err "Unknown install option: $1"; install_usage >&2; return 2 ;;
+    esac
+    shift
+  done
+}
+
+install_lock_held() { # true while an install_server.sh process holds var/install.lock
+  mkdir -p "$APP_DIR/var" || return 1
+  ! ( flock -n 9 ) 9>"$APP_DIR/var/install.lock" 2>/dev/null
+}
+
+# Runs scripts/install_server.sh in its OWN SESSION (setsid) with the output going to the log file, and follows the log on the
+# screen. Closing the terminal or losing the SSH connection no longer kills the install halfway (that used to lose the
+# first-login password); Ctrl-C only stops following. The inputs arrive through the environment of this call.
+run_install_detached() {
+  local log="$MELORIN_LOG_FILE" rcf="$APP_DIR/var/install.rc" pidf="$APP_DIR/var/install.pid" tailpid waited=0 interrupted=0
+  mkdir -p "$APP_DIR/var" || return 1
+  if install_lock_held; then err "An installation is already running. Follow it with: tail -f $log"; return 75; fi
+  rm -f "$rcf" "$pidf"
+  ( umask 077; mkdir -p "$(dirname "$log")"; : >>"$log" ) 2>/dev/null || { err "Cannot write the log file $log"; return 1; }
+  chmod 600 "$log" 2>/dev/null || true
+  printf '\n===== install started %s =====\n' "$(date -u +%FT%TZ)" >>"$log"
+  # The screen shows the installer's own messages; BuildKit's per-step noise (hundreds of "#12 ..." lines) stays in the log file.
+  # MELORIN_VERBOSE=1 shows everything. The subshell is killed together with its tail/grep children below.
+  if [ "${MELORIN_VERBOSE:-0}" = 1 ]; then ( tail -n 0 -f "$log" ) & tailpid=$!
+  else ( tail -n 0 -f "$log" | grep --line-buffered -v -E '^#[0-9]+ |^[[:space:]]*$' ) & tailpid=$!; fi
+  setsid -f bash -c 'echo $$ >"$2"; bash "$1" >>"$3" 2>&1 </dev/null; echo $? >"$4"' _ \
+    "$APP_DIR/scripts/install_server.sh" "$pidf" "$log" "$rcf"
+  trap 'interrupted=1' INT
+  SECONDS=0
+  while [ ! -s "$rcf" ] && [ "$interrupted" = 0 ]; do
+    sleep 1
+    # a heartbeat, so a long silent step (image build, npm ci) never looks like a hang
+    if [ $((SECONDS % 45)) -eq 0 ] && [ "${MELORIN_VERBOSE:-0}" != 1 ]; then printf '   ... still working (%dm%02ds) - full log: %s\n' $((SECONDS / 60)) $((SECONDS % 60)) "$log"; fi
+    if [ ! -s "$pidf" ]; then
+      waited=$((waited + 1))
+      if [ "$waited" -ge 15 ]; then echo 125 >"$rcf"; warn "The installer did not start."; fi
+    elif [ ! -s "$rcf" ] && ! kill -0 "$(cat "$pidf")" 2>/dev/null; then
+      sleep 2   # the exit code is written a moment after the process ends
+      if [ ! -s "$rcf" ]; then echo 137 >"$rcf"; warn "The installer process disappeared (killed? out of memory?)."; fi
+    fi
+  done
+  pkill -P "$tailpid" 2>/dev/null; kill "$tailpid" 2>/dev/null; wait "$tailpid" 2>/dev/null
+  trap ':' INT
+  if [ "$interrupted" = 1 ]; then
+    echo; info "Stopped following. The installation keeps running in the background."
+    info "Follow it: tail -f $log      Finished? cat $rcf   (0 = success)"
+    return 0
+  fi
+  return "$(cat "$rcf")"
+}
+
 do_install() {
-  local DOMAIN ADMIN_DOMAIN BOT ADMIN_EMAIL ADMIN_TG="" ext="$EXTERNAL_PROXY" uname
+  local DOMAIN ADMIN_DOMAIN BOT="" ADMIN_EMAIL ADMIN_TG="" ext="$EXTERNAL_PROXY" uname owner p bad=0 rc
+  [ -n "$OPT_EXT" ] && ext="$OPT_EXT"
 
   if installed; then
     warn "Melorin is already installed (.env exists); it will never be overwritten."
-    confirm "Re-run the installer to repair/re-apply the stack with the existing settings?" n || return 0
+    if [ "$ASSUME_YES" != 1 ]; then
+      confirm "Re-run the installer to repair/re-apply the stack with the existing settings?" n || return 0
+    fi
     DOMAIN="$(env_get MELORIN_DOMAIN)"; ADMIN_DOMAIN="$(env_get MELORIN_ADMIN_DOMAIN)"
-    ADMIN_EMAIL="$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)"; BOT=""; ADMIN_TG="$(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID)"
+    ADMIN_EMAIL="$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)"; ADMIN_TG="$(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID)"
   else
-    echo
-    echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID."
-    echo "Both domains must already point (A record) to this server."
-    echo
-    ask_domain "1) Store (sales site) domain, e.g. shop.example.com" || return 1; DOMAIN="$REPLY_DOMAIN"
-    while true; do
-      ask_domain "2) Admin panel domain, e.g. admin.example.com" || return 1; ADMIN_DOMAIN="$REPLY_DOMAIN"
-      [ "$ADMIN_DOMAIN" != "$DOMAIN" ] && break
-      warn "The admin domain must be different from the store domain."
-    done
-    ask_email "3) Admin e-mail (login name of the first admin)" || return 1; ADMIN_EMAIL="$REPLY_EMAIL"
-    ask_token; BOT="$REPLY_TOKEN"
-    if [ -n "$BOT" ]; then
-      uname="$(bot_username "$BOT")"
-      if [ -n "$uname" ]; then ok "Bot token verified: $uname"
-      else warn "Could not verify the token with Telegram (network or wrong token)."; confirm "Use it anyway?" n || return 1; fi
-    else
-      warn "No token: the Telegram bot will not start until you add it (menu 3)."
-    fi
-    ask_admin_tg "5)"; ADMIN_TG="$REPLY_TG"
-    if [ -n "$ADMIN_TG" ]; then
-      ok "Admin alerts will go to Telegram ID $ADMIN_TG (open the bot once and press Start so Telegram can deliver them)."
-    else
-      warn "No Telegram ID: admin alerts stay in the panel only (set it later: menu 3 -> Admin Telegram ID, or in the Admin panel)."
-    fi
-    echo
-    info "Checking DNS..."
-    check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1
+    info "Checking this server..."
+    PF_FAIL=0; preflight_system
+    if [ "$PF_FAIL" -gt 0 ]; then err "This server does not meet the minimum requirements (above). Fix that, or accept the risk with --force."; return 1; fi
 
-    # Ports 80/443 are required by the bundled Caddy.
-    if [ "$ext" != "true" ] && { port_busy 80 || port_busy 443; }; then
-      warn "Port 80 and/or 443 is already in use on this server."
-      if confirm "Install behind your existing reverse proxy (EXTERNAL_PROXY mode)?" y; then ext=true
-      else err "Free ports 80/443 and try again."; return 1; fi
+    if [ "$NONINTERACTIVE" = 1 ]; then
+      # -------- unattended: every value comes from flags / environment and is validated here, before anything is touched
+      DOMAIN="$(norm_domain "$OPT_DOMAIN")"; ADMIN_DOMAIN="$(norm_domain "$OPT_ADMIN_DOMAIN")"
+      ADMIN_EMAIL="${OPT_EMAIL,,}"; ADMIN_EMAIL="${ADMIN_EMAIL//[[:space:]]/}"
+      BOT="${MAIN_BOT_TOKEN:-}"
+      if [ -n "$OPT_TOKEN_FILE" ]; then
+        [ -r "$OPT_TOKEN_FILE" ] || { err "--bot-token-file: cannot read $OPT_TOKEN_FILE"; return 2; }
+        BOT="$(head -n1 "$OPT_TOKEN_FILE")"
+      fi
+      BOT="${BOT//[[:space:]]/}"; ADMIN_TG="$(fold_digits "$OPT_TG")"
+      valid_domain "$DOMAIN"       || { err "--domain: '${OPT_DOMAIN}' is not a valid domain (example: shop.example.com)"; bad=1; }
+      valid_domain "$ADMIN_DOMAIN" || { err "--admin-domain: '${OPT_ADMIN_DOMAIN}' is not a valid domain (example: admin.example.com)"; bad=1; }
+      if [ "$DOMAIN" = "$ADMIN_DOMAIN" ] && [ -n "$DOMAIN" ]; then err "--admin-domain must be different from --domain"; bad=1; fi
+      valid_email "$ADMIN_EMAIL"   || { err "--email: '${OPT_EMAIL}' is not a usable address (.test/.local/.invalid/.onion domains are refused by the app's login validator)"; bad=1; }
+      if [ -n "$BOT" ] && ! valid_token "$BOT"; then err "The bot token is malformed (expected 123456789:AA...)"; bad=1; fi
+      if [ -n "$ADMIN_TG" ] && ! valid_tg_id "$ADMIN_TG"; then err "--admin-tg is not a numeric Telegram ID (5-15 digits; not the @username)"; bad=1; fi
+      if [ "$bad" = 1 ]; then echo >&2; install_usage >&2; return 2; fi
+      if [ -n "$BOT" ]; then
+        uname="$(bot_username "$BOT")"
+        if [ -n "$uname" ]; then ok "Bot token verified: $uname"; else warn "Could not verify the bot token with Telegram (network or wrong token); continuing."; fi
+      fi
+      if [ "$ext" != true ]; then check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1; fi
+    else
+      # -------- interactive: the five questions
+      echo
+      echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID."
+      echo "Both domains must already point (A record) to this server."
+      echo
+      ask_domain "1) Store (sales site) domain, e.g. shop.example.com" || return 1; DOMAIN="$REPLY_DOMAIN"
+      while true; do
+        ask_domain "2) Admin panel domain, e.g. admin.example.com" || return 1; ADMIN_DOMAIN="$REPLY_DOMAIN"
+        [ "$ADMIN_DOMAIN" != "$DOMAIN" ] && break
+        warn "The admin domain must be different from the store domain."
+      done
+      ask_email "3) Admin e-mail (login name of the first admin)" || return 1; ADMIN_EMAIL="$REPLY_EMAIL"
+      ask_token; BOT="$REPLY_TOKEN"
+      if [ -n "$BOT" ]; then
+        uname="$(bot_username "$BOT")"
+        if [ -n "$uname" ]; then ok "Bot token verified: $uname"
+        else warn "Could not verify the token with Telegram (network or wrong token)."; confirm "Use it anyway?" n || return 1; fi
+      else
+        warn "No token: the Telegram bot will not start until you add it (menu 3)."
+      fi
+      ask_admin_tg "5)"; ADMIN_TG="$REPLY_TG"
+      if [ -n "$ADMIN_TG" ]; then
+        ok "Admin alerts will go to Telegram ID $ADMIN_TG (open the bot once and press Start so Telegram can deliver them)."
+      else
+        warn "No Telegram ID: admin alerts stay in the panel only (set it later: menu 3 -> Admin Telegram ID, or in the Admin panel)."
+      fi
+      echo
+      info "Checking DNS..."
+      check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1
+    fi
+
+    # Ports 80/443 are required by the bundled Caddy; say WHO holds them (a stock nginx/apache on the image is the usual culprit).
+    if [ "$ext" != "true" ]; then
+      for p in 80 443; do
+        if owner="$(port_owner "$p")"; then
+          warn "Port $p is already in use by $owner."
+          if [ "$NONINTERACTIVE" = 1 ]; then
+            err "Free port $p (e.g. systemctl disable --now nginx apache2), or install behind your own reverse proxy with --external-proxy."; return 1
+          fi
+          if confirm "Install behind your existing reverse proxy (EXTERNAL_PROXY mode)?" y; then ext=true; break
+          else err "Free ports 80/443 and try again."; return 1; fi
+        fi
+      done
     fi
     echo
     echo "  Store domain : $DOMAIN"
@@ -240,22 +376,31 @@ do_install() {
     echo "  Admin TG ID  : ${ADMIN_TG:-not set}"
     echo "  Proxy mode   : $([ "$ext" = true ] && echo 'external (loopback ports 18080/18081/18000)' || echo 'bundled Caddy (automatic TLS)')"
     echo
-    confirm "Start the installation?" y || return 0
+    if [ "$NONINTERACTIVE" != 1 ]; then confirm "Start the installation?" y || return 0; fi
   fi
 
   [ -x "$APP_DIR/scripts/install_server.sh" ] || chmod +x "$APP_DIR/scripts/install_server.sh"
-  MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" SKIP_BOT_PROMPT=1 \
-  DOMAIN="$DOMAIN" ADMIN_DOMAIN="$ADMIN_DOMAIN" ADMIN_EMAIL="$ADMIN_EMAIL" \
-  EXTERNAL_PROXY="$ext" REPO_URL="$REPO_URL" REPO_REF="$REPO_REF" APP_DIR="$APP_DIR" \
-    bash "$APP_DIR/scripts/install_server.sh"
-  local rc=$?
+  if installed; then info "Re-applying the stack with the existing settings (a few minutes)."
+  else info "Installing. This takes about 5-15 minutes (the images are built on this server)."; fi
+  info "It runs in the background with a log ($MELORIN_LOG_FILE): even if the connection drops, it carries on."
+  (
+    export MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" SKIP_BOT_PROMPT=1 MELORIN_PREFLIGHT_DONE=1 \
+           DOMAIN="$DOMAIN" ADMIN_DOMAIN="$ADMIN_DOMAIN" ADMIN_EMAIL="$ADMIN_EMAIL" \
+           EXTERNAL_PROXY="$ext" REPO_URL="$REPO_URL" REPO_REF="$REPO_REF" APP_DIR="$APP_DIR" \
+           MELORIN_FORCE="${MELORIN_FORCE:-0}" MELORIN_LOG_FILE="$MELORIN_LOG_FILE"
+    run_install_detached
+  )
+  rc=$?
   BOT=""
   load_mode
-  if [ $rc -eq 0 ]; then
+  if [ $rc -eq 75 ]; then return 1   # already running: run_install_detached said so
+  elif [ $rc -eq 0 ]; then
     echo; ok "Installation finished. Open the menu any time with: melorin"
   else
-    err "Installer exited with code $rc - fix the problem above and run the install again (it is safe to repeat)."
+    err "The installer stopped (code $rc). The reason is at the end of the log: tail -n 40 $MELORIN_LOG_FILE"
+    err "Fix it and run the install again; it is safe to repeat."
   fi
+  return $rc
 }
 
 # ---------------------------------------------------------------- 2) Update
@@ -264,13 +409,16 @@ resolve_ref() {
 }
 do_update() {
   installed || { err "Not installed yet."; return 1; }
+  if install_lock_held; then err "An installation is running right now; wait for it (tail -f $MELORIN_LOG_FILE)."; return 1; fi
   local before after
   before="$(git rev-parse --short HEAD 2>/dev/null)"
+  git config core.fileMode false   # heals installs made before get.sh set it: chmod +x must not make the tree "dirty"
   info "Fetching ($REPO_REF)..."
-  git fetch --quiet --tags origin || { err "git fetch failed (network?)"; return 1; }
+  retry 3 5 git fetch --quiet --tags origin || { err "git fetch failed (network?)"; return 1; }
   # A moving ref (main) would leave an install stuck behind newer releases: prefer the newest vX.Y.Z tag when one exists (audit V-32a).
   if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
-    local newest; newest="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)"
+    # strict vX.Y.Z only: a release candidate (v1.0.0-rc1) must neither win over v1.0.0 nor count as "the newest release"
+    local newest; newest="$(git tag --list 'v[0-9]*' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -n1)"
     if [ -n "$newest" ]; then info "Newest release tag is $newest; updating to it instead of moving '$REPO_REF'."; REPO_REF="$newest"; fi
   fi
   # Optional release-signature gate (audit V-020): MELORIN_REQUIRE_SIGNED_TAGS=1 refuses any ref that is not a tag signed by a key
@@ -302,13 +450,14 @@ do_update() {
   # migrate service must not run before it). Set MELORIN_SKIP_PRE_UPDATE_BACKUP=1 only if you have a fresh backup elsewhere.
   if [ "${MELORIN_SKIP_PRE_UPDATE_BACKUP:-0}" != "1" ]; then
     info "Taking a pre-update backup..."
-    compose run --rm --no-deps backup python -c "import asyncio; from melorin.worker import jobs; print(asyncio.run(jobs.backup_job()))" \
+    compose run -T --rm --no-deps backup python -c "import asyncio; from melorin.worker import jobs; print(asyncio.run(jobs.backup_job()))" </dev/null \
       || { err "Pre-update backup failed - nothing was migrated. Fix the backup (menu: status) or set MELORIN_SKIP_PRE_UPDATE_BACKUP=1."; return 1; }
   fi
-  compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted. Roll back the code with: git checkout --detach $before"; return 1; }
+  compose run -T --rm api alembic upgrade head </dev/null || { err "Migration failed - services were NOT restarted. Roll back the code with: git checkout --detach $before"; return 1; }
   compose up -d --remove-orphans         || { err "Could not start the services."; return 1; }
   ok "Updated to $after. Your .env was kept (copy: var/env.before-update)."
-  [ "$before" != "$after" ] && info "If this menu changed, close it and run 'melorin' again."
+  if [ "$before" != "$after" ]; then info "If this menu changed, close it and run 'melorin' again."; fi
+  return 0
 }
 
 # ---------------------------------------------------------------- 3) Edit .env
@@ -482,6 +631,14 @@ do_status() {
 
 # ---------------------------------------------------------------- 7) Uninstall
 do_uninstall() {
+  # APP_DIR comes from the location of this script: refuse anything that is not clearly a Melorin checkout.
+  case "$APP_DIR" in
+    ""|/|/usr|/usr/*|/bin|/sbin|/lib|/etc|/var|/root|/home|/boot|/opt|/srv|/mnt|/tmp)
+      err "Refusing to delete '$APP_DIR': that is not a Melorin install directory."; return 1 ;;
+  esac
+  if [ ! -d "$APP_DIR/.git" ] || [ ! -f "$APP_DIR/melorin.sh" ] || [ ! -f "$APP_DIR/docker-compose.yml" ]; then
+    err "Refusing to delete '$APP_DIR': it does not look like a Melorin checkout."; return 1
+  fi
   echo "${CR}This removes Melorin from this server.${C0}"
   echo "  - containers, images and Docker volumes (database, redis)"
   echo "  - TLS certificates are KEPT (volume caddy_data) so a reinstall does not hit the Let's Encrypt limit of 5 certificates/7 days"
@@ -505,6 +662,55 @@ do_uninstall() {
   exit 0
 }
 
+# ---------------------------------------------------------------- 8) Doctor
+# Read-only: tells what would stop (or already stops) Melorin from working. Exit code = number of FAIL lines.
+do_doctor() {
+  PF_FAIL=0; PF_WARN=0
+  echo "${CB}Melorin doctor${C0}  (read-only: nothing is changed)"
+  echo; echo "${CB}System${C0}";  preflight_system
+  echo; echo "${CB}Docker${C0}";  preflight_docker
+  echo; echo "${CB}Network${C0}"; preflight_network
+  if installed; then
+    echo; echo "${CB}This installation${C0}"
+    local k mode dom adm
+    for k in MELORIN_DOMAIN MELORIN_ADMIN_DOMAIN MELORIN_JWT_SECRET MELORIN_ENCRYPTION_KEY POSTGRES_PASSWORD MELORIN_DATABASE_URL \
+             MELORIN_BOT_SERVICE_SECRET MELORIN_MAIN_BOT_SECRET MELORIN_RESELLER_BOT_SECRET MELORIN_METRICS_TOKEN MELORIN_HEALTH_TOKEN; do
+      [ -n "$(env_get "$k")" ] || pf_fail ".env: $k is empty or missing"
+    done
+    mode="$(stat -c %a "$ENV_FILE_PATH" 2>/dev/null)"
+    if [ "$mode" = 600 ]; then pf_ok ".env permissions 600"; else pf_warn ".env permissions are $mode (should be 600): chmod 600 $ENV_FILE_PATH"; fi
+    [ -n "$(env_get MELORIN_TELEGRAM_TOKEN)" ] && pf_ok "Telegram bot token is set" || pf_warn "Telegram bot token is not set (menu 3 -> Bot token)"
+    [ -s secrets/backup/age-identity.txt ] && pf_ok "Backup key present (keep a copy OFF this server)" || pf_warn "Backup key secrets/backup/age-identity.txt is missing"
+    if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then pf_warn "Tracked files were edited on this server; updates will refuse until 'git stash'"; else pf_ok "Checkout is clean"; fi
+    if [ "$EXTERNAL_PROXY" != true ]; then
+      dom="$(env_get MELORIN_DOMAIN)"; adm="$(env_get MELORIN_ADMIN_DOMAIN)"; preflight_dns "$dom" "$adm"
+    fi
+    local bad
+    bad="$(compose ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null | awk '$2!="running" && $2!="" || $3=="unhealthy" {print $1":"$2"/"$3}' | tr '\n' ' ')"
+    if [ -z "$bad" ]; then pf_ok "All containers running"; else pf_fail "Containers not healthy: $bad (logs: melorin logs <service>)"; fi
+  elif [ "$EXTERNAL_PROXY" != true ]; then
+    echo; echo "${CB}Ports (the bundled Caddy needs 80 and 443)${C0}"; preflight_ports
+  fi
+  echo
+  if [ "$PF_FAIL" -gt 0 ]; then err "$PF_FAIL problem(s) must be fixed, $PF_WARN warning(s)."
+  elif [ "$PF_WARN" -gt 0 ]; then warn "No blocking problem; $PF_WARN warning(s) above."
+  else ok "Everything looks good."; fi
+  [ "$PF_FAIL" -eq 0 ]
+}
+
+usage() {
+  cat <<'EOF'
+melorin - manage this Melorin server
+  melorin                       the interactive menu (needs a terminal)
+  melorin install [options]     install; with --domain/--admin-domain/--email/--yes it asks nothing (melorin install --help)
+  melorin update                pull the newest release, back up, migrate, restart (.env is kept)
+  melorin status                health summary
+  melorin doctor                read-only check of this server and this installation
+  melorin panel                 web panel URLs, health, admin password reset
+  melorin restart | logs [service]
+EOF
+}
+
 # ---------------------------------------------------------------- menu
 main_menu() {
   while true; do
@@ -517,6 +723,7 @@ main_menu() {
    ${CB}5${C0}) Service      status / start / stop / restart / logs
    ${CB}6${C0}) Status       health summary
    ${CB}7${C0}) Uninstall    remove everything
+   ${CB}8${C0}) Doctor       check this server / find problems
    ${CB}0${C0}) Exit
 EOF
     read -r -p "Select: " c || exit 0
@@ -528,19 +735,30 @@ EOF
       5) service_menu ;;
       6) do_status; pause ;;
       7) do_uninstall; pause ;;
+      8) do_doctor; pause ;;
       0|q|"") exit 0 ;;
       *) warn "Invalid choice."; sleep 1 ;;
     esac
   done
 }
 
-case "${1:-menu}" in
-  menu)    main_menu ;;
-  install) do_install ;;
-  update)  do_update ;;
+cmd="${1:-menu}"; [ $# -gt 0 ] && shift
+case "$cmd" in
+  menu)
+    if [ "$HAVE_TTY" != 1 ]; then
+      err "The menu needs a terminal, and this session has none (ssh without -t, cron, cloud-init...)."
+      echo "  Interactive: connect with 'ssh -t host' and run: melorin" >&2
+      echo "  Unattended : melorin install --domain D --admin-domain A --email E --yes   (melorin install --help)" >&2
+      exit 2
+    fi
+    main_menu ;;
+  install) parse_install_args "$@" || exit $?; do_install; exit $? ;;
+  update)  do_update; exit $? ;;
   status)  do_status ;;
+  doctor)  do_doctor; exit $? ;;
   panel)   web_panel ;;
   restart) installed && compose restart ;;
-  logs)    installed && compose logs --tail=150 -f ${2:+"$2"} ;;
-  *) echo "Usage: melorin [install|update|status|panel|restart|logs [service]]"; exit 2 ;;
+  logs)    installed && compose logs --tail=150 -f ${1:+"$1"} ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
 esac

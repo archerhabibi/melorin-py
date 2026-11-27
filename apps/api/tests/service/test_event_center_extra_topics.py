@@ -51,10 +51,10 @@ async def _queued(s, topic):
 
 # ----- which destination has which topic -----
 def test_platform_topics_exist_only_for_the_admin():
-    assert set(topics_for(True)) == set(TOPICS) and len(TOPICS) == 9
+    assert set(topics_for(True)) == set(TOPICS) and len(TOPICS) == 11
     reseller = topics_for(False)
     assert not (set(reseller) & ADMIN_ONLY_TOPICS) and {"daily", "tests"} <= set(reseller)
-    assert {"backup", "affiliate"} == set(ADMIN_ONLY_TOPICS)
+    assert {"backup", "affiliate", "panels", "admin"} == set(ADMIN_ONLY_TOPICS)
     assert service.parse_topics({"backup": 5}) == {"backup": 5}  # known to the admin
     with pytest.raises(AppError) as e:
         service.parse_topics({"backup": 5}, topics_for(False))
@@ -87,7 +87,7 @@ async def test_admin_provisioning_creates_every_topic_including_backup(monkeypat
     async with open_session() as s:
         await _world(s)
         res = await service.provision_topics(s, store=None, actor_id=uuid.uuid4())
-        assert res["created"] == 9 and service.TOPICS["backup"] in ch.created
+        assert res["created"] == 11 and service.TOPICS["backup"] in ch.created and service.TOPICS["panels"] in ch.created
         dest = await service.get_destination(s, None)
         assert set(dest.topics) == set(TOPICS)
 

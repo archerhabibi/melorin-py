@@ -8,9 +8,8 @@ import type { RequestBody, ResponseBody } from '@melorin/api-client';
 import { API_BASE, typedClient } from '../../api/api.ts';
 import { Empty, Field, Section, Switch, errMsg, num } from '../../shared/kit.tsx';
 import { confirmDialog, dt } from '../../shared/ui.tsx';
-import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
-import type { ReceiptFetcher } from './receiptFile.ts';
-import type { CallFn, Toast } from '../../shared/types.ts';
+import { useMainStore } from './usePaymentsData.ts';
+import type { Toast } from '../../shared/types.ts';
 
 const STATUS: Record<string, [string, string]> = {
   matched: ['شارژ شد', 'b-ok'],
@@ -43,19 +42,9 @@ type TextField = Exclude<keyof BankSmsForm, 'auto_verify' | 'is_enabled' | 'requ
 
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
 
-export default function BankSmsPanel({
-  call,
-  toast,
-  payments,
-  receipt,
-}: {
-  call: CallFn;
-  toast: Toast;
-  payments?: WaitingPayment[] | null;
-  receipt?: ReceiptFetcher;
-}) {
+export default function BankSmsPanel({ toast, payments }: { toast: Toast; payments?: WaitingPayment[] | null }) {
   const client = useMemo(() => typedClient(API_BASE), []);
-  const [store, setStore] = useState<string | false | null>(null); // null = resolving, false = no main store
+  const store = useMainStore(); // null = resolving, false = no main store
   const [data, setData] = useState<Overview | null>(null);
   const [form, setForm] = useState<BankSmsForm | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -67,18 +56,6 @@ export default function BankSmsPanel({
   // The form is seeded from the stored source once and re-seeded only after a save: a reload (filter change, pairing,
   // reconcile) must never wipe what the admin is typing.
   const seed = (source: Overview['source']) => setForm(formFromSource(source));
-
-  useEffect(() => {
-    const ctl = new AbortController();
-    client
-      .get('/api/v1/me/stores', { signal: ctl.signal })
-      .then(({ data: list, response }) => {
-        const stores = (response.ok && Array.isArray(list) ? list : []) as { id?: string; kind?: string }[];
-        setStore(stores.find((x) => x.kind === 'main')?.id || false);
-      })
-      .catch((e) => !isAbort(e) && setStore(false));
-    return () => ctl.abort();
-  }, [client]);
 
   useEffect(() => {
     if (!store) return;
@@ -191,13 +168,6 @@ export default function BankSmsPanel({
 
   return (
     <>
-      <ReceiptReviewPanel
-        call={call}
-        toast={toast}
-        base={`/api/v1/admin/stores/${store}`}
-        receipt={receipt}
-        onChanged={reload}
-      />
       <Section
         title="تأیید خودکار کارت‌به‌کارت با پیامک بانک"
         hint="پیامک واریز بانک مبنای تأیید است، نه عکس رسید. فقط وقتی مبلغ، زمان رسید و پیامک بدون ابهام یکی باشند، کیف پول خودکار شارژ می‌شود."

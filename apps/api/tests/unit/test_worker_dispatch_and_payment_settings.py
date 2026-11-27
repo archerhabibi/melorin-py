@@ -19,6 +19,7 @@ HANDLED_TOPICS = {
     events.VPN_REVOKE,
     events.VPN_RENEWAL_ROLLBACK,
     events.NOTIFY,
+    events.ADMIN_ALERT,  # the admin's bot DM: panel/node failures and customers' payments only
     events.EVENT_CENTER,
     events.EVENT_CENTER_DELIVER,  # Telegram Event Center delivery (one queued message per destination)
     events.TICKET_UPDATED,
