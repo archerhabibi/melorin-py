@@ -81,7 +81,7 @@ async def test_reseller_store_uses_its_own_domain(s):
     assert out.url.startswith("https://shop.example.ir/#/auth/handoff?t=")
 
 
-async def test_expired_or_unknown_token_and_admins_are_refused(s):
+async def test_expired_or_unknown_token_is_refused_and_an_admin_accounts_bot_session_may_hand_off(s):
     u = await _user(s)
     main = await _main(s)
     token = await service.create_web_handoff(s, u, main.id)
@@ -92,10 +92,9 @@ async def test_expired_or_unknown_token_and_admins_are_refused(s):
         with pytest.raises(AppError) as e:
             await router.web_handoff_redeem(WebHandoffRedeem(token=t), s, REQ, Response())
         assert e.value.code == "HANDOFF_INVALID"
-    admin = await _user(s, sub="43", is_super_admin=True)
-    with pytest.raises(AppError) as e:
-        await router.create_web_handoff(WebHandoffIn(), auth_for(admin, main, "bot"), s)
-    assert e.value.status == 403
+    admin = await _user(s, sub="43", is_super_admin=True)  # the admin is an ordinary customer in the bot: the account button works
+    out = await router.create_web_handoff(WebHandoffIn(), auth_for(admin, main, "bot"), s)
+    assert "#/auth/handoff?t=" in out.url
 
 
 async def test_handoff_only_works_on_the_store_it_was_minted_for(s):

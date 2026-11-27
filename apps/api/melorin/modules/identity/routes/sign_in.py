@@ -31,7 +31,6 @@ from melorin.modules.identity.routes._common import (
     GOOGLE_NONCE_TTL,
     REFRESH_COOKIE,
     _after_signup,
-    _refuse_admin_on_customer_channel,
     _set_refresh_cookie,
 )
 
@@ -76,8 +75,9 @@ async def email_request_code(body: EmailCodeRequest, session: Session):
 @auth.post("/email/verify-code", response_model=TokenPair)
 async def email_verify_code(body: EmailCodeVerify, session: Session, request: Request, response: Response):
     site = await channel.site_channel(session, request)  # which store's website is this? (Host, verified by Core)
-    user, created = await service.login_with_email_code(session, body.email, body.code)
-    _refuse_admin_on_customer_channel(user)
+    user, created = await service.login_with_email_code(
+        session, body.email, body.code
+    )  # an admin's e-mail: a customer session (issue_tokens)
     if created:
         await flags.ensure_enabled(session, "registration")
     await _after_signup(session, user, created, site.store_id, body.referral_code)
@@ -215,7 +215,6 @@ async def telegram_webapp(body: TelegramWebAppLogin, session: Session, request: 
         session,
         TelegramProfile(telegram_id=tg["id"], first_name=tg.get("first_name"), last_name=tg.get("last_name"), username=tg.get("username")),
     )
-    _refuse_admin_on_customer_channel(user)
     await _after_signup(session, user, created, chan.store_id, None)
     pair = await service.issue_tokens(session, user, chan, ua=request.headers.get("user-agent"))
     await session.commit()
@@ -227,7 +226,6 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
     """Trusted bot runner exchanges a Telegram user (validated by Telegram itself) for a Core session of ITS store."""
     chan = await channel.bot_channel(session, bot, body.store_id)
     user, created = await service.login_with_telegram(session, body)
-    _refuse_admin_on_customer_channel(user)
     await _after_signup(session, user, created, chan.store_id, body.referral_code)
     missing = await channel_gate.missing_channels(session, chan, body.telegram_id)
     if missing:
@@ -244,7 +242,6 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
 async def telegram_link(body: TelegramLink, session: Session, bot: BotAuth):
     chan = await channel.bot_channel(session, bot, body.store_id)
     user = await service.link_telegram(session, body.code, body)
-    _refuse_admin_on_customer_channel(user)
     pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
     await session.commit()
     return pair

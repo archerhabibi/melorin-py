@@ -16,6 +16,7 @@ from melorin.core.config import get_settings
 from melorin.core.deps import Session
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit
+from melorin.domain import admin_access
 from melorin.modules.identity import service
 from melorin.channels.telegram import oidc
 from melorin.modules.identity.router import _set_refresh_cookie
@@ -110,7 +111,7 @@ async def callback(session: Session, request: Request, code: str | None = None, 
         audit.security_event(session, "tg_oidc_inactive_account", user.id, {})
         await session.commit()
         return _back(origin, "account_disabled")
-    if user.is_super_admin:
+    if user.is_super_admin and not admin_access.may_shop_as_customer(store.kind):  # admins shop in the main store only
         audit.security_event(session, "tg_oidc_admin_refused", user.id, {})
         await session.commit()
         return _back(origin, "admin_use_panel")

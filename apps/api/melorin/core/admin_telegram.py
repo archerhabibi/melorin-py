@@ -5,7 +5,9 @@ The admin's bot DM is reserved for what is very important (panel / node failures
 numeric chat ID, so the installer asks for it and Core links it to the admin account as an ordinary ``telegram`` identity: the same
 row the notification worker already looks up.
 
-Admins still never sign in through Telegram (``ADMIN_USE_PANEL``); the identity is only a delivery address.
+The same identity also lets the admin use the main store (bot and website) as an ordinary customer (buy, renew, wallet): that session is a
+customer session of the admin's own account, with no admin rights and no way to change the account's credentials (``core.deps.credential_user``).
+The admin panel (password + TOTP) stays the only way to an admin session.
 """
 
 from __future__ import annotations

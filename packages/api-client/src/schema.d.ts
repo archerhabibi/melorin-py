@@ -8828,6 +8828,11 @@ export interface components {
         };
         /** MeOut */
         MeOut: {
+            /**
+             * Admin Account
+             * @default false
+             */
+            admin_account: boolean;
             /** Display Name */
             display_name: string | null;
             /** Email */
@@ -10628,6 +10633,11 @@ export interface components {
         TokenPair: {
             /** Access Token */
             access_token: string;
+            /**
+             * Admin Account
+             * @default false
+             */
+            admin_account: boolean;
             /** Channel */
             channel?: string | null;
             /** Expires In */
