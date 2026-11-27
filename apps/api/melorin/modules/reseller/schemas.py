@@ -3,8 +3,9 @@ import uuid
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field, HttpUrl, StringConstraints, model_validator
+from pydantic import BaseModel, Field, HttpUrl, StringConstraints, field_validator, model_validator
 
+from melorin.core.brand import normalize_store_name
 from melorin.modules.catalog.schemas import RenewalOut
 from melorin.core.limits import MAX_MONEY
 
@@ -14,6 +15,16 @@ class ApplicationIn(BaseModel):
     (Telegram: request first, details are collected after the admin approves)."""
 
     store_name: str = Field(min_length=2, max_length=200)
+
+    @field_validator("store_name")
+    @classmethod
+    def _clean_store_name(cls, v: str) -> str:
+        """The applicant's store name becomes the brand its customers see (ADR-R3): same rules as every other store name."""
+        name = normalize_store_name(v)  # ValueError -> a 422 with the Persian reason
+        if len(name) < 2:
+            raise ValueError("نام فروشگاه باید دست‌کم ۲ نویسه باشد.")
+        return name
+
     message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=20, max_length=2000)] = Field(
         description="required: why the applicant wants a reseller store (min 20 characters)"
     )

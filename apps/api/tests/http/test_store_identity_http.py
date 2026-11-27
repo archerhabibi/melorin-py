@@ -161,3 +161,49 @@ async def test_rename_without_a_main_store_is_a_clean_404():
     async with api_client(with_main_store=False) as (c, maker, _):
         h = await _admin(c, maker)
         assert (await c.patch(f"{ADMIN}/stores/main", headers=h, json={"name": "X"})).status_code == 404
+
+
+# --- a reseller's name follows the same rules as the main store's (customers read it in e-mails and on the payment page) ---
+
+
+async def _reseller_for_edit(maker):
+    async with maker() as s:
+        owner = await add_user(maker, email="owner@example.com")
+        reseller = await make_store(s, kind="reseller", owner=owner)
+        reseller.name = "Old Name"
+        await s.commit()
+        return reseller.id
+
+
+async def test_admin_reseller_edit_collapses_whitespace_in_the_name():
+    async with api_client() as (c, maker, _):
+        h = await _admin(c, maker)
+        rid = await _reseller_for_edit(maker)
+        r = await c.patch(f"{ADMIN}/resellers/{rid}", headers=h, json={"name": "  Tehran \n  Net "})
+        assert r.status_code == 200, r.text
+        async with maker() as s:
+            assert (await s.get(Store, rid)).name == "Tehran Net"
+
+
+@pytest.mark.parametrize("name", ["a\x00b", "bell\x07"])
+async def test_admin_reseller_edit_refuses_control_characters(name):
+    async with api_client() as (c, maker, _):
+        h = await _admin(c, maker)
+        rid = await _reseller_for_edit(maker)
+        r = await c.patch(f"{ADMIN}/resellers/{rid}", headers=h, json={"name": name})
+        assert r.status_code == 422, r.text
+        async with maker() as s:
+            assert (await s.get(Store, rid)).name == "Old Name"
+
+
+def test_reseller_application_name_is_cleaned_and_validated():
+    from pydantic import ValidationError
+
+    from melorin.modules.reseller.schemas import ApplicationIn
+
+    msg = "I want to open my own store for friends and family."
+    assert ApplicationIn(store_name="  My \t Shop ", message=msg).store_name == "My Shop"
+    assert ApplicationIn(store_name="نت\u200cفروش", message=msg).store_name == "نت\u200cفروش"  # ZWNJ is kept
+    for bad in ("a\x00b", "x \n ", "  "):
+        with pytest.raises(ValidationError):
+            ApplicationIn(store_name=bad, message=msg)
