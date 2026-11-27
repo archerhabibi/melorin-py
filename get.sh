@@ -75,13 +75,13 @@ on_err() { # on_err RC LINE
 on_exit() { local d; for d in "${CLEANUP_DIRS[@]}"; do rm -rf "$d"; done; }
 
 # ---------------------------------------------------------------- small helpers (a copy of what scripts/lib/common.sh has)
-retry() { # retry TRIES DELAY cmd...
-  local tries="$1" delay="$2" n=1 what; shift 2
-  what="$*"
+retry() { # retry TRIES DELAY cmd...   (_r_* names: bash `local` is dynamically scoped, see scripts/lib/common.sh)
+  local _r_tries="$1" _r_delay="$2" _r_n=1 _r_what; shift 2
+  _r_what="$*"
   until "$@"; do
-    if [ "$n" -ge "$tries" ]; then return 1; fi
-    warn "attempt $n/$tries failed: ${what:0:90} (retrying in ${delay}s)"
-    sleep "$delay"; n=$((n + 1)); delay=$((delay * 2))
+    if [ "$_r_n" -ge "$_r_tries" ]; then return 1; fi
+    warn "attempt $_r_n/$_r_tries failed: ${_r_what:0:90} (retrying in ${_r_delay}s)"
+    sleep "$_r_delay"; _r_n=$((_r_n + 1)); _r_delay=$((_r_delay * 2))
   done
 }
 apt_run() {

@@ -8,6 +8,15 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-19
 
+### Installer: one-line install redesigned (get.sh, melorin.sh, install_server.sh)
+- `get.sh` is a function-wrapped bootstrapper (a truncated download does nothing), re-runs itself through sudo, checks apt/OS/network, installs the prerequisites with a lock- and dialog-safe apt, clones atomically with retries, accepts only strict `vX.Y.Z` release tags and a full 40-char `--commit` pin, and sets `core.fileMode=false` (its own `chmod +x` used to leave the checkout git-dirty).
+- Unattended mode: `melorin install --domain D --admin-domain A --email E --yes` (bot token via `MAIN_BOT_TOKEN` / `--bot-token-file`, never argv); inputs and DNS are validated before anything starts. `melorin doctor` is a read-only check of the server and the installation.
+- No terminal (ssh without `-t`, cloud-init) no longer ends with exit code 0 and nothing installed: the menu explains and exits 2 (`has_tty` really opens `/dev/tty`).
+- The install runs detached (`setsid`, log `/var/log/melorin-install.log`, lock, exit code file) and is followed live; a dropped connection no longer kills it, and the one-time admin password is saved to `/root/melorin-credentials.txt` before the build.
+- Docker: Compose v2 plugin, minimum version and a running daemon are verified; installed from the official apt repository. Image builds stream live, retry network errors and explain Docker Hub rate limits, blocked registries, full disks and out-of-memory.
+- Fixes: a repair re-run of an installed server no longer dies in `bootstrap`; `melorin update` exits 0 when already current and picks only `vX.Y.Z` tags; `ufw` is never enabled without a confirmed SSH port; `uninstall` refuses a non-checkout directory (a copied `melorin.sh` would have deleted its own folder).
+- Tests: `tests/contracts/test_one_line_installer.py` runs the scripts (truncated download, no-tty, validation, retry, port owner, failure hints).
+
 ### Bank SMS: end-to-end typed API (admin-web + API contract)
 - Core declares response models for every admin and reseller bank-SMS route (`BankSmsOverviewOut`, `BankSmsSourceSavedOut`, `BankSmsMessageOut`, `BankSmsTokenOut`, `BankSmsReconcileOut`); the OpenAPI snapshot and generated TS types now carry real bodies instead of `{}`, and `status` / `direction` / `matched_by` are literal unions. The save body types the tuning knobs (`BankSmsSettingsIn`); ranges and unknown keys are still rejected by `clean_settings` with `BANK_SMS_SETTING_INVALID`.
 - admin-web `BankSmsPanel` reads every response from the generated types (no `Json`, no casts); `@melorin/web-kit/bankSms` has real `BankSmsForm` / `BankSmsSourceBody` types; shared `errMsg()` in `shared/kit.tsx` (also understands FastAPI 422 lists).

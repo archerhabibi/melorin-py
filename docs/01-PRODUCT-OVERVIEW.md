@@ -64,6 +64,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main
 
 **در پایان نصاب رمز یک‌بارمصرف ادمین و seed مربوط به TOTP را چاپ می‌کند؛ همان لحظه هر دو را ذخیره کنید.**
 
+**نصب بدون سؤال** (اتوماسیون، ssh بدون ترمینال، cloud-init): همهٔ ورودی‌ها پیش از شروع بررسی می‌شوند و در صورت خطا هیچ چیز نصب نمی‌شود.
+
+```bash
+export MAIN_BOT_TOKEN='123456:ABC...'     # اختیاری. هرگز روی خط فرمان نگذارید (در ps و history دیده می‌شود)
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh) \
+  install --domain shop.example.com --admin-domain admin.example.com --email you@example.com --yes
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh) doctor    # فقط بررسی: سیستم‌عامل، رم، دیسک، Docker، شبکه، پورت‌ها؛ چیزی نصب نمی‌کند
+```
+
+- نصب در یک نشست جدا اجرا می‌شود و لاگ دارد (`/var/log/melorin-install.log`)؛ قطع شدن SSH آن را نمی‌کشد. رمز اولیهٔ ادمین پیش از هر مرحلهٔ دیگری در `/root/melorin-credentials.txt` (مجوز 600) ذخیره می‌شود؛ بعد از اولین ورود آن را پاک کنید.
+- اجرای دوباره امن است (تعمیر): `.env` و کلیدها هرگز بازنویسی نمی‌شوند.
+- جزئیات طراحی، پرچم‌ها و عیب‌یابی: [docs/18](18-OPERATIONS-DEPLOYMENT-DR.md#نصب-یکخطی-get.sh).
+
 ###### بعد از نصب: سه کار
 
 1. به `https://admin.example.com` بروید، با ایمیل ادمین وارد شوید، seed را به برنامهٔ احراز هویت اضافه کنید و رمز را عوض کنید.
@@ -443,6 +456,19 @@ Choose **1) Install**: it asks only five things, checks that both domains point 
 Port 80/443 already used by another proxy? The menu detects it and switches to [external proxy mode](#existing-reverse-proxy-external_proxy).
 
 **At the end the installer prints a one-time admin password and a TOTP seed. Save both immediately.**
+
+**Unattended install** (automation, ssh without a terminal, cloud-init): every input is validated before anything starts, so a typo installs nothing.
+
+```bash
+export MAIN_BOT_TOKEN='123456:ABC...'     # optional. Never put it on the command line (it would show up in ps and the shell history)
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh) \
+  install --domain shop.example.com --admin-domain admin.example.com --email you@example.com --yes
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh) doctor    # check only: OS, RAM, disk, Docker, network, ports; installs nothing
+```
+
+- The install runs in its own session with a log (`/var/log/melorin-install.log`): a dropped SSH connection does not kill it. The first admin password is saved to `/root/melorin-credentials.txt` (mode 600) before any other step; delete the file after the first login.
+- Running it again is safe (repair): `.env` and the keys are never overwritten.
+- Design, flags and troubleshooting: [docs/18](18-OPERATIONS-DEPLOYMENT-DR.md#one-line-installer-getsh).
 
 ###### After the install: three things to do
 

@@ -553,6 +553,62 @@ of 24 hours and RTO of 8 hours. A passing static check is not runtime evidence:
 the drill must run against a real encrypted backup and PostgreSQL target in
 CI/staging, with its timestamp and duration attached to the release matrix.
 
+## نصب یک‌خطی (get.sh) / One-line installer (get.sh)
+
+### فارسی
+
+زنجیره: `get.sh` (بوت‌استرپ) ← `melorin.sh` (منو و دستورها) ← `scripts/install_server.sh` (نصب) ← `scripts/post_install.sh` (swap، فایروال، fail2ban، گزارش). کتابخانهٔ مشترک: `scripts/lib/common.sh`.
+
+| دستور | کار |
+|---|---|
+| `get.sh` | آماده‌سازی و باز کردن منو (نیاز به ترمینال) |
+| `get.sh install --domain D --admin-domain A --email E --yes` | نصب بدون سؤال؛ توکن ربات با `MAIN_BOT_TOKEN` یا `--bot-token-file` |
+| `get.sh doctor` / `melorin doctor` | بررسی فقط‌خواندنی سرور و نصب؛ کد خروج = تعداد خطاها |
+| `melorin update` | آپدیت (بکاپ، migrate، راه‌اندازی مجدد) |
+
+پرچم‌های `get.sh`: `--ref`، `--commit` (SHA کامل ۴۰ حرفی؛ پین زنجیرهٔ تأمین)، `--allow-main`، `--dir`، `--repo`، `--force` (رم/دیسک/نسخهٔ سیستم‌عامل را از خطا به هشدار تبدیل می‌کند). پرچم‌های `install`: `--external-proxy`، `--skip-dns-check` (وقتی CDN جلوی دامنه است)، `--admin-tg`، `--force`.
+
+طراحی (چرا این‌طور):
+
+- **دانلود ناقص بی‌اثر است:** کل `get.sh` داخل توابع است و فقط آخرین خط `main` را صدا می‌زند.
+- **بدون ترمینال هم درست رفتار می‌کند:** منو بدون ترمینال با کد خروج ۲ توضیح می‌دهد (قبلاً بی‌صدا با کد ۰ و بدون نصب تمام می‌شد)؛ `install --yes` هیچ‌چیز نمی‌پرسد.
+- **قطع SSH نصب را نمی‌کشد:** نصب با `setsid` در نشست جدا اجرا می‌شود؛ لاگ در `/var/log/melorin-install.log`، کد پایان در `var/install.rc`، قفل در `var/install.lock` (دو نصب هم‌زمان ممکن نیست). Ctrl-C فقط دنبال‌کردن لاگ را متوقف می‌کند.
+- **رمز ادمین گم نمی‌شود:** پیش از build و bootstrap در `/root/melorin-credentials.txt` (600) ذخیره می‌شود.
+- **Docker کامل بررسی می‌شود:** باینری، پلاگین Compose v2، نسخهٔ حداقل، daemon؛ نصب از مخزن رسمی apt (نه `curl | sh`).
+- **apt روی سرور تازه نمی‌ایستد:** منتظر قفل dpkg می‌ماند (unattended-upgrades) و dialog باز نمی‌کند.
+- **خطای build علت‌یاب است:** خطاهای شبکه تا ۳ بار تکرار می‌شوند؛ rate limit داکر‌هاب، مسدودی ریجستری، پر شدن دیسک و کمبود رم پیام مشخص با راه‌حل می‌گیرند.
+- **درخت git تمیز می‌ماند** (`core.fileMode=false`)، پین SHA کوتاه پذیرفته نمی‌شود، و نسخهٔ «آخرین release» فقط از تگ‌های `vX.Y.Z` انتخاب می‌شود (نه `-rc`).
+- **فایروال هرگز بدون پورت SSH تأییدشده فعال نمی‌شود** (اتحاد `ss`، `sshd -T` و پورت نشست جاری).
+
+عیب‌یابی: ابتدا `melorin doctor`، بعد `tail -n 80 /var/log/melorin-install.log`. نصب را بی‌خطر می‌شود دوباره اجرا کرد؛ `.env` و کلیدها بازنویسی نمی‌شوند.
+
+### English
+
+Chain: `get.sh` (bootstrap) → `melorin.sh` (menu and commands) → `scripts/install_server.sh` (install) → `scripts/post_install.sh` (swap, firewall, fail2ban, report). Shared library: `scripts/lib/common.sh`.
+
+| Command | Does |
+|---|---|
+| `get.sh` | prepare and open the menu (needs a terminal) |
+| `get.sh install --domain D --admin-domain A --email E --yes` | unattended install; bot token via `MAIN_BOT_TOKEN` or `--bot-token-file` |
+| `get.sh doctor` / `melorin doctor` | read-only check of the server and the installation; exit code = number of failures |
+| `melorin update` | update (backup, migrate, restart) |
+
+`get.sh` flags: `--ref`, `--commit` (full 40-char SHA; supply-chain pin), `--allow-main`, `--dir`, `--repo`, `--force` (turns RAM/disk/OS-version failures into warnings). `install` flags: `--external-proxy`, `--skip-dns-check` (a CDN sits in front of the domain), `--admin-tg`, `--force`.
+
+Design (and why):
+
+- **A truncated download does nothing:** all of `get.sh` lives in functions and only the last line calls `main`.
+- **Correct without a terminal:** the menu explains itself and exits 2 (it used to exit 0 silently with nothing installed); `install --yes` asks nothing.
+- **A dropped SSH connection does not kill the install:** it runs under `setsid` in its own session; log `/var/log/melorin-install.log`, exit code `var/install.rc`, lock `var/install.lock` (no two installs at once). Ctrl-C only stops following the log.
+- **The admin password cannot be lost:** it is saved to `/root/melorin-credentials.txt` (600) before the build and the bootstrap.
+- **Docker is checked properly:** binary, Compose v2 plugin, minimum version, daemon; installed from the official apt repository (not `curl | sh`).
+- **apt does not stall on a fresh server:** it waits for the dpkg lock (unattended-upgrades) and never opens a dialog.
+- **Build failures name their cause:** network errors are retried up to 3 times; Docker Hub rate limit, a blocked registry, a full disk and out-of-memory get a specific message and fix.
+- **The git tree stays clean** (`core.fileMode=false`), abbreviated SHA pins are refused, and "newest release" only considers `vX.Y.Z` tags (never `-rc`).
+- **The firewall is never enabled without a confirmed SSH port** (union of `ss`, `sshd -T` and the current session's port).
+
+Troubleshooting: `melorin doctor` first, then `tail -n 80 /var/log/melorin-install.log`. Re-running the install is safe; `.env` and the keys are never overwritten.
+
 ## منابع و ارجاع‌ها / References
 
 - کد و تست‌های مرتبط در `apps/` و `scripts/`؛ سند فهرست: [00](00-DOCUMENTATION-INDEX.md).

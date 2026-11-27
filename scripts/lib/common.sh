@@ -22,12 +22,14 @@ MIN_DISK_GB_FAIL=8
 has_tty() { ( : </dev/tty ) 2>/dev/null; }
 
 retry() { # retry TRIES DELAY cmd...   (the delay doubles after every failure; returns the last failure)
-  local tries="$1" delay="$2" n=1 what; shift 2
-  what="$*"
+  # _r_* names: bash scopes `local` dynamically, so a retried function that uses a variable called n/delay/tries would otherwise
+  # change the counters of retry itself.
+  local _r_tries="$1" _r_delay="$2" _r_n=1 _r_what; shift 2
+  _r_what="$*"
   until "$@"; do
-    if [ "$n" -ge "$tries" ]; then return 1; fi
-    printf ' !! attempt %s/%s failed: %s (retrying in %ss)\n' "$n" "$tries" "${what:0:90}" "$delay" >&2
-    sleep "$delay"; n=$((n + 1)); delay=$((delay * 2))
+    if [ "$_r_n" -ge "$_r_tries" ]; then return 1; fi
+    printf ' !! attempt %s/%s failed: %s (retrying in %ss)\n' "$_r_n" "$_r_tries" "${_r_what:0:90}" "$_r_delay" >&2
+    sleep "$_r_delay"; _r_n=$((_r_n + 1)); _r_delay=$((_r_delay * 2))
   done
 }
 
