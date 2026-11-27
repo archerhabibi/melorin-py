@@ -28,8 +28,15 @@ def sh(code: str, *, cwd: Path | None = None, env: dict | None = None, timeout: 
     terminal must not make has_tty() true and hang a prompt."""
     full_env = {**os.environ, **(env or {})}
     return subprocess.run(
-        ["bash", "-c", code], cwd=cwd, env=full_env, capture_output=True, text=True,
-        stdin=subprocess.DEVNULL, start_new_session=True, timeout=timeout, check=False,
+        ["bash", "-c", code],
+        cwd=cwd,
+        env=full_env,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+        timeout=timeout,
+        check=False,
     )
 
 
@@ -103,7 +110,8 @@ def test_get_sh_rejects_bad_input_before_touching_anything(args, needle):
 def _git(repo: Path, *args: str):
     subprocess.run(
         ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-C", str(repo), *args],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
 
@@ -177,9 +185,16 @@ def test_melorin_sh_refuses_to_run_as_a_copy(tmp_path):
 @pytest.mark.parametrize(
     "domain, ok",
     [
-        ("shop.example.com", True), ("a.b.c.example.org", True), ("shop.example.xn--p1ai", True),
-        ("localhost", False), ("a b.com", False), ("-a.example.com", False), ("a_b.example.com", False),
-        ("a" * 64 + ".com", False), ("example", False), ("", False),
+        ("shop.example.com", True),
+        ("a.b.c.example.org", True),
+        ("shop.example.xn--p1ai", True),
+        ("localhost", False),
+        ("a b.com", False),
+        ("-a.example.com", False),
+        ("a_b.example.com", False),
+        ("a" * 64 + ".com", False),
+        ("example", False),
+        ("", False),
     ],
 )
 def test_valid_domain(domain, ok):
@@ -188,8 +203,15 @@ def test_valid_domain(domain, ok):
 
 @pytest.mark.parametrize(
     "email, ok",
-    [("me@example.com", True), ("a.b+c@mail.example.org", True), ("me@x.test", False), ("me@host.local", False),
-     ("me@a.onion", False), ("me@localhost", False), ("no-at-sign", False)],
+    [
+        ("me@example.com", True),
+        ("a.b+c@mail.example.org", True),
+        ("me@x.test", False),
+        ("me@host.local", False),
+        ("me@a.onion", False),
+        ("me@localhost", False),
+        ("no-at-sign", False),
+    ],
 )
 def test_valid_email_refuses_special_use_domains(email, ok):
     """V-004: the app's login validator rejects them, so the admin account would be created and never able to sign in."""
@@ -200,7 +222,9 @@ def test_norm_domain_strips_scheme_path_space_and_case():
     assert lib('norm_domain " HTTPS://Shop.Example.com/x/ "').stdout == "shop.example.com"
 
 
-@pytest.mark.parametrize("a, b, ok", [("2.29.1", "2.20.0", True), ("2.20.0", "2.20.0", True), ("2.9.0", "2.20.0", False), ("5.8.0", "2.20.0", True)])
+@pytest.mark.parametrize(
+    "a, b, ok", [("2.29.1", "2.20.0", True), ("2.20.0", "2.20.0", True), ("2.9.0", "2.20.0", False), ("5.8.0", "2.20.0", True)]
+)
 def test_ver_ge_compares_versions_not_strings(a, b, ok):
     assert lib(f"ver_ge {a} {b}").returncode == (0 if ok else 1)
 
@@ -259,7 +283,7 @@ def test_unknown_build_failure_has_no_invented_hint(tmp_path):
 def test_only_network_failures_are_retried(tmp_path):
     flaky, real = tmp_path / "a.log", tmp_path / "b.log"
     flaky.write_text("failed to do request: Get https://registry: net/http: TLS handshake timeout\n")
-    real.write_text("ERROR: failed to solve: process \"/bin/sh -c pip install\" did not complete successfully: exit code: 1\n")
+    real.write_text('ERROR: failed to solve: process "/bin/sh -c pip install" did not complete successfully: exit code: 1\n')
     assert lib(f'transient_failure "{flaky}"').returncode == 0
     assert lib(f'transient_failure "{real}"').returncode == 1
 
@@ -281,7 +305,9 @@ def test_installer_survives_a_dropped_connection_and_runs_one_at_a_time():
 def test_a_repair_rerun_does_not_bootstrap_again():
     """The password is gone from .env after the first success: bootstrap must be conditional or the repair path always died."""
     text = INSTALL.read_text()
-    guard = text.index("if grep -q '^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=' .env; then\n  compose run -T --rm api python -m melorin.cli bootstrap")
+    guard = text.index(
+        "if grep -q '^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=' .env; then\n  compose run -T --rm api python -m melorin.cli bootstrap"
+    )
     assert guard > text.index("alembic upgrade head")
 
 
