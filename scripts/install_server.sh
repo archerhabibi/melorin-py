@@ -6,11 +6,18 @@
 # the very important alerts - panel/node failures, failed provisioning, customer payments - are delivered to it by the main bot), REPO_URL, REPO_REF, APP_DIR,
 # SKIP_BOT_PROMPT=1 (never ask for the token / Telegram ID; used by the melorin menu, which asks them itself),
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
+# MELORIN_FORCE=1 downgrades RAM/disk/OS-version failures to warnings; MELORIN_PREFLIGHT_DONE=1 skips the server check (melorin.sh did it).
 # Idempotent: an existing .env is never overwritten. New environments are
 # assembled in .env.tmp and atomically renamed only after validation succeeds.
 # Default mode uses the bundled Caddy. EXTERNAL_PROXY=true uses loopback
 # bindings and leaves TLS/routing to the existing host proxy.
 set -euo pipefail
+# A dropped SSH session / closed terminal must not kill the install halfway: the first admin password would be lost.
+# (melorin.sh already runs this script in its own session with a log file; this protects direct runs too.)
+trap '' HUP
+# shellcheck source=lib/common.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+fail() { printf '!! %s\n' "$*" >&2; exit 1; }
 # Hosts hardened with umask 077 clone files as 0600/0700; containers running as non-root users (alertmanager,
 # prometheus = 'nobody') then cannot read their bind-mounted config. Secrets are chmod-ed explicitly later.
 umask 022
@@ -18,7 +25,7 @@ umask 022
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 # Default ref: the newest release tag (vX.Y.Z), or `main` while no tag exists - the same rule as get.sh. Never a hidden commit pin.
 if [ -z "${REPO_REF:-}" ]; then
-  REPO_REF="$(git ls-remote --tags --refs "$REPO_URL" 'v[0-9]*' 2>/dev/null | sed 's#.*refs/tags/##' | sort -V | tail -n1)"
+  REPO_REF="$(git ls-remote --tags --refs "$REPO_URL" 'v[0-9]*' 2>/dev/null | sed 's#.*refs/tags/##' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -n1)"
   REPO_REF="${REPO_REF:-main}"
 fi
 APP_DIR="${APP_DIR:-/opt/melorin}"
@@ -33,30 +40,46 @@ if [ "$EXTERNAL_PROXY" = "true" ]; then
 else
   export COMPOSE_PROFILES="${COMPOSE_PROFILES:-local-proxy}"
 fi
-compose() { docker compose "${compose_files[@]}" "$@"; }
+# </dev/null: nothing here is interactive, and a docker command must never swallow the terminal / the rest of a piped script.
+compose() { docker compose "${compose_files[@]}" "$@" </dev/null; }
 
-# Only bundled-proxy installs require public ports to be free.
+[ "$(id -u)" -eq 0 ] || fail "Run as root."
+valid_domain "$DOMAIN"       || fail "DOMAIN '$DOMAIN' is not a valid domain name (example: shop.example.com)."
+valid_domain "$ADMIN_DOMAIN" || fail "ADMIN_DOMAIN '$ADMIN_DOMAIN' is not a valid domain name (example: admin.example.com)."
+[ "$DOMAIN" != "$ADMIN_DOMAIN" ] || fail "ADMIN_DOMAIN must differ from DOMAIN."
+valid_email "$ADMIN_EMAIL"   || fail "ADMIN_EMAIL '$ADMIN_EMAIL' is not usable (.test/.local/.invalid/.onion domains are refused by the app's login validator)."
+
+# Is this server fit? (melorin.sh runs the same gate before it asks its questions and then sets MELORIN_PREFLIGHT_DONE.)
+if [ -z "${MELORIN_PREFLIGHT_DONE:-}" ]; then
+  echo ">> Checking this server"
+  PF_FAIL=0; preflight_system
+  [ "$PF_FAIL" -eq 0 ] || fail "This server does not meet the minimum requirements (see above). Fix that, or accept the risk with MELORIN_FORCE=1."
+fi
+
+# Only bundled-proxy installs require public ports to be free; say WHO holds them.
 if [ "$EXTERNAL_PROXY" != "true" ] && [ ! -f "$APP_DIR/.env" ]; then
   for p in 80 443; do
-    if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"; then
-      echo "Port ${p} is already in use on this server; free it before installing." >&2; exit 1
+    if owner="$(port_owner "$p")"; then
+      fail "Port ${p} is already in use by ${owner}; free it (e.g. systemctl disable --now nginx apache2) or install with EXTERNAL_PROXY=true."
     fi
   done
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  curl -fsSL https://get.docker.com | sh
-fi
-if ! command -v git >/dev/null 2>&1 || ! command -v openssl >/dev/null 2>&1; then
-  apt-get update -y && apt-get install -y git openssl
-fi
+# git/openssl/iproute2 normally come from get.sh; this keeps a direct `bash scripts/install_server.sh` working too.
+pkgs=(); for t in git openssl; do command -v "$t" >/dev/null 2>&1 || pkgs+=("$t"); done
+command -v ss >/dev/null 2>&1 || pkgs+=(iproute2)
+[ "${#pkgs[@]}" -eq 0 ] || apt_install "${pkgs[@]}" || fail "Could not install ${pkgs[*]}."
+# Docker Engine + the Compose v2 plugin (new enough) + a running daemon; installs whatever is missing.
+ensure_docker || exit 1
 
 if [ ! -d "$APP_DIR/.git" ]; then
-  git clone "$REPO_URL" "$APP_DIR"
+  retry 4 5 git clone --quiet "$REPO_URL" "$APP_DIR" || fail "git clone of $REPO_URL failed (network?)."
 fi
 cd "$APP_DIR"
-# Never deploy an unreviewed moving branch. Fetch and check out the pinned release.
-git fetch --quiet --tags origin main
+# Permissions are managed here (chmod below); without this git reports every changed mode bit as a local edit.
+git config core.fileMode false
+# Never deploy an unreviewed moving branch. Fetch EVERYTHING (the old `fetch origin main` missed any other branch) and check out the ref.
+retry 4 5 git fetch --quiet --tags origin || fail "git fetch failed (network?)."
 # A branch name (e.g. main) means "latest of that branch"; tags/commits are used as given.
 if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
   git checkout --quiet --detach "origin/${REPO_REF}"
@@ -65,6 +88,9 @@ else
 fi
 # Remember how this server was installed so `melorin` (melorin.sh) can update it the same way.
 mkdir -p var
+# One installer at a time (a second run would race the first on .env and the database).
+exec 9>var/install.lock
+flock -n 9 || fail "Another installation is already running (var/install.lock). Follow it: tail -f ${MELORIN_LOG_FILE}"
 printf 'EXTERNAL_PROXY=%s\nREPO_REF=%s\n' "$EXTERNAL_PROXY" "$REPO_REF" > var/install-mode
 chmod +x melorin.sh get.sh 2>/dev/null || true
 # A checkout made earlier under umask 077 (manual git clone) leaves bind-mounted config unreadable for the non-root
@@ -131,6 +157,7 @@ if [ ! -f .env ]; then
 
   # --- main Telegram bot token: the only bot configured at install time ---
   BOT="${MAIN_BOT_TOKEN:-}"
+  unset MAIN_BOT_TOKEN   # do not leak it into the environment of every child process (docker, compose, ...)
   if [ -z "$BOT" ] && [ -t 0 ] && [ -z "${SKIP_BOT_PROMPT:-}" ]; then
     read -r -s -p "Main Telegram bot token (from @BotFather, Enter to skip): " BOT; echo
   fi
@@ -185,7 +212,8 @@ if [ ! -f .env ]; then
       set_kv ALERT_TELEGRAM_CHAT_ID "$ADMIN_TG"
     fi
     # Soft check only (Telegram may be unreachable from some networks).
-    if curl -fsS -m 10 "https://api.telegram.org/bot${BOT}/getMe" >/dev/null 2>&1; then
+    # The URL carries the token: hand it to curl on stdin (-K -), never as an argument that `ps` shows.
+    if printf 'url = "https://api.telegram.org/bot%s/getMe"\n' "$BOT" | curl -fsS -m 10 -K - >/dev/null 2>&1; then
       echo ">> main bot token verified with Telegram."
     else
       echo ">> could not verify the bot token with Telegram (network or wrong token); continuing." >&2
@@ -198,12 +226,31 @@ if [ ! -f .env ]; then
   unset ENV_FILE
   chmod 600 .env
 fi
+# The one-time admin password is deleted from .env once the admin exists. Persist it (mode 600) NOW, before anything can fail or
+# the connection can drop; the final summary and post_install.sh repeat it, but this copy is the one that cannot be lost.
+save_credentials() { # save_credentials PASSWORD TOTP
+  local f="${CRED_FILE:-/root/melorin-credentials.txt}"
+  ( umask 077
+    {
+      echo "# Melorin first-login credentials (created $(date -u +%FT%TZ)). Change the password, add the TOTP seed to an authenticator, then DELETE this file."
+      echo "admin_url=https://${ADMIN_DOMAIN}"
+      echo "admin_email=${ADMIN_EMAIL}"
+      if [ -n "${1:-}" ]; then echo "password=${1}"; fi
+      if [ -n "${2:-}" ]; then echo "totp_seed=${2}"; fi
+    } > "$f" )
+  chmod 600 "$f"
+  echo ">> first-login credentials saved to $f (mode 600): delete it after the first login"
+}
+BOOTSTRAP_PASSWORD="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=//p' .env | tail -n1)"
+BOOTSTRAP_TOTP="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=//p' .env | tail -n1)"
+if [ -n "${BOOTSTRAP_PASSWORD}${BOOTSTRAP_TOTP}" ]; then save_credentials "$BOOTSTRAP_PASSWORD" "$BOOTSTRAP_TOTP"; fi
+
 # --- Local encrypted backups (S3 / SMTP are optional and enabled later in Admin) ---
 # The worker only receives the PUBLIC age recipient. The private identity stays on the host in secrets/backup/.
 mkdir -p secrets/backup
 if [ ! -s secrets/backup/recipients.txt ]; then
-  command -v age-keygen >/dev/null 2>&1 || { apt-get update -y && apt-get install -y age; }
-  age-keygen -o secrets/backup/age-identity.txt >/dev/null 2>&1
+  command -v age-keygen >/dev/null 2>&1 || apt_install age || fail "Could not install the 'age' package (backup encryption)."
+  age-keygen -o secrets/backup/age-identity.txt >/dev/null 2>&1 || fail "age-keygen failed; backups cannot be encrypted without a key."
   chmod 600 secrets/backup/age-identity.txt
   age-keygen -y secrets/backup/age-identity.txt > secrets/backup/recipients.txt
   chmod 644 secrets/backup/recipients.txt
@@ -234,14 +281,34 @@ if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: a
   ufw allow 80/tcp >/dev/null && ufw allow 443/tcp >/dev/null && echo ">> ufw: opened 80/tcp and 443/tcp"
 fi
 
-compose build
-compose run --rm api alembic upgrade head
-# Capture the one-time password before bootstrap, then remove it from disk.
-BOOTSTRAP_PASSWORD="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=//p' .env)"
+# Build the images. A flaky registry/network is retried; anything else stops with the most likely cause and the fix.
+build_images() {
+  local out n rc=1
+  out="$(mktemp)"
+  for n in 1 2 3; do
+    # tee: the build streams to the screen/log live (it takes minutes) and is kept for the failure analysis
+    if compose build 2>&1 | tee "$out"; then rc=0; break; fi
+    if [ "$n" -lt 3 ] && transient_failure "$out"; then
+      echo "!! network hiccup while building (attempt $n/3); trying again in $((n * 15))s" >&2; sleep $((n * 15))
+    else
+      break
+    fi
+  done
+  if [ "$rc" -ne 0 ]; then docker_failure_hint "$out" || echo "!! The image build failed (last lines above)." >&2; rm -f "$out"; return 1; fi
+  rm -f "$out"
+}
+build_images || exit 1
+compose run -T --rm api alembic upgrade head
 compose up -d
 # Migrations do not create the first operator account. Bootstrap is explicit,
 # idempotent, and runs only after the database and application image exist.
-compose run --rm api python -m melorin.cli bootstrap
+# The one-time password is deleted from .env after the first success, so a repair re-run of an installed server has nothing to
+# bootstrap (it used to die here with "...PASSWORD are required").
+if grep -q '^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=' .env; then
+  compose run -T --rm api python -m melorin.cli bootstrap
+else
+  echo ">> first admin already exists (no bootstrap password left in .env): skipping bootstrap"
+fi
 # The one-time bootstrap TOTP is persisted encrypted in the database; do not
 # leave the raw seed in the long-lived environment file.
 if grep -q '^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=' .env; then
