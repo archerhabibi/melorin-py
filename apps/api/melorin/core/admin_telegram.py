@@ -1,8 +1,9 @@
 """The main admin's numeric Telegram ID.
 
-Admin alerts (a provisioning failure, a new reseller application, the manual set-up tasks of a new reseller) reach the admin
-through the main Telegram bot. A Telegram bot can only write to a numeric chat ID, so the installer asks for it and Core links
-it to the admin account as an ordinary ``telegram`` identity: the same row the notification worker already looks up.
+The admin's bot DM is reserved for what is very important (panel / node failures, failed provisioning, customers' payments and receipts;
+``domain.messaging_policy``); every other admin notice goes to the Telegram supergroup (Event Center). The DM is sent through the main Telegram bot. A Telegram bot can only write to a
+numeric chat ID, so the installer asks for it and Core links it to the admin account as an ordinary ``telegram`` identity: the same
+row the notification worker already looks up.
 
 Admins still never sign in through Telegram (``ADMIN_USE_PANEL``); the identity is only a delivery address.
 """

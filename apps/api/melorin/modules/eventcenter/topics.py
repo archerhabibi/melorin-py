@@ -5,6 +5,8 @@ ORDERS = "orders"
 DEBT = "debt"
 TICKETS = "tickets"
 ERRORS = "errors"
+PANELS = "panels"  # panel and node health, settings drift, capacity (platform level)
+ADMIN = "admin"  # reseller applications and the admin's manual set-up tasks (platform level)
 DAILY = "daily"  # nightly summary of the last 24 hours
 AFFILIATE = "affiliate"  # referrals and commissions (Main Store only)
 TESTS = "tests"  # test accounts
@@ -16,15 +18,18 @@ TOPICS: dict[str, str] = {
     DEBT: "بدهی",
     TICKETS: "تیکت‌ها",
     ERRORS: "خطاها",
+    PANELS: "پنل‌ها و نودها",
+    ADMIN: "مدیریت و درخواست‌ها",
     DAILY: "گزارش شبانه",
     AFFILIATE: "کمیسیون و معرف",
     TESTS: "اکانت تست",
     BACKUP: "پشتیبان‌گیری",
 }
 
-# Platform-level topics: only the Admin's group has them. A reseller never sees (or can configure) a backup of the platform,
-# and the referral program exists only in the Main Store (docs/17), so a reseller's affiliate topic would stay empty forever.
-ADMIN_ONLY_TOPICS = frozenset({BACKUP, AFFILIATE})
+# Platform-level topics: only the Admin's group has them. A reseller never sees (or can configure) a backup, the panels or the
+# reseller-application desk of the platform, and the referral program exists only in the Main Store (docs/17), so a reseller's
+# affiliate topic would stay empty forever.
+ADMIN_ONLY_TOPICS = frozenset({BACKUP, AFFILIATE, PANELS, ADMIN})
 
 # Events an admin also wants to see for a reseller's store (prefixed with the store name). Everything else stays private
 # to the store it belongs to: a reseller sees only his own events, and the admin is not flooded with every reseller sale.

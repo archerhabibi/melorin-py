@@ -212,8 +212,8 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
     return None
 
 
-async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit_store_notice(session, store_id, "payments", text)
+async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str, kind: str) -> None:
+    await events.emit_admin_notice(session, kind, text, store_id=store_id)
 
 
 async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:
@@ -252,6 +252,7 @@ async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:
         session,
         p.store_id,
         f"⏳ تأیید موقت پس از {int(cfg['minutes'])} دقیقه بدون بررسی\nمبلغ: {p.amount:,}\nلطفاً هرچه زودتر بررسی کنید.\nشناسه: {p.id}",
+        "payment_grace_credited",
     )
     await session.commit()
     return True
@@ -278,7 +279,10 @@ async def run_store(session: AsyncSession, store: Store, *, now: dt.datetime | N
             if (state(p) or {}).get("block") != reason:  # tell the humans once why this one was NOT auto-approved
                 p.meta = {**(p.meta or {}), "provisional": {"state": "blocked", "block": reason}}
                 await _notify(
-                    session, p.store_id, f"🔎 این رسید تأیید موقت نمی‌شود: {BLOCK_TEXT[reason]}\nمبلغ: {p.amount:,}\nشناسه: {p.id}"
+                    session,
+                    p.store_id,
+                    f"🔎 این رسید تأیید موقت نمی‌شود: {BLOCK_TEXT[reason]}\nمبلغ: {p.amount:,}\nشناسه: {p.id}",
+                    "payment_provisional_blocked",
                 )
                 await session.commit()
             out["blocked"][reason] = out["blocked"].get(reason, 0) + 1

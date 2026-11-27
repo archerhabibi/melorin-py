@@ -396,7 +396,12 @@ async def _tasks(session):
 
 
 async def _alerts(session):
-    return [e for e in (await session.scalars(select(OutboxEvent))).all() if e.topic == "notification.send"]
+    """The admin notices: Event Center events of kind ``admin_*`` (the group's admin topic), never a personal bot DM."""
+    return [e for e in (await session.scalars(select(OutboxEvent))).all() if e.topic == "eventcenter.send"]
+
+
+async def _admin_dms(session):
+    return [e for e in (await session.scalars(select(OutboxEvent))).all() if e.topic in ("notification.send", "admin.alert")]
 
 
 async def test_one_step_application_gives_the_admin_the_manual_checklist_and_an_alert(session):
@@ -406,8 +411,9 @@ async def test_one_step_application_gives_the_admin_the_manual_checklist_and_an_
     tasks = {t.kind: t for t in await _tasks(session)}
     assert "shop.example.com" in tasks["google_origin"].detail and "oidc/callback" in tasks["telegram_login"].detail
     alerts = await _alerts(session)
-    assert alerts and all(e.payload["user_id"] == str(admin.id) for e in alerts)
-    assert "دلیل متقاضی" in alerts[0].payload["body"]
+    assert alerts and all(e.payload["topic"] == "admin" and e.payload["kind"].startswith("admin_") for e in alerts)
+    assert any("دلیل متقاضی" in e.payload["text"] for e in alerts)
+    assert await _admin_dms(session) == []  # 2026-11-26: the admin's DM is only for panel/node failures and customers' payments
     assert a["next_steps"] and a["next_steps"][0]["done"] is False
 
 

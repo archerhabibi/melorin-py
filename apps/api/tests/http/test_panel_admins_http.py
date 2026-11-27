@@ -86,6 +86,13 @@ async def _outbox(maker, kind):
         return [e.payload for e in events if (e.payload or {}).get("kind") == kind]
 
 
+async def _admin_notices(maker, kind):
+    """Admin notices are group notices (``eventcenter.send``, topic ``admin``): the admin's bot DM is not used for them."""
+    async with maker() as s:
+        events = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == "eventcenter.send"))).all()
+        return [e.payload for e in events if (e.payload or {}).get("kind") == kind]
+
+
 async def _audit(maker, action):
     async with maker() as s:
         return (await s.scalars(select(AuditEvent).where(AuditEvent.action == action))).all()
@@ -208,12 +215,14 @@ async def test_request_lifecycle_file_alert_cancel_and_refile(panel_adapter):
             base, headers=mine, json={"changes": {"profile_title": "New", "discord_webhook": WEBHOOK}, "message": "rebrand"}
         )
         assert filed.status_code == 201 and filed.json()["status"] == "pending"
-        # every active super admin is alerted; the alert names the fields but never copies a value (a webhook URL is a secret)
-        alerts = await _outbox(maker, "admin_panel_admin_request")
-        assert len(alerts) == 1 and alerts[0]["user_id"] == str(admin.id)
+        # the admins are told once in the group's admin topic (never as a bot DM); the notice names the fields but never copies a
+        # value (a webhook URL is a secret)
+        alerts = await _admin_notices(maker, "admin_panel_admin_request")
+        assert len(alerts) == 1 and alerts[0]["topic"] == "admin" and alerts[0]["store_id"] is None
         assert (
-            "عنوان پروفایل" in alerts[0]["body"] and "وبهوک دیسکورد" in alerts[0]["body"] and "very-secret-token" not in alerts[0]["body"]
+            "عنوان پروفایل" in alerts[0]["text"] and "وبهوک دیسکورد" in alerts[0]["text"] and "very-secret-token" not in alerts[0]["text"]
         )
+        assert await _outbox(maker, "admin_panel_admin_request") == []
         # one pending request per store; admin-only fields cannot be requested
         assert (await c.post(base, headers=mine, json={"changes": {"profile_title": "Again"}})).json()["error"]["code"] == "REQUEST_PENDING"
         listed = (await c.get(base, headers=mine)).json()
@@ -308,4 +317,4 @@ async def test_two_simultaneous_requests_cannot_both_be_filed_even_when_the_coun
         async with maker() as s:
             pending = (await s.scalars(select(PanelAdminChangeRequest).where(PanelAdminChangeRequest.status == "pending"))).all()
             assert [p.changes for p in pending] == [{"profile_title": "First"}]
-        assert len(await _outbox(maker, "admin_panel_admin_request")) == 1
+        assert len(await _admin_notices(maker, "admin_panel_admin_request")) == 1  # one notice for the one filed request

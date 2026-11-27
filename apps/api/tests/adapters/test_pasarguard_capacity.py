@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import open_schema_engine
 from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.catalog.allocation.routing import Candidate, select_allocation
-from melorin.modules.panelops.panel_notices import server_capacity_text
+from melorin.modules.panelops.panel_notices import capacity_text, sell_blocked_text
 from melorin.modules.panel_integrations import capacity as cap
 from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
 
@@ -216,12 +216,17 @@ async def test_capacity_alerts_climb_once_per_threshold_and_reset_when_load_fall
         assert seen == [[], ["80"], [], ["100"], [], ["80"]]  # 80% once, 100% once, fall back, 80% announced again
 
 
-def test_event_center_text_groups_everything_into_one_message():
+def test_sales_stopped_is_one_dm_message_and_the_softer_notes_are_one_group_message():
     changes = [
         cap.Change("S1", "sellable", "sellable", "blocked", "گروه روی پنل غیرفعال است"),
         cap.Change("S2", "sellable", "blocked", "sellable"),
         cap.Change("S3", "capacity", "0", "95"),
+        cap.Change("S4", "capacity", "95", "100"),
     ]
-    text = server_capacity_text("P", changes)
-    assert "S1" in text and "غیرفعال" in text and "S2" in text and "۹۵٪" in text and text.count("\n") >= 3
-    assert server_capacity_text("P", []) is None
+    stopped = sell_blocked_text("P", changes)  # what the admin must act on: bot DM
+    assert "S1" in stopped and "غیرفعال" in stopped and "S4" in stopped and "ظرفیت پر شد" in stopped
+    assert "S2" not in stopped and "S3" not in stopped
+    soft = capacity_text("P", changes)  # recoveries and early warnings: group only
+    assert "S2" in soft and "S3" in soft and "۹۵٪" in soft and "S1" not in soft and "S4" not in soft
+    assert sell_blocked_text("P", []) is None and capacity_text("P", []) is None
+    assert sell_blocked_text("P", [cap.Change("S3", "capacity", "0", "80")]) is None  # 80 % alone is not a DM

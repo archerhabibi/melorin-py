@@ -1,7 +1,7 @@
 # تصمیم‌های معماری / Architecture Decisions
 
 > **وضعیت / Status:** مرجع جاری / Current canonical
-> **آخرین بازبینی / Last review:** 2026-11-16
+> **آخرین بازبینی / Last review:** 2026-11-27
 > **فهرست / Index:** [00](00-DOCUMENTATION-INDEX.md)
 
 ## بخش فارسی
@@ -17,6 +17,7 @@
 6. **Person-centric:** یک شخص، یک حساب مرکزی، یک کیف پول به ازای هر (Store، Currency) — نگاه به سند 08. اتصال فقط با اثبات مالکیت و رضایت؛ یکپارچه‌سازی خودکار است مگر مانع وجود داشته باشد.
 7. **حذف `product_codes` سطح Server:** سازگاری محصول←سرور فقط از Bundle (تست‌های ضدبازگشت در `tests/contracts/test_core_allocation_contract.py`).
 8. **مهاجرت‌ها:** یک baseline (`0001_initial_baseline`) به جای ۵۷ مهاجرت قدیمی؛ Git history حفظ می‌شود.
+9. **مسیردهی اعلان‌های ادمین (2026-11-27؛ تکمیل‌شدهٔ 2026-11-26):** DM ربات به ادمین فقط برای موارد خیلی مهم (خرابی/گیرکردن پنل، نود، فروش مقصد، Outbox، بکاپ؛ ساخت اکانت ناموفق؛ پرداخت و رسید مشتری که به ادمین نیاز دارد)؛ بقیهٔ اعلان‌های ادمین فقط در Topicهای سوپرگروه (Event Center). یک جدول (`domain/messaging_policy.py`) و یک نقطهٔ ورود (`events.emit_admin_notice`)؛ kindِ ناشناخته فقط گروه است. دامنه فعلاً فقط تلگرام. جزئیات: [16](16-COMMUNICATION-SUPPORT.md).
 
 **تصمیم‌های جایگزین‌شده (Superseded)**
 - پیشنهاد گزارش قبلی برای حذف `Account Consolidation`، `WalletTransfer` و `Person.central_user_id` → **رد شد**؛ همه حفظ و تکمیل شدند.
@@ -39,6 +40,7 @@
 6. **Person-centric model:** one person, one central account, one wallet per (Store, Currency) — see doc 08. Linking needs proof of ownership and consent; consolidation is automatic unless a blocker exists.
 7. **Server-level `product_codes` removed:** product→server compatibility derives only from the Bundle (anti-regression tests in `tests/contracts/test_core_allocation_contract.py`).
 8. **Migrations:** one baseline (`0001_initial_baseline`) replaces the 57 old migrations; Git history is kept.
+9. **Admin notice routing (2026-11-27, refined 2026-11-26):** the admin's bot DM is only for what is very important (a panel, node, destination, outbox event or backup that is down or stuck; a failed provisioning; a customer's payment or receipt that needs the admin); every other admin notice goes only to a Topic of the supergroup (Event Center). One table (`domain/messaging_policy.py`) and one entry point (`events.emit_admin_notice`); an unknown kind is group-only. Telegram only for now. Details: [16](16-COMMUNICATION-SUPPORT.md).
 
 **Superseded decisions**
 - The earlier report's proposal to remove `Account Consolidation`, `WalletTransfer` and `Person.central_user_id` → **rejected**; all are kept and completed.

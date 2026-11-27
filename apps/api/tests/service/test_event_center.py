@@ -295,8 +295,9 @@ async def test_panel_health_notice_only_on_state_change():
         await panel_notices.notify_panel_health(s, panel, "unhealthy")  # recovered
         texts = await queued()
         assert len(texts) == 2 and "Panel-A" in texts[0] and "timeout" in texts[0] and "دوباره سالم" in texts[1]
-        e = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).first()
-        assert e.payload["topic"] == "errors" and e.payload["store_id"] is None
+        rows = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).all()
+        assert [r.payload["kind"] for r in rows] == ["panel_unhealthy", "panel_recovered"]
+        assert all(r.payload["topic"] == "panels" and r.payload["store_id"] is None for r in rows)
 
 
 async def test_customer_text_cannot_ping_people_in_the_group(monkeypatch):
