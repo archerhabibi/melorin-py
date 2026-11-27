@@ -202,8 +202,11 @@ async def tap(session, e: OutboxEvent) -> int:
 
 
 async def report_outbox_failure(session, e: OutboxEvent) -> None:
-    """An outbox event that keeps failing is reported once (dedup by event id) to the admin's errors topic."""
-    if e.attempts != OUTBOX_FAILURE_THRESHOLD or e.topic in (events.EVENT_CENTER_DELIVER,):
+    """An outbox event that keeps failing is reported once (dedup by event id) to the admin's errors topic and bot DM.
+
+    The delivery events themselves are never reported: a failing ``eventcenter.deliver`` or ``admin.alert`` (Telegram down) would
+    otherwise queue a new ``admin.alert`` that fails the same way and is reported again, one more event every retry cycle."""
+    if e.attempts != OUTBOX_FAILURE_THRESHOLD or e.topic in (events.EVENT_CENTER_DELIVER, events.ADMIN_ALERT):
         return
     try:
         async with session.begin_nested():

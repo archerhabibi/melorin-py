@@ -381,3 +381,20 @@ async def test_emit_admin_notice_fills_the_topic_from_the_policy(kind):
         await s.flush()
         (row,) = await _rows(s, events.EVENT_CENTER)
         assert row.payload["topic"] == messaging_policy.admin_route(kind).topic and row.payload["kind"] == kind
+
+
+async def test_a_failing_admin_alert_is_not_reported_again():
+    """Telegram down: a stuck ``admin.alert`` must not spawn another ``admin.alert`` (an endless chain of DMs about DMs)."""
+    async with open_session() as s:
+        await _world(s)
+        e = OutboxEvent(
+            topic=events.ADMIN_ALERT,
+            payload={"kind": "node_failed", "text": "x"},
+            attempts=rules.OUTBOX_FAILURE_THRESHOLD,
+            last_error="tg down",
+        )
+        s.add(e)
+        await s.flush()
+        await rules.report_outbox_failure(s, e)
+        await s.flush()
+        assert await _rows(s, events.ADMIN_ALERT) == [e] and await _group(s) == []

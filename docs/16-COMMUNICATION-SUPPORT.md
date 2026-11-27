@@ -63,7 +63,7 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
 - Backend: `modules/eventcenter/{service,rules,routes,schemas,topics}.py`، `domain/messaging_policy.py` (مسیردهی)، `core/events.py::emit_admin_notice`، migration `0031`، handlerهای `eventcenter.deliver` و `admin.alert` در worker، tap مرکزی پس از هر handler.
 - UI: صفحهٔ «مرکز رویداد» در پنل ادمین و تب «مرکز رویداد» در پنل نماینده (ذخیره، تست واقعی هر Topic، وضعیت سلامت، حذف).
 - تست: `apps/api/tests/test_event_center.py`، `test_event_center_extra_topics.py` (Topicهای جدید)، `tests/service/test_admin_notice_routing.py` (مسیردهی DM/گروه)، `tests/unit/test_messaging_policy.py`، `tests/unit/test_admin_alert_dm.py` و `apps/admin-web/tests/event-center.test.jsx`.
-- «پنل unhealthy» اکنون قانون جدا دارد: `rules.notify_panel_health` در job سلامت پنل (هر ۵ دقیقه) و بررسی دستی ادمین فراخوانی می‌شود و **فقط هنگام تغییر وضعیت** (سالم به ناسالم، و بازگشت به سالم) به Topic «خطاها»ی گروه ادمین پیام می‌دهد؛ پنلی که ناسالم می‌ماند پیام تکراری نمی‌فرستد.
+- «پنل unhealthy» اکنون قانون جدا دارد: `rules.notify_panel_health` در job سلامت پنل (هر ۵ دقیقه) و بررسی دستی ادمین فراخوانی می‌شود و **فقط هنگام تغییر وضعیت** (سالم به ناسالم، و بازگشت به سالم) به Topic «پنل‌ها و نودها»ی گروه ادمین (و برای ناسالم‌شدن، DM ربات) پیام می‌دهد؛ پنلی که ناسالم می‌ماند پیام تکراری نمی‌فرستد.
 - تیکت: فقط پیام خود مشتری اعلام می‌شود (رویداد `ticket.updated` شناسهٔ `message_id` را دارد)؛ تغییر وضعیت/اولویت، پاسخ پشتیبان و یادداشت داخلی ساکت‌اند.
 - باقی‌مانده: خطای ساخت اکانت (`provisioning.failed`) و شکست مکرر Outbox از قبل در Topic «خطاها» می‌آید؛ مورد دیگری باز نیست.
 
