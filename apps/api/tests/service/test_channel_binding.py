@@ -253,7 +253,8 @@ async def test_issue_tokens_binds_the_session_and_never_crosses_admin_and_custom
         assert (claims.channel, claims.store_id, pair.is_admin) == ("site", w.a.id, False)
         row = await s.scalar(select(RefreshToken).where(RefreshToken.user_id == w.alice.id))
         assert (row.channel, row.store_id) == ("site", w.a.id)
-        assert await _codes(service.issue_tokens(s, w.admin, site)) == "ADMIN_USE_PANEL"  # admins never get a store session
+        as_customer = await service.issue_tokens(s, w.admin, site)  # an admin ACCOUNT may open a plain customer session ...
+        assert as_customer.is_admin is False and as_customer.channel == "site"  # ... which carries no admin rights
         assert await _codes(service.issue_tokens(s, w.alice, ch.ADMIN_CHANNEL)) == "ADMIN_USE_PANEL"  # nobody else gets an admin one
         admin_pair = await service.issue_tokens(s, w.admin, ch.ADMIN_CHANNEL)
         assert admin_pair.is_admin and ch.SessionClaims.from_payload(decode_access_token(admin_pair.access_token)).store_id is None

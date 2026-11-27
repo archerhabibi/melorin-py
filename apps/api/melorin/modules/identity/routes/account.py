@@ -100,7 +100,7 @@ async def create_web_handoff(body: WebHandoffIn, auth: CurrentAuth, session: Ses
     """Called by the Telegram bots (with the user's own bot session): returns the store-website URL that opens this user's
     account already signed in. The URL is built here, from the store's domain (or the main store web URL)."""
     user, claims = auth.user, auth.claims
-    if user.is_super_admin or claims.is_admin or claims.channel != channel.BOT:
+    if claims.is_admin or claims.channel != channel.BOT:
         raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
     if not await hit(f"web-handoff:{user.id}", 10, 60):
         raise AppError("RATE_LIMITED", "درخواست‌ها زیاد است؛ کمی بعد دوباره امتحان کنید.", 429)

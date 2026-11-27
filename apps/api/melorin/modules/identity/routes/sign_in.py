@@ -215,7 +215,6 @@ async def telegram_webapp(body: TelegramWebAppLogin, session: Session, request: 
         session,
         TelegramProfile(telegram_id=tg["id"], first_name=tg.get("first_name"), last_name=tg.get("last_name"), username=tg.get("username")),
     )
-    _refuse_admin_on_customer_channel(user)
     await _after_signup(session, user, created, chan.store_id, None)
     pair = await service.issue_tokens(session, user, chan, ua=request.headers.get("user-agent"))
     await session.commit()
@@ -227,7 +226,6 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
     """Trusted bot runner exchanges a Telegram user (validated by Telegram itself) for a Core session of ITS store."""
     chan = await channel.bot_channel(session, bot, body.store_id)
     user, created = await service.login_with_telegram(session, body)
-    _refuse_admin_on_customer_channel(user)
     await _after_signup(session, user, created, chan.store_id, body.referral_code)
     missing = await channel_gate.missing_channels(session, chan, body.telegram_id)
     if missing:
@@ -236,6 +234,8 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
         await session.commit()
         raise await channel_gate.join_required(session, missing)
     pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
+    # Recognition only (main bot): this Telegram account belongs to an admin, who is otherwise an ordinary customer here.
+    pair.admin_account = bool(user.is_super_admin) and chan.store_kind == "main"
     await session.commit()
     return pair
 
@@ -244,7 +244,6 @@ async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotA
 async def telegram_link(body: TelegramLink, session: Session, bot: BotAuth):
     chan = await channel.bot_channel(session, bot, body.store_id)
     user = await service.link_telegram(session, body.code, body)
-    _refuse_admin_on_customer_channel(user)
     pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
     await session.commit()
     return pair

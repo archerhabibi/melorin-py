@@ -205,7 +205,7 @@ def test_menu_asks_for_the_id_and_passes_it_to_the_installer():
     assert _bash(f"{fold}\nfold_digits ' ٥٤٣٢١ '") == "54321"
 
 
-# ---------------------------------------------------------------- the bot answers the admin instead of staying silent
+# ---------------------------------------------------------------- the bot treats the admin as a customer
 def _load_bot(tmp_path, monkeypatch):
     for k, v in {
         "MELORIN_TELEGRAM_TOKEN": "tok",
@@ -220,9 +220,10 @@ def _load_bot(tmp_path, monkeypatch):
     return mod
 
 
-def test_bot_tells_the_admin_that_alerts_arrive_here(tmp_path, monkeypatch):
+def _run_start(tmp_path, monkeypatch, **pair_over) -> list[dict]:
     mod = _load_bot(tmp_path, monkeypatch)
-    sent = []
+    sent: list[dict] = []
+    pair = {"access_token": "a", "refresh_token": "r", "expires_in": 900, "user_id": "00000000-0000-0000-0000-000000000001", "is_admin": False, **pair_over}
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -233,11 +234,23 @@ def test_bot_tells_the_admin_that_alerts_arrive_here(tmp_path, monkeypatch):
         if request.url.path == "/api/v1/stores/main":
             return httpx.Response(200, json={"id": "s1", "name": "Main"})
         if request.url.path == "/api/v1/auth/telegram/bot":
-            return httpx.Response(403, json={"error": {"code": "ADMIN_USE_PANEL", "message": "ورود مدیران فقط از پنل مدیریت انجام می‌شود."}})
+            return httpx.Response(200, json=pair)
         return httpx.Response(404, json={})
 
     bot = mod.TelegramRunner()
     bot.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     update = {"update_id": 1, "message": {"chat": {"id": 9}, "from": {"id": 7, "first_name": "A"}, "text": "/start"}}
     asyncio.run(bot.handle(update))
-    assert len(sent) == 1 and "اعلان‌های مدیریتی" in sent[0]["text"] and sent[0]["chat_id"] == 9
+    return sent
+
+
+def test_bot_starts_the_admin_as_a_customer_and_notes_that_alerts_arrive_here(tmp_path, monkeypatch):
+    sent = _run_start(tmp_path, monkeypatch, admin_account=True)
+    welcome = [m for m in sent if "خوش آمدید" in m["text"]]
+    assert len(welcome) == 1 and "اعلان‌های مدیریتی" in welcome[0]["text"] and welcome[0]["chat_id"] == 9
+    assert not any("مخصوص مشتریان" in m["text"] for m in sent)  # no more "this bot is for customers only"
+
+
+def test_bot_adds_no_admin_line_for_an_ordinary_customer(tmp_path, monkeypatch):
+    sent = _run_start(tmp_path, monkeypatch)
+    assert [m for m in sent if "خوش آمدید" in m["text"]] and not any("اعلان‌های مدیریتی" in m["text"] for m in sent)

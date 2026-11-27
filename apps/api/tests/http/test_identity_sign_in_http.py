@@ -355,7 +355,7 @@ async def test_telegram_webapp_refuses_unknown_inactive_or_tokenless_stores(tg_p
         assert inactive.status_code == 400
 
 
-async def test_telegram_webapp_never_mints_an_admin_session(tg_profile, monkeypatch):
+async def test_telegram_webapp_gives_an_admin_account_a_customer_session_only(tg_profile, monkeypatch):
     async with api_client() as (c, maker, _):
         admin = await add_user(maker, email="root@example.com", admin=True, totp=True)
 
@@ -364,7 +364,8 @@ async def test_telegram_webapp_never_mints_an_admin_session(tg_profile, monkeypa
 
         monkeypatch.setattr(service, "login_with_telegram", as_admin)
         r = await c.post(f"{API}/telegram/webapp", json={"init_data": "x"})
-        assert r.status_code == 403 and _err(r) == "ADMIN_USE_PANEL"
+        assert r.status_code == 200, r.text
+        assert r.json()["is_admin"] is False and r.json()["channel"] == "bot"  # never an admin session
 
 
 async def test_web_handoff_redeem_issues_a_session_for_the_user_the_bot_vouched_for(monkeypatch):

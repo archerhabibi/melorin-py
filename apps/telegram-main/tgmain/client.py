@@ -364,9 +364,6 @@ class TransportMixin:
         r = await self.client.post(
             f"{self.core}/api/v1/auth/telegram/bot", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"}, json=body
         )
-        if r.status_code == 403 and self._code(r) == "ADMIN_USE_PANEL":
-            # The Telegram ID of the main admin (given at install time) is only an alert address: admins never get a store session.
-            raise CoreError(403, self._err(r), "ADMIN_USE_PANEL")
         if r.status_code == 403 and self._code(r) == "CHANNEL_JOIN_REQUIRED":
             # Mandatory channel membership: Core names the channels still to join; the runner shows the join screen.
             raise CoreError(403, self._err(r), "CHANNEL_JOIN_REQUIRED", self._details(r))

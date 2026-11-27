@@ -65,8 +65,9 @@ async def issue_tokens(
         person = await session.get(Person, user.person_id)
         if person is not None and person.status == "blocked":
             raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
-    if chan.is_admin != bool(user.is_super_admin):
-        # An admin account never gets a customer session through a store channel, and nobody else gets an admin one.
+    if chan.is_admin and not user.is_super_admin:
+        # Nobody but an admin gets an admin session. An admin ACCOUNT may open a plain customer session (bot / store site): the
+        # session is bound to that channel, so it is a customer session with no admin rights (``AuthSession.is_admin_session``).
         raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
     chan.ensure_open_for(user)
     access, ttl = create_access_token(user.id, chan.is_admin, store_id=chan.store_id, channel=chan.kind)
@@ -357,8 +358,6 @@ async def redeem_web_handoff(session: AsyncSession, token: str, site: Channel) -
     user = await session.get(User, vc.user_id)
     if user is None or not user.is_active:
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
-    if user.is_super_admin:
-        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
     audit.record(session, "auth.web_handoff_redeemed", actor_id=user.id, entity_type="user", entity_id=user.id)
     return user
 

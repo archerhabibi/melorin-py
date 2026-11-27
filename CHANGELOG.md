@@ -8,6 +8,13 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-27
 
+### Telegram: admins are ordinary customers in the main bot (and still admins)
+- Bug: the Telegram account of an admin (the ID given at install time) was refused by the bot with «این ربات مخصوص مشتریان است»: the admin could not buy, renew or open the account page.
+- Now the admin's own account opens a normal **customer session** through the bot (and the Mini App / web handoff): own wallet, orders, accounts, tickets, renewals, exactly like anybody. Every admin can do this with his own Telegram ID. The session is bound to the bot channel, so it has no admin rights (`AuthSession.is_admin_session`); `/admin/*` stays closed to it and the admin panel (password + TOTP) remains the only way to an admin session.
+- Admin notices keep going to the admin's Telegram chat; the bot only *recognises* the admin: `POST /auth/telegram/bot` returns `admin_account: true` (main bot only) and `/start` adds one line saying admin alerts arrive in this chat.
+- `issue_tokens` now refuses only the opposite case (an admin session for a non-admin). E-mail-code, Google and Telegram-website sign-in of admin accounts are unchanged (admins use the panel there).
+- Tests: `tests/http/test_admin_as_customer_http.py` (customer session, `/admin` closed, several admins, full top-up -> purchase -> provisioning through the bot), bot `/start` note, updated sign-in/handoff/binding tests.
+
 ### Admin web: payments screen redesigned as a four-tab hub
 - The «پرداخت‌ها» menu was one endless page (KPIs, review queue, list, bank-SMS settings and inbox, fast receipt review, duplicate-picture policy, gateway settings, OCR). It is now a hub with four tabs, split by what the admin is doing: **تراکنش‌ها** (KPIs, receipts waiting for a decision, filters, list, refunds), **رسیدها** (fast review and provisional approval, duplicate-picture policy, OCR), **پیامک بانک** (automatic card-to-card verification) and **درگاه‌ها** (card and Zarinpal of the main store, forms always open instead of an accordion at the bottom).
 - Deep links: `#/payments`, `#/payments?tab=receipts|sms|gateways` (an unknown tab falls back to transactions). The transactions tab shows how many receipts wait for a decision and the receipts tab how many provisional charges wait for a final one, so urgent work is visible from any tab.
