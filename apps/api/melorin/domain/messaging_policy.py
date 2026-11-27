@@ -3,10 +3,12 @@
 There are two kinds of notice:
 
 * **Personal notices** (a customer, a store owner, an applicant): a DM to that person through ``notification.send``.
-* **Admin notices** (what the platform admin should know about): ONE rule decides where they go (2026-11-26).
-  The admin's bot DM is reserved for **panel / node failures** and **customers' payments**; every other admin notice lands in a
-  Topic of the admin's Telegram supergroup (the Event Center). A DM kind is mirrored in the group too, so the group stays the
-  complete, orderly journal and the DM is only the "look now" ping.
+* **Admin notices** (what the platform admin should know about): ONE rule decides where they go (2026-11-26, refined 2026-11-27).
+  The admin's bot DM is reserved for what is **very important**: something is down or stuck (panel / node failure, a destination that
+  stopped selling, an outbox event that keeps failing, a backup that failed), a customer paid but got nothing (provisioning failed), or
+  a customer's payment needs the admin (receipt to review, a bank SMS that matches several receipts, a credit given without review).
+  Every other admin notice lands in a Topic of the admin's Telegram supergroup (the Event Center). A DM kind is mirrored in the group
+  too, so the group stays the complete, orderly journal and the DM is only the "look now" ping.
 
 This table is the one place that says what each KIND of message is; call sites state the kind and never choose a channel. A kind the
 table does not know is a quiet group notice, so a new notice type can never start pinging the admin by accident. Technical alerts never go
@@ -31,23 +33,36 @@ class Route:
     audience: str
     channels: tuple[str, ...]
     topic: str | None = None  # the Event Center Topic key of an admin notice (None for a personal notice)
+    all_stores: bool = (
+        False  # a DM kind that also reaches the admin for a RESELLER store's event (the platform's panels are the admin's to fix)
+    )
 
 
 # Longest matching prefix wins; anything unknown is a commercial info message to the customer (the historical behaviour).
 _ROUTES: dict[str, Route] = {
-    # --- admin notices that also reach the admin's bot DM: panel/node failures and customers' payments, nothing else ---
+    # --- very important: also the admin's bot DM (and mirrored in the group) ---
+    # something is down or stuck
     "panel_unhealthy": Route(TECHNICAL, CRITICAL, ADMINS, (DM, EVENT_CENTER), "panels"),
     "node_failed": Route(TECHNICAL, CRITICAL, ADMINS, (DM, EVENT_CENTER), "panels"),
+    "panel_sell_blocked": Route(TECHNICAL, CRITICAL, ADMINS, (DM, EVENT_CENTER), "panels"),  # a destination stopped selling / is full
+    "outbox_failure": Route(
+        TECHNICAL, CRITICAL, ADMINS, (DM, EVENT_CENTER), "errors"
+    ),  # an event keeps failing: orders/payments may be stuck
+    "backup_failed": Route(TECHNICAL, CRITICAL, ADMINS, (DM, EVENT_CENTER), "backup"),
+    # a customer paid and got nothing (any store: the platform's panels are the admin's to fix)
+    "provisioning_failed": Route(TECHNICAL, CRITICAL, ADMINS, (DM, EVENT_CENTER), "errors", all_stores=True),
+    # a customer's payment that needs the admin, or that the admin must know about
     "payment_succeeded": Route(COMMERCIAL, INFO, ADMINS, (DM, EVENT_CENTER), "payments"),
     "payment_receipt_review": Route(COMMERCIAL, WARNING, ADMINS, (DM, EVENT_CENTER), "payments"),
     "payment_grace_credited": Route(COMMERCIAL, WARNING, ADMINS, (DM, EVENT_CENTER), "payments"),
-    # --- admin notices that only go to the supergroup ---
-    "panel_": Route(TECHNICAL, WARNING, ADMINS, (EVENT_CENTER,), "panels"),  # recovered, degraded, settings drift, capacity
+    "payment_sms_ambiguous": Route(COMMERCIAL, WARNING, ADMINS, (DM, EVENT_CENTER), "payments"),
+    # --- everything else about admins: only a topic of the supergroup ---
+    "panel_": Route(TECHNICAL, WARNING, ADMINS, (EVENT_CENTER,), "panels"),  # recovered, degraded, settings drift, capacity thresholds
     "node_": Route(TECHNICAL, INFO, ADMINS, (EVENT_CENTER,), "panels"),  # a node that is back
-    "payment_": Route(COMMERCIAL, INFO, ADMINS, (EVENT_CENTER,), "payments"),  # failed, bank-SMS notes, blocked auto-approval
-    "provisioning_failed": Route(TECHNICAL, CRITICAL, ADMINS, (EVENT_CENTER,), "errors"),
-    "outbox_failure": Route(TECHNICAL, CRITICAL, ADMINS, (EVENT_CENTER,), "errors"),
-    "backup_": Route(TECHNICAL, WARNING, ADMINS, (EVENT_CENTER,), "backup"),
+    "payment_": Route(
+        COMMERCIAL, INFO, ADMINS, (EVENT_CENTER,), "payments"
+    ),  # failed, approved by a human, bank-SMS notes, blocked auto-approval
+    "backup_": Route(TECHNICAL, WARNING, ADMINS, (EVENT_CENTER,), "backup"),  # succeeded, partial (local copy exists, S3 failed)
     "infra_": Route(TECHNICAL, WARNING, ADMINS, (EVENT_CENTER,), "errors"),
     "admin_": Route(COMMERCIAL, INFO, ADMINS, (EVENT_CENTER,), "admin"),  # reseller applications, manual set-up tasks
     # --- personal notices ---
@@ -88,6 +103,6 @@ def allowed(kind: str | None, audience: str, channel: str) -> bool:
 
 
 def dm_allowed(kind: str | None) -> bool:
-    """May this kind be delivered as a Telegram DM at all? Kinds routed only to the Event Center (panel recovery, backup, provisioning
-    failures, reseller applications ...) are not: this is also the safety net if a call site still sends one as a personal notice."""
+    """May this kind be delivered as a Telegram DM at all? Kinds routed only to the Event Center (panel recovery, a successful backup,
+    reseller applications ...) are not: this is also the safety net if a call site still sends one as a personal notice."""
     return DM in route_for(kind).channels

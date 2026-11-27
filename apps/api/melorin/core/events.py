@@ -28,7 +28,7 @@ RESELLER_DEBT = "reseller.debt"
 NOTIFY = "notification.send"
 EVENT_CENTER = "eventcenter.send"
 EVENT_CENTER_DELIVER = "eventcenter.deliver"
-ADMIN_ALERT = "admin.alert"  # the admin's bot DM (panel/node failures and customers' payments only; see domain.messaging_policy)
+ADMIN_ALERT = "admin.alert"  # the admin's bot DM (only the very important kinds; see domain.messaging_policy)
 VPN_REVOKE = "vpn.revoke"
 VPN_RENEWAL_ROLLBACK = "vpn.renewal_rollback"
 TICKET_UPDATED = "ticket.updated"
@@ -130,9 +130,9 @@ async def emit_admin_notice(
     """The one way to raise an ADMIN notice (2026-11-26; replaces the store-notice and alert-the-admins helpers).
 
     ``kind`` is looked up in ``domain.messaging_policy``: it picks the Event Center Topic (unless ``topic`` is given) and whether the
-    notice ALSO reaches the admin's bot DM, which only panel/node failures and customers' payments do. The call site never chooses a
-    channel. ``store_id`` scopes the group: a reseller store's notice goes to that store's own group, and a DM is only sent for the
-    platform's own scope (no store, or the Main Store); the worker's Event Center tap applies that rule.
+    notice ALSO reaches the admin's bot DM, which only the very important kinds do. The call site never chooses a channel.
+    ``store_id`` scopes the group: a reseller store's notice goes to that store's own group, and a DM is only sent for the platform's
+    own scope (no store, or the Main Store) unless the kind says otherwise; the worker's Event Center tap applies that rule.
     """
     route = messaging_policy.admin_route(kind)
     await emit(
@@ -141,6 +141,22 @@ async def emit_admin_notice(
         {"store_id": store_id, "topic": topic or route.topic, "text": text, "kind": kind},
         dedup_key=dedup_key,
     )
+
+
+async def emit_admin_dm(
+    session,
+    kind: str,
+    text: str,
+    *,
+    store_id=None,
+    dedup_key: str | None = None,
+) -> bool:
+    """Queue the admin's bot DM for ``kind`` (outbox topic ``admin.alert``). Returns False, and queues nothing, for a kind that the
+    policy does not make a DM kind: this is the single place that decision is taken, so no caller can widen the DM set."""
+    if not messaging_policy.admin_dm(kind):
+        return False
+    await emit(session, ADMIN_ALERT, {"kind": kind, "text": text, "store_id": store_id}, dedup_key=dedup_key)
+    return True
 
 
 async def emit_user_notice(

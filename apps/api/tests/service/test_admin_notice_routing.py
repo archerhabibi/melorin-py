@@ -1,8 +1,9 @@
-"""Admin notice routing end to end (2026-11-26): emit -> Event Center tap -> supergroup topic and, for a few kinds, the admin's bot DM.
+"""Admin notice routing end to end (2026-11-26, refined 2026-11-27): emit -> Event Center tap -> supergroup topic and, for the very
+important kinds, the admin's bot DM.
 
-The rule under test: the admin's bot DM is only for panel / node failures and customers' payments; every other admin notice goes to a
-topic of the supergroup. A DM kind is mirrored in the group, a reseller store's events never DM the platform admin, and the DM does not
-depend on the group being configured.
+The rule under test: the admin's bot DM is for what is very important (something down or stuck, a customer who paid and got nothing, a
+customer's payment that needs the admin); every other admin notice goes to a topic of the supergroup. A DM kind is mirrored in the
+group, a reseller store's events DM the platform admin only when the kind says so, and the DM does not depend on the group being configured.
 """
 
 from __future__ import annotations
@@ -106,16 +107,16 @@ async def test_a_reseller_stores_payment_stays_in_that_stores_group_and_never_dm
         assert await _group(s) == [(STORE_GROUP, "payments")]
 
 
-async def test_receipt_review_and_grace_credit_are_payment_dms_but_other_payment_notes_are_group_only():
+async def test_receipt_review_grace_credit_and_ambiguous_sms_are_payment_dms_but_other_payment_notes_are_group_only():
     async with open_session() as s:
         main, reseller = await _world(s)
-        for kind in ("payment_receipt_review", "payment_grace_credited"):
+        for kind in ("payment_receipt_review", "payment_grace_credited", "payment_sms_ambiguous"):
             await events.emit_admin_notice(s, kind, f"{kind}\nمبلغ: 1", store_id=main.id)
         for kind in (
             "payment_failed",
             "payment_sms_matched",
             "payment_sms_confirmed",
-            "payment_sms_ambiguous",
+            "payment_sms_balance_gap",
             "payment_provisional_blocked",
         ):
             await events.emit_admin_notice(s, kind, f"{kind}\nمبلغ: 1", store_id=main.id)
@@ -124,12 +125,43 @@ async def test_receipt_review_and_grace_credit_are_payment_dms_but_other_payment
 
         await _tap_queued(s)
 
-        assert await _dms(s) == ["payment_grace_credited", "payment_receipt_review"]
-        assert len(await _group(s)) == 7 + 1  # seven in the admin group + the reseller's own group; payments topic everywhere
+        assert await _dms(s) == ["payment_grace_credited", "payment_receipt_review", "payment_sms_ambiguous"]
+        assert len(await _group(s)) == 8 + 1  # eight in the admin group + the reseller's own group; payments topic everywhere
         assert {topic for _, topic in await _group(s)} == {"payments"}
 
 
-# ----- panel / node failures reach the DM, nothing else about panels does -----
+async def test_a_payment_the_admin_approved_himself_or_a_provisional_credit_is_not_a_second_dm():
+    async with open_session() as s:
+        main, _ = await _world(s)
+        automatic = await _payment(s, main)
+        by_human = await _payment(s, main)
+        by_human.reviewed_by = uuid.uuid4()
+        provisional = await _payment(s, main)
+        provisional.meta = {"provisional": {"state": "open"}}
+        for pay in (automatic, by_human, provisional):
+            s.add(OutboxEvent(topic=events.PAYMENT_SUCCEEDED, payload={"payment_id": str(pay.id), "store_id": str(main.id)}))
+        await s.flush()
+
+        for e in await _rows(s, events.PAYMENT_SUCCEEDED):
+            await rules.tap(s, e)
+        await s.flush()
+
+        assert await _dms(s) == ["payment_succeeded"]  # only the one nobody was involved in
+        assert len(await _group(s)) == 3  # but the group journal has all three
+
+
+async def test_an_ambiguous_bank_sms_needs_the_admin_so_it_dms_but_a_balance_gap_does_not():
+    async with open_session() as s:
+        main, _ = await _world(s)
+        await events.emit_admin_notice(s, "payment_sms_ambiguous", "⚠️ چند رسید هم‌مبلغ برای یک پیامک بانکی", store_id=main.id)
+        await events.emit_admin_notice(s, "payment_sms_balance_gap", "⚠️ مانده‌ی پیامک بانک همخوان نیست", store_id=main.id)
+        await s.flush()
+        await _tap_queued(s)
+        assert await _dms(s) == ["payment_sms_ambiguous"]
+        assert await _group(s) == [(ADMIN_GROUP, "payments")] * 2
+
+
+# ----- panel / node failures reach the DM, recoveries and soft warnings do not -----
 async def test_panel_unhealthy_and_failing_nodes_dm_the_admin_but_recoveries_do_not():
     async with open_session() as s:
         await _world(s)
@@ -157,7 +189,7 @@ async def test_panel_unhealthy_and_failing_nodes_dm_the_admin_but_recoveries_do_
         assert any("n1" in t for t in texts) and not any("n2" in t for t in texts)  # the failure notice names only the failing node
 
 
-async def test_settings_drift_and_capacity_are_group_only():
+async def test_settings_drift_and_early_capacity_warnings_are_group_only_but_a_destination_that_stops_selling_dms():
     async with open_session() as s:
         await _world(s)
         panel = Panel(name="P2", kind="mock", base_url="https://p.invalid")
@@ -166,17 +198,22 @@ async def test_settings_drift_and_capacity_are_group_only():
         await s.flush()
         await panel_notices.notify_settings_drift(s, panel, 0, 1)
         await panel_notices.notify_settings_drift(s, panel, 1, 0)
-        change = types.SimpleNamespace(kind="capacity", new="95", server="srv-1", detail=None)
-        await panel_notices.notify_server_capacity(s, panel, [change])
-
+        warn = types.SimpleNamespace(kind="capacity", old="0", new="95", server="srv-1", detail=None)
+        await panel_notices.notify_server_capacity(s, panel, [warn])
         await _tap_queued(s)
-
         assert await _dms(s) == []
         assert await _group(s) == [(ADMIN_GROUP, "panels")] * 3
 
+        stopped = types.SimpleNamespace(kind="sellable", old="sellable", new="blocked", server="srv-2", detail="group disabled")
+        await panel_notices.notify_server_capacity(s, panel, [stopped, warn])
+        await _tap_queued(s)
+        assert await _dms(s) == ["panel_sell_blocked"]
+        (dm,) = await _rows(s, events.ADMIN_ALERT)
+        assert "srv-2" in dm.payload["text"] and "srv-1" not in dm.payload["text"]
 
-# ----- everything else is a group notice -----
-async def test_a_provisioning_failure_is_a_group_notice_with_the_outcome_and_no_dm():
+
+# ----- a customer who paid and got nothing -----
+async def test_a_provisioning_failure_dms_the_admin_and_is_mirrored_in_the_errors_topic_with_the_outcome():
     async with open_session() as s:
         main, _ = await _world(s)
         order = await make_order(
@@ -190,12 +227,15 @@ async def test_a_provisioning_failure_is_a_group_notice_with_the_outcome_and_no_
         await s.flush()
 
         await rules.tap(s, e)
+        await rules.tap(s, e)  # tapped twice: still one DM and one group message (dedup keys)
         await s.flush()
 
-        assert await _dms(s) == []
+        assert await _dms(s) == ["provisioning_failed"]
         assert await _group(s) == [(ADMIN_GROUP, "errors")]
         (deliver,) = await _rows(s, events.EVENT_CENTER_DELIVER)
-        assert "A100" in deliver.payload["text"] and "panel timeout" in deliver.payload["text"] and "دستی" in deliver.payload["text"]
+        (dm,) = await _rows(s, events.ADMIN_ALERT)
+        for text in (deliver.payload["text"], dm.payload["text"]):
+            assert "A100" in text and "panel timeout" in text and "دستی" in text  # the DM carries the same facts as the group
 
 
 async def test_a_refunded_provisioning_failure_says_the_money_is_back():
@@ -209,10 +249,69 @@ async def test_a_refunded_provisioning_failure_says_the_money_is_back():
         s.add(e)
         await s.flush()
         await rules.tap(s, e)
-        (deliver,) = await _rows(s, events.EVENT_CENTER_DELIVER)
-        assert "برگشت داده شد" in deliver.payload["text"] and "دستی" not in deliver.payload["text"]
+        (dm,) = await _rows(s, events.ADMIN_ALERT)
+        assert "برگشت داده شد" in dm.payload["text"] and "دستی" not in dm.payload["text"]
 
 
+async def test_a_reseller_stores_provisioning_failure_dms_the_admin_with_the_store_name_and_also_stays_in_the_stores_group():
+    async with open_session() as s:
+        _, reseller = await _world(s)
+        order = await make_order(
+            s, user=await make_user(s), store=reseller, product=await make_product(s), status="provisioning_failed", number="C300"
+        )
+        e = OutboxEvent(
+            topic=events.PROVISIONING_FAILED,
+            payload={"order_id": str(order.id), "store_id": str(reseller.id), "error": "node down", "auto_refund": False},
+        )
+        s.add(e)
+        await s.flush()
+
+        await rules.tap(s, e)
+        await s.flush()
+
+        (dm,) = await _rows(s, events.ADMIN_ALERT)  # the platform's panels are the admin's to fix, whoever sold the account
+        assert dm.payload["text"].startswith(f"[{reseller.name}] ") and "C300" in dm.payload["text"]
+        assert await _group(s) == sorted([(STORE_GROUP, "errors"), (ADMIN_GROUP, "errors")])
+
+
+# ----- something is stuck -----
+class _Run:
+    def __init__(self, status, size=1024, details=None, target="melorin"):
+        self.id, self.status, self.size, self.details, self.target = uuid.uuid4(), status, size, details, target
+
+
+async def test_only_a_failed_backup_dms_the_admin_while_a_good_or_partial_one_stays_in_the_backup_topic():
+    async with open_session() as s:
+        await _world(s)
+        for status in ("succeeded", "partial", "failed"):
+            await rules.notify_backup(s, _Run(status, details="copied to S3" if status == "succeeded" else "boom"))
+        await s.flush()
+        kinds = sorted(r.payload["kind"] for r in await _rows(s, events.EVENT_CENTER))
+        assert kinds == ["backup_failed", "backup_partial", "backup_succeeded"]
+
+        await _tap_queued(s)
+
+        assert await _dms(s) == ["backup_failed"]
+        assert await _group(s) == [(ADMIN_GROUP, "backup")] * 3
+        (dm,) = await _rows(s, events.ADMIN_ALERT)
+        assert "ناموفق" in dm.payload["text"]
+
+
+async def test_an_outbox_event_that_keeps_failing_dms_the_admin_once():
+    async with open_session() as s:
+        await _world(s)
+        e = OutboxEvent(topic=events.ORDER_PAID, payload={}, attempts=rules.OUTBOX_FAILURE_THRESHOLD, last_error="boom")
+        s.add(e)
+        await s.flush()
+        await rules.report_outbox_failure(s, e)
+        await rules.report_outbox_failure(s, e)  # the same event reported again: one DM, one group message
+        await s.flush()
+        assert await _dms(s) == ["outbox_failure"] and await _group(s) == [(ADMIN_GROUP, "errors")]
+        (dm,) = await _rows(s, events.ADMIN_ALERT)
+        assert "boom" in dm.payload["text"]
+
+
+# ----- everything else is a group notice -----
 async def test_reseller_application_alerts_go_to_the_admin_topic_once_and_never_dm():
     async with open_session() as s:
         await _world(s)
@@ -232,10 +331,9 @@ async def test_reseller_application_alerts_go_to_the_admin_topic_once_and_never_
         assert deliver.payload["text"].startswith("🆕 درخواست نمایندگی جدید\n")
 
 
-async def test_backup_infra_and_unknown_kinds_are_group_notices():
+async def test_infra_and_unknown_kinds_are_group_notices():
     async with open_session() as s:
         await _world(s)
-        await events.emit_admin_notice(s, "backup_failed", "💾 پشتیبان‌گیری ناموفق بود")
         await events.emit_admin_notice(s, "infra_disk", "disk")
         await events.emit_admin_notice(s, "something_new", "new thing")  # a kind nobody declared is quiet by default
         await s.flush()
@@ -243,17 +341,21 @@ async def test_backup_infra_and_unknown_kinds_are_group_notices():
         await _tap_queued(s)
 
         assert await _dms(s) == []
-        assert await _group(s) == [(ADMIN_GROUP, "admin"), (ADMIN_GROUP, "backup"), (ADMIN_GROUP, "errors")]
+        assert await _group(s) == [(ADMIN_GROUP, "admin"), (ADMIN_GROUP, "errors")]
 
 
-async def test_the_caller_cannot_widen_the_dm_set_by_naming_a_topic():
+async def test_the_caller_cannot_widen_the_dm_set_by_naming_a_topic_or_dm_a_group_kind_directly():
     async with open_session() as s:
         await _world(s)
         await events.emit_admin_notice(
-            s, "backup_failed", "x", topic="payments"
+            s, "backup_succeeded", "x", topic="payments"
         )  # the topic is the caller's, the DM decision is the kind's
         await _tap_queued(s)
         assert await _dms(s) == [] and await _group(s) == [(ADMIN_GROUP, "payments")]
+        assert await events.emit_admin_dm(s, "panel_recovered", "x") is False  # the helper refuses a kind the policy keeps in the group
+        assert await events.emit_admin_dm(s, "node_failed", "x") is True
+        await s.flush()
+        assert await _dms(s) == ["node_failed"]
 
 
 # ----- the DM and the group are independent -----
@@ -270,7 +372,7 @@ async def test_the_dm_does_not_depend_on_the_group_and_the_group_does_not_depend
         assert await _group(s) == []  # nothing to deliver to: the recovery notice waits for a group, it is not turned into a DM
 
 
-@pytest.mark.parametrize("kind", ["panel_unhealthy", "backup_failed", "admin_manual_tasks", "unknown"])
+@pytest.mark.parametrize("kind", ["panel_unhealthy", "backup_failed", "backup_succeeded", "admin_manual_tasks", "unknown"])
 async def test_emit_admin_notice_fills_the_topic_from_the_policy(kind):
     from melorin.domain import messaging_policy
 

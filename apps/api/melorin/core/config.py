@@ -206,7 +206,7 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
     bootstrap_admin_totp_secret: str | None = None
-    # Numeric Telegram ID of the main admin (asked by the installer): panel/node failure and customer-payment alerts are delivered to it by the main bot.
+    # Numeric Telegram ID of the main admin (asked by the installer): the very important alerts (panel/node failures, failed provisioning, customer payments) are delivered to it by the main bot.
     bootstrap_admin_telegram_id: str | None = None
     seed_demo_data: bool = False
 

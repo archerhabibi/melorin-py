@@ -1,7 +1,7 @@
 """The main admin's numeric Telegram ID.
 
-The admin's bot DM is reserved for panel / node failures and customers' payments (``domain.messaging_policy``); every other admin
-notice goes to the Telegram supergroup (Event Center). The DM is sent through the main Telegram bot. A Telegram bot can only write to a
+The admin's bot DM is reserved for what is very important (panel / node failures, failed provisioning, customers' payments and receipts;
+``domain.messaging_policy``); every other admin notice goes to the Telegram supergroup (Event Center). The DM is sent through the main Telegram bot. A Telegram bot can only write to a
 numeric chat ID, so the installer asks for it and Core links it to the admin account as an ordinary ``telegram`` identity: the same
 row the notification worker already looks up.
 

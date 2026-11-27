@@ -79,7 +79,12 @@ async def _payment(session, label: str, p: dict, kind: str) -> tuple[uuid.UUID |
 
 
 async def _pay_ok(session, e, p):
-    return await _payment(session, "💳 پرداخت موفق", p, "payment_succeeded")
+    """A payment that succeeded on its own (a gateway, a bank SMS) is a DM kind. One a human just approved, or a provisional credit
+    (which has its own DM, ``payment_grace_credited``), would only echo what the admin did or was already told: group only."""
+    pid = _uuid(p.get("payment_id"))
+    pay = await session.get(Payment, pid) if pid else None
+    quiet = pay is not None and (pay.reviewed_by is not None or ((pay.meta or {}).get("provisional") or {}).get("state") == "open")
+    return await _payment(session, "💳 پرداخت موفق", p, "payment_approved" if quiet else "payment_succeeded")
 
 
 async def _pay_failed(session, e, p):
@@ -157,19 +162,23 @@ RULES: dict[str, Rule] = {
 }
 
 
-async def _platform_scope(session, store_id: uuid.UUID | None) -> bool:
-    """Is this notice about the platform itself (no store, or the Main Store)? A reseller store's events belong to that reseller."""
-    if store_id is None:
-        return True
-    store = await session.get(Store, store_id)
-    return store is None or store.kind != "reseller"
+async def _dm_text(session, kind: str, store_id: uuid.UUID | None, text: str) -> str | None:
+    """The text of the admin's bot DM, or None when this event is not the admin's to be pinged about.
+
+    The platform's own scope (no store, or the Main Store) is always the admin's. A reseller store's event belongs to that reseller
+    (his own group) unless the kind says otherwise (``Route.all_stores``: a provisioning failure is on the platform's panels); then the
+    DM names the store, like the admin's copy in the group does."""
+    store = await session.get(Store, store_id) if store_id else None
+    if store is None or store.kind != "reseller":
+        return text
+    return f"[{store.name}] {text}" if messaging_policy.admin_route(kind).all_stores else None
 
 
 async def tap(session, e: OutboxEvent) -> int:
     """Queue the Telegram deliveries for one processed outbox event. Never raises; returns how many group deliveries were queued.
 
     The group delivery is always queued. The admin's bot DM is queued ONLY when the notice's kind is a DM kind in
-    ``domain.messaging_policy`` (panel/node failures and customers' payments) and the notice is about the platform's own scope.
+    ``domain.messaging_policy`` (the very important ones) and the notice is about the platform's own scope (or the kind covers every store).
     """
     rule = RULES.get(e.topic)
     if rule is None:
@@ -182,13 +191,10 @@ async def tap(session, e: OutboxEvent) -> int:
             store_id, topic, text, *rest = hit
             kind = rest[0] if rest else None
             queued = await service.publish(session, store_id=store_id, topic=topic, text=text, source_key=str(e.id))
-            if kind and messaging_policy.admin_dm(kind) and await _platform_scope(session, store_id):
-                await events.emit(
-                    session,
-                    events.ADMIN_ALERT,
-                    {"kind": kind, "text": text, "store_id": store_id},
-                    dedup_key=f"adm:{e.id}",
-                )
+            if kind and messaging_policy.admin_dm(kind):
+                dm = await _dm_text(session, kind, store_id, text)
+                if dm is not None:
+                    await events.emit_admin_dm(session, kind, dm, store_id=store_id, dedup_key=f"adm:{e.id}")
             return queued
     except Exception:
         log.exception("event-center rule failed topic=%s event=%s", e.topic, e.id)
@@ -203,6 +209,7 @@ async def report_outbox_failure(session, e: OutboxEvent) -> None:
         async with session.begin_nested():
             text = f"🛑 رویداد {e.topic} بارها ناموفق بود ({e.attempts} بار)\nخطا: {str(e.last_error or '')[:250]}"
             await service.publish(session, store_id=None, topic=topics.ERRORS, text=text, source_key=f"fail:{e.id}")
+            await events.emit_admin_dm(session, "outbox_failure", text, dedup_key=f"adm:fail:{e.id}")
     except Exception:
         log.exception("event-center failure report failed event=%s", e.id)
 
@@ -230,17 +237,16 @@ def backup_text(status: str, size: int | None, details: str | None, target: str 
 
 
 async def notify_backup(session, run) -> None:
-    """Tell the admin's backup topic how a backup run ended (once per run). Best-effort: a failed notice never fails the backup."""
+    """Tell the admin how a backup run ended (once per run): a failed backup also reaches the bot DM (``backup_failed``), a successful
+    one or one whose only problem is the S3 copy (``backup_partial``) stays in the backup topic. Best-effort: a failed notice never
+    fails the backup."""
+    kind = {"succeeded": "backup_succeeded", "partial": "backup_partial"}.get(run.status, "backup_failed")
     try:
         async with session.begin_nested():
-            await events.emit(
+            await events.emit_admin_notice(
                 session,
-                events.EVENT_CENTER,
-                {
-                    "store_id": None,
-                    "topic": topics.BACKUP,
-                    "text": backup_text(run.status, run.size, run.details, getattr(run, "target", "melorin")),
-                },
+                kind,
+                backup_text(run.status, run.size, run.details, getattr(run, "target", "melorin")),
                 dedup_key=f"ec:backup:{run.id}",
             )
     except Exception:

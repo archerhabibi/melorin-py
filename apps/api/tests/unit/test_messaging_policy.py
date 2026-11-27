@@ -21,12 +21,24 @@ def test_longest_prefix_wins():
 
 def test_dm_allowed_only_for_kinds_routed_to_dm():
     assert m.dm_allowed("vpn_expired") and m.dm_allowed("panel_unhealthy") and m.dm_allowed("payment_succeeded") and m.dm_allowed(None)
-    for kind in ("provisioning_failed", "panel_recovered", "panel_down", "backup_failed", "outbox_failure", "admin_reseller_application"):
+    for kind in ("panel_recovered", "panel_down", "backup_succeeded", "backup_partial", "admin_reseller_application", "payment_approved"):
         assert not m.dm_allowed(kind), kind
 
 
-# 2026-11-26: the admin's bot DM is for panel/node failures and customers' payments, nothing else.
-DM_KINDS = {"panel_unhealthy", "node_failed", "payment_succeeded", "payment_receipt_review", "payment_grace_credited"}
+# 2026-11-27: the admin's bot DM is for what is very important: something down or stuck, a customer who paid and got nothing, a
+# customer's payment that needs the admin. Everything else is a topic of the supergroup.
+DM_KINDS = {
+    "panel_unhealthy",
+    "node_failed",
+    "panel_sell_blocked",
+    "outbox_failure",
+    "backup_failed",
+    "provisioning_failed",
+    "payment_succeeded",
+    "payment_receipt_review",
+    "payment_grace_credited",
+    "payment_sms_ambiguous",
+}
 GROUP_ONLY_KINDS = [
     "panel_recovered",
     "panel_degraded",
@@ -35,21 +47,24 @@ GROUP_ONLY_KINDS = [
     "panel_capacity",
     "node_recovered",
     "payment_failed",
+    "payment_approved",
     "payment_sms_matched",
     "payment_sms_confirmed",
-    "payment_sms_ambiguous",
+    "payment_sms_balance_gap",
     "payment_provisional_blocked",
-    "provisioning_failed",
-    "outbox_failure",
-    "backup_failed",
+    "backup_succeeded",
+    "backup_partial",
     "infra_disk",
     "admin_reseller_application",
+    "admin_reseller_verified",
+    "admin_reseller_auto_approved",
+    "admin_reseller_identity_lost",
     "admin_manual_tasks",
     "admin_panel_admin_request",
 ]
 
 
-def test_the_admin_dm_set_is_exactly_panel_node_failures_and_customer_payments():
+def test_the_admin_dm_set_is_exactly_the_very_important_kinds():
     assert m.ADMIN_DM_KINDS == DM_KINDS
     for kind in DM_KINDS:
         assert m.admin_dm(kind), kind
@@ -59,10 +74,16 @@ def test_the_admin_dm_set_is_exactly_panel_node_failures_and_customer_payments()
         assert m.admin_route(kind).channels == (m.EVENT_CENTER,), kind
 
 
+def test_only_a_provisioning_failure_reaches_the_admin_for_a_reseller_stores_event():
+    assert [k for k in DM_KINDS if m.admin_route(k).all_stores] == ["provisioning_failed"]
+
+
 def test_a_longer_group_only_kind_is_never_swallowed_by_a_dm_prefix():
     # "payment_provisional_blocked" must not match the DM kind "payment_grace_credited" or any DM prefix.
     assert m.route_for("payment_provisional_blocked").channels == (m.EVENT_CENTER,)
     assert m.route_for("node_recovered").channels == (m.EVENT_CENTER,)
+    assert m.route_for("backup_partial").channels == (m.EVENT_CENTER,) and m.route_for("backup_failed").channels == (m.DM, m.EVENT_CENTER)
+    assert m.route_for("payment_approved").channels == (m.EVENT_CENTER,)
     assert m.route_for("node_failed").channels == (m.DM, m.EVENT_CENTER)
 
 

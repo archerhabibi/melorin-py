@@ -104,13 +104,13 @@ async def test_a_different_event_is_a_new_dm(session, sent):
 @pytest.mark.parametrize(
     "kind",
     [
-        "provisioning_failed",
         "panel_recovered",
         "node_recovered",
-        "backup_failed",
-        "outbox_failure",
+        "backup_succeeded",
+        "backup_partial",
         "admin_reseller_application",
         "payment_failed",
+        "payment_approved",
         "nope",
         "",
     ],

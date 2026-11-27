@@ -2,8 +2,8 @@
 
 They describe panel state, so they live with the panel domain (``panelops``) and only *emit* an admin notice of a given kind
 (``events.emit_admin_notice``, Topic ``panels``); where it is delivered is ``domain.messaging_policy``'s business: a panel that turns
-unhealthy and nodes that start failing also reach the admin's bot DM, everything else (recovery, degraded, drift, capacity) only the
-group. All are best-effort: a failure here can never fail the health, drift or capacity check that calls them.
+unhealthy, nodes that start failing and destinations that stop selling also reach the admin's bot DM, everything else (recovery, degraded,
+drift, capacity warnings) only the group. All are best-effort: a failure here can never fail the health, drift or capacity check that calls them.
 """
 
 from __future__ import annotations
@@ -99,31 +99,41 @@ async def notify_panel_nodes(session, panel, changes: list[dict]) -> None:
             log.exception("panel notice: %s notice failed panel=%s", kind, panel.id)
 
 
-def server_capacity_text(panel_name: str, changes: list) -> str | None:
-    """One message per panel and check: destinations that stopped/started being sellable and capacity thresholds crossed (PG-08)."""
-    lines: list[str] = []
+def sell_blocked_text(panel_name: str, changes: list) -> str | None:
+    """Destinations that stopped selling, or are now full (PG-08): sales are lost until somebody acts, so this is a bot DM."""
     blocked = [c for c in changes if c.kind == "sellable" and c.new == "blocked"]
-    back = [c for c in changes if c.kind == "sellable" and c.new == "sellable"]
+    full = [c for c in changes if c.kind == "capacity" and c.new == "100"]
+    lines: list[str] = []
     if blocked:
         lines.append(f"🔴 مقصدهای پنل «{panel_name}» از فروش خارج شدند (اکانت‌های موجود تغییری نمی‌کنند):")
         for c in blocked[:8]:
             lines.append(f"• {c.server}" + (f" — {str(c.detail)[:140]}" if c.detail else ""))
+    lines.extend(f"🔴 ظرفیت پر شد: {c.server} (پنل «{panel_name}»)" for c in full)
+    return "\n".join(lines) or None
+
+
+def capacity_text(panel_name: str, changes: list) -> str | None:
+    """Destinations that are sellable again and the 80 % / 95 % capacity warnings (PG-08): worth a line in the group, not a DM."""
+    back = [c for c in changes if c.kind == "sellable" and c.new == "sellable"]
+    lines: list[str] = []
     if back:
         lines.append(f"🟢 مقصدهای پنل «{panel_name}» دوباره قابل فروش شدند: " + "، ".join(c.server for c in back[:8]))
-    labels = {"80": "🟡 بیش از ۸۰٪ پر شد", "95": "🟠 بیش از ۹۵٪ پر شد", "100": "🔴 ظرفیت پر شد"}
-    for c in changes:
-        if c.kind == "capacity" and c.new in labels:
-            lines.append(f"{labels[c.new]}: {c.server} (پنل «{panel_name}»)")
+    labels = {"80": "🟡 بیش از ۸۰٪ پر شد", "95": "🟠 بیش از ۹۵٪ پر شد"}
+    lines.extend(f"{labels[c.new]}: {c.server} (پنل «{panel_name}»)" for c in changes if c.kind == "capacity" and c.new in labels)
     return "\n".join(lines) or None
 
 
 async def notify_server_capacity(session, panel, changes: list) -> None:
-    """Group notice (panels topic, no DM) for sell-guard flips and capacity thresholds (PG-08). Best-effort."""
-    text = server_capacity_text(panel.name, changes)
-    if not text:
-        return
-    try:
-        async with session.begin_nested():
-            await events.emit_admin_notice(session, "panel_capacity", text)
-    except Exception:
-        log.exception("panel notice: server capacity notice failed panel=%s", panel.id)
+    """Admin notices for sell-guard flips and capacity thresholds (PG-08): sales stopped / full is a bot DM + panels topic
+    (``panel_sell_blocked``), the softer warnings and recoveries stay in the panels topic (``panel_capacity``). Best-effort."""
+    for kind, text in (
+        ("panel_sell_blocked", sell_blocked_text(panel.name, changes)),
+        ("panel_capacity", capacity_text(panel.name, changes)),
+    ):
+        if not text:
+            continue
+        try:
+            async with session.begin_nested():
+                await events.emit_admin_notice(session, kind, text)
+        except Exception:
+            log.exception("panel notice: %s notice failed panel=%s", kind, panel.id)

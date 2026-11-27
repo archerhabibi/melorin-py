@@ -423,7 +423,8 @@ async def test_admin_alert_retries_after_a_failed_send_and_does_not_duplicate(ma
 
 
 async def test_provisioning_failed_no_longer_dms_the_admin(maker, tg, monkeypatch):
-    """2026-11-26: a provisioning failure is a group notice (errors topic), not a bot DM."""
+    """The topic handler only fans out the webhook. The admin's notice (group + bot DM) is queued by the Event Center tap, so a retry of
+    this handler can never message the admin twice (tests/service/test_admin_notice_routing.py)."""
     hooks = []
 
     async def hook(s, name, p, eid):
