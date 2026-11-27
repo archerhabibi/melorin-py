@@ -484,6 +484,56 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-27 22:10 UTC - archerhabibi - other, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identity): admins shop in the main store (bot + website) as customers, and that session can never re-key the account (#212) - One admin account is both a platform admin and an ordinary customer of the main store (main bot, Mini App, web handoff, Telegram website login / OIDC, e-mail code): own…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (29):** `CHANGELOG.md`, `apps/api/melorin/channels/telegram/oidc_router.py`, `apps/api/melorin/channels/telegram/web.py`, `apps/api/melorin/core/admin_telegram.py`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/core/integrations.py`, `apps/api/melorin/domain/admin_access.py`, `apps/api/melorin/modules/identity/account_linking/router.py` (+21 more)
+- **Ref:** `7804abf`
+
+
+### 2026-11-26 14:03 UTC - Claude - admin, api-client  _(auto)_
+- **Before:** the channel-join admin routes had untyped responses and no admin UI
+- **Problem:** the owner needs a switch in the panel to enable/disable mandatory channel membership
+- **Action:** typed response models (ChannelJoinView, ChannelJoinCheck) + regenerated OpenAPI/schema.d.ts; new page under «سیستم و امنیت» (system permission): switch, up to 5 channels (public @username/t.me link or private -100 id + invite link), ordering, message with default, membership cache, live bot preview…
+- **After:** admin-web vitest (48 files) incl. tests/channel-join.test.jsx and nav-structure pass; lint, typecheck, prettier, build pass; gen_api_client --check passes
+- **Files (10):** `apps/admin-web/src/app/AdminExtra.tsx`, `apps/admin-web/src/app/adminAccess.ts`, `apps/admin-web/src/app/adminNav.ts`, `apps/admin-web/src/features/settings/ChannelJoinView.tsx`, `apps/admin-web/src/features/settings/channelJoin.ts`, `apps/admin-web/tests/channel-join.test.jsx`, `apps/admin-web/tests/nav-structure.test.js`, `apps/api/melorin/modules/admin/channel_join.py` (+2 more)
+- **Ref:** `18b0895`
+
+### 2026-11-26 06:10 UTC - Claude - telegram  _(auto)_
+- **Before:** a 403 from /auth/telegram/bot other than ADMIN_USE_PANEL was dropped silently
+- **Problem:** gated users must see which channels to join and be able to retry
+- **Action:** CoreError carries details; core_login maps CHANNEL_JOIN_REQUIRED; new ChannelJoinMixin draws the admin's message with one URL button per missing channel and "✅ عضو شدم" (join:check) - still missing -> alert pop-up, joined -> confirmation, gate message deleted and a /start deep link that arrived whi…
+- **After:** apps/telegram-main/tests (110+ tests incl. test_channel_join_gate.py) and telegram-reseller tests pass
+- **Files (6):** `apps/telegram-main/tests/test_channel_join_gate.py`, `apps/telegram-main/tgmain/client.py`, `apps/telegram-main/tgmain/core.py`, `apps/telegram-main/tgmain/errors.py`, `apps/telegram-main/tgmain/handlers/channel_join.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `8bc914f`
+
+### 2026-11-26 06:10 UTC - Claude - admin, api-client  _(auto)_
+- **Before:** the new admin schema had unbounded request integers and the OpenAPI snapshot/API.md did not list the channel-join routes
+- **Problem:** tests/contracts/test_openapi_input_bounds.py failed; gen_api_client/gen_docs --check would fail in CI
+- **Action:** bound ChannelIn/ChannelJoinIn fields; ran scripts/gen_api_client.py --write, npm run generate and scripts/gen_docs.py
+- **After:** tests/contracts pass; gen_docs --check passes
+- **Files (5):** `apps/api/melorin/modules/admin/channel_join.py`, `docs/API.md`, `docs/STATUS.md`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `0fc091b`
+
+### 2026-11-26 06:07 UTC - Claude - telegram, identity, admin  _(auto)_
+- **Before:** every Telegram user got a Core session from POST /auth/telegram/bot unconditionally
+- **Problem:** no switch to require joining the store's channel(s) before using the main bot
+- **Action:** new module modules/channel_gate (getChatMember with the main bot token, positive answers cached per user+channel set, negative never cached, fail-open on unreadable channels/Telegram outage with metrics); /auth/telegram/bot keeps the sign-up and referral but answers 403 CHANNEL_JOIN_REQUIRED with t…
+- **After:** tests/http/test_channel_join_http.py and tests/unit/test_admin_access.py pass; lint-imports 8 kept
+- **Files (9):** `apps/api/melorin/core/integrations.py`, `apps/api/melorin/modules/admin/channel_join.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/channel_gate/__init__.py`, `apps/api/melorin/modules/channel_gate/service.py`, `apps/api/melorin/modules/identity/routes/sign_in.py`, `apps/api/pyproject.toml`, `apps/api/tests/http/test_channel_join_http.py` (+1 more)
+- **Ref:** `fc97aed`
+
+### 2026-11-26 06:07 UTC - Claude - telegram  _(auto)_
+- **Before:** the main bot had no way to require users to join a channel
+- **Problem:** the store owner wants bot users to be members of the store's channel(s) before using the bot
+- **Action:** pure domain module domain/channel_join.py - config validation (up to 5 channels, @username / t.me link / -100 id, invite link for private channels, message, cache TTL), the ChatMember membership rule, a channel-set fingerprint and the public projection shown to a refused user
+- **After:** tests/unit/test_channel_join_domain.py passes
+- **Files (2):** `apps/api/melorin/domain/channel_join.py`, `apps/api/tests/unit/test_channel_join_domain.py`
+- **Ref:** `231018a`
+
+
 ###### 2026-11-26 - Claude (with owner) - Mandatory channel membership (force join) for the main bot
 - **Before:** every Telegram user got a Core session from `POST /auth/telegram/bot`; there was no way to require joining the store's channel.
 - **Problem:** the owner wants main-bot users to join one or more channels first, switchable from the admin panel.
