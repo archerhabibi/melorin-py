@@ -145,7 +145,7 @@ class TelegramRunner(TransportMixin, ChannelJoinMixin, IdentityMixin, LoyaltyMix
                 return await self.show_join_gate(message, callback, text, arg, exc)
             if exc.code != "ADMIN_USE_PANEL":
                 raise
-            return await self.send(message["chat"]["id"], ADMIN_ACCOUNT_NOTICE)  # legacy admin-account Telegram identity: say so instead of staying silent
+            return await self.send(message["chat"]["id"], ADMIN_NOTICE)  # the admin's alert address: say so instead of staying silent
         user = message.get("_telegram_from") or message.get("from") or {}
         ctx = Ctx(
             message["chat"]["id"],
@@ -273,10 +273,7 @@ class TelegramRunner(TransportMixin, ChannelJoinMixin, IdentityMixin, LoyaltyMix
         if arg.startswith("wl_"):
             return await self.cmd_web_login(ctx, arg[3:])
         store = await self.store_info()
-        welcome = f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید."
-        if ctx.pair.get("admin_alerts"):  # recognition only: the admin stays an ordinary customer here
-            welcome += f"\n\n{ADMIN_ALERT_NOTE}"
-        await self.send_main_menu(ctx.chat_id, welcome)
+        await self.send_main_menu(ctx.chat_id, f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید.")
         await self.cmd_home(ctx, "")
 
     async def cmd_home(self, ctx, arg):

@@ -36,12 +36,12 @@ BOT_COMMANDS = [
     ("help", "راهنما"),
 ]
 
-# One line under /start when this Telegram account is also an admin's alert address (Core says so with ``admin_alerts``). The admin is
-# otherwise an ordinary customer here: buying, renewing, wallet and support all work as for anybody.
-ADMIN_ALERT_NOTE = "👑 شما به‌عنوان مدیر شناخته شده‌اید؛ اعلان‌های مدیریتی به همین چت ارسال می‌شود. خرید و تمدید مثل بقیهٔ کاربران انجام می‌شود."
-
-# A Telegram account that Core still treats as an admin login (a legacy Telegram identity on an admin account): admins sign in at the panel.
-ADMIN_ACCOUNT_NOTICE = "این حساب تلگرام به یک حساب مدیریت متصل است و نمی‌تواند به‌عنوان مشتری وارد شود. از پنل مدیریت استفاده کنید یا اتصال تلگرام حساب مدیر را بردارید."
+# Shown when the main admin's own Telegram account opens the bot: it is the address of the admin alerts, not a customer account.
+ADMIN_NOTICE = (
+    "👋 سلام مدیر عزیز\n"
+    "✅ اعلان‌های مدیریتی (خطای ساخت اکانت، درخواست نمایندگی جدید، کارهای دستیِ نماینده‌ها و …) از همین ربات به همین چت ارسال می‌شود.\n\n"
+    "مدیریت فروشگاه فقط از پنل مدیریت انجام می‌شود؛ این ربات مخصوص مشتریان است."
+)
 
 # Mandatory channel membership (Core answers CHANNEL_JOIN_REQUIRED): the join screen's texts and its check button.
 JOIN_CHECK_DATA = "join:check"
