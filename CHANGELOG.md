@@ -6,7 +6,13 @@ All notable changes to Melorin. The detailed, dated engineering log lives in
 [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) ("Melorin Change Log"); this file is the short,
 release-oriented summary. The project is pre-release: breaking changes are allowed.
 
-## [Unreleased] - 2026-11-19
+## [Unreleased] - 2026-11-27
+
+### Admin web: payments screen redesigned as a four-tab hub
+- The «پرداخت‌ها» menu was one endless page (KPIs, review queue, list, bank-SMS settings and inbox, fast receipt review, duplicate-picture policy, gateway settings, OCR). It is now a hub with four tabs, split by what the admin is doing: **تراکنش‌ها** (KPIs, receipts waiting for a decision, filters, list, refunds), **رسیدها** (fast review and provisional approval, duplicate-picture policy, OCR), **پیامک بانک** (automatic card-to-card verification) and **درگاه‌ها** (card and Zarinpal of the main store, forms always open instead of an accordion at the bottom).
+- Deep links: `#/payments`, `#/payments?tab=receipts|sms|gateways` (an unknown tab falls back to transactions). The transactions tab shows how many receipts wait for a decision and the receipts tab how many provisional charges wait for a final one, so urgent work is visible from any tab.
+- Each tab fetches only its own data (gateway destinations and bank SMS are not requested while the admin looks at transactions); the payments list, the main store lookup and the typed receipt download are shared by the hub (`usePaymentsData.ts`). `BankSmsPanel` no longer embeds `ReceiptReviewPanel`.
+- No API or permission change. Tests: `payments-hub.test.jsx` (tabs, badges, deep links, lazy loading per tab); typing ratchet lowered to 1956.
 
 ### Installer: one-line install redesigned (get.sh, melorin.sh, install_server.sh)
 - `get.sh` is a function-wrapped bootstrapper (a truncated download does nothing), re-runs itself through sudo, checks apt/OS/network, installs the prerequisites with a lock- and dialog-safe apt, clones atomically with retries, accepts only strict `vX.Y.Z` release tags and a full 40-char `--commit` pin, and sets `core.fileMode=false` (its own `chmod +x` used to leave the checkout git-dirty).
