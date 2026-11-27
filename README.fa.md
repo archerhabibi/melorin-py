@@ -8,9 +8,17 @@
 
 پیش‌نیاز: Docker با Compose v2 (پروداکشن) یا Python 3.12 + Node 22 + PostgreSQL + Redis (توسعه).
 
+پروداکشن (سرور تازهٔ Ubuntu 22.04+ / Debian 12+ با root و ۴ گیگ رم): یک خط؛ پرچم‌ها (`install --yes`، `doctor`، `--external-proxy`) در docs/18.
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh)
+```
+
+توسعه / از روی clone:
+
 ```bash
 git clone https://github.com/archerhabibi/melorin-py.git && cd melorin-py
-sudo bash melorin.sh install        # production install (docs/18)
+sudo bash melorin.sh install        # production install from a clone (docs/18)
 # development
 cd apps/api && python -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 alembic upgrade head && pytest -q

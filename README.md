@@ -8,9 +8,17 @@ VPN sales and management platform: main store, reseller stores, Telegram bots, a
 
 Prerequisites: Docker with Compose v2 (production) or Python 3.12 + Node 22 + PostgreSQL + Redis (development).
 
+Production (a fresh Ubuntu 22.04+/Debian 12+ server, as root; 4 GB RAM): one line, see docs/18 for flags (`install --yes`, `doctor`, `--external-proxy`).
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh)
+```
+
+Development / from a clone:
+
 ```bash
 git clone https://github.com/archerhabibi/melorin-py.git && cd melorin-py
-sudo bash melorin.sh install        # production install (docs/18)
+sudo bash melorin.sh install        # production install from a clone (docs/18)
 # development
 cd apps/api && python -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 alembic upgrade head && pytest -q
