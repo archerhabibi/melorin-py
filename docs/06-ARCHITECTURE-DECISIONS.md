@@ -484,6 +484,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-27 22:10 UTC - archerhabibi - other, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identity): admins shop in the main store (bot + website) as customers, and that session can never re-key the account (#212) - One admin account is both a platform admin and an ordinary customer of the main store (main bot, Mini App, web handoff, Telegram website login / OIDC, e-mail code): own…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (29):** `CHANGELOG.md`, `apps/api/melorin/channels/telegram/oidc_router.py`, `apps/api/melorin/channels/telegram/web.py`, `apps/api/melorin/core/admin_telegram.py`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/core/integrations.py`, `apps/api/melorin/domain/admin_access.py`, `apps/api/melorin/modules/identity/account_linking/router.py` (+21 more)
+- **Ref:** `7804abf`
+
+
 ### 2026-11-26 14:03 UTC - Claude - admin, api-client  _(auto)_
 - **Before:** the channel-join admin routes had untyped responses and no admin UI
 - **Problem:** the owner needs a switch in the panel to enable/disable mandatory channel membership
