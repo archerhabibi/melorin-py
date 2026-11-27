@@ -223,7 +223,14 @@ def _load_bot(tmp_path, monkeypatch):
 def _run_start(tmp_path, monkeypatch, **pair_over) -> list[dict]:
     mod = _load_bot(tmp_path, monkeypatch)
     sent: list[dict] = []
-    pair = {"access_token": "a", "refresh_token": "r", "expires_in": 900, "user_id": "00000000-0000-0000-0000-000000000001", "is_admin": False, **pair_over}
+    pair = {
+        "access_token": "a",
+        "refresh_token": "r",
+        "expires_in": 900,
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "is_admin": False,
+        **pair_over,
+    }
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)

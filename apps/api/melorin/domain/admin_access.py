@@ -38,6 +38,17 @@ AREAS: tuple[str, ...] = (
     "self",
 )
 FALLBACK_AREA = "system"
+
+# An admin ACCOUNT may also shop as an ordinary customer, but only in the platform's own (main) store: its website and its bot. A
+# reseller store belongs to a third party who sees its customers, so the platform owner's identity never joins one.
+CUSTOMER_SESSION_STORE_KINDS: frozenset[str] = frozenset({"main"})
+
+
+def may_shop_as_customer(store_kind: str | None) -> bool:
+    """May an admin account open a plain customer session on a store of this kind? (Unknown kind: no, fail closed.)"""
+    return store_kind in CUSTOMER_SESSION_STORE_KINDS
+
+
 READ, WRITE = "r", "rw"
 
 _ALL_OPERATIONAL = ("overview", "reports", "orders", "payments", "catalog", "infrastructure", "resellers", "customers", "support")

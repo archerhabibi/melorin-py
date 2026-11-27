@@ -4,7 +4,6 @@ from fastapi import Response
 from sqlalchemy import select
 from melorin.core.config import get_settings
 from melorin.core.deps import main_store
-from melorin.core.errors import AppError
 from melorin.modules.identity import service
 from melorin.kernel.models.identity import User
 from melorin.modules.identity.schemas import (
@@ -57,9 +56,3 @@ async def _after_signup(session, user: User, created: bool, store_id, ref_code: 
             return
     referrer = await service.user_by_referral_code(session, ref_code)
     await referral.attach(session, store.id, user, referrer)
-
-
-def _refuse_admin_on_customer_channel(user: User) -> None:
-    """Admins sign in only at the admin panel (password + TOTP): email codes, store sites and bots never mint admin sessions."""
-    if user.is_super_admin:
-        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)

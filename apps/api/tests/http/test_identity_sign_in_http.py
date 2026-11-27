@@ -20,6 +20,7 @@ from melorin.modules.identity.routes import sign_in
 from melorin.modules.identity.routes._common import GOOGLE_NONCE_COOKIE, REFRESH_COOKIE
 
 API = "/api/v1/auth"
+ME = "/api/v1/me"
 
 
 def _err(r):
@@ -59,12 +60,21 @@ async def test_email_code_rejects_wrong_codes_and_a_code_cannot_be_reused():
         assert again.status_code == 400 and _err(again) == "CODE_INVALID"
 
 
-async def test_email_code_for_an_admin_account_is_refused_on_the_customer_channel():
-    async with api_client() as (c, maker, _):
-        await add_user(maker, email="root@example.com", admin=True, totp=True)
+async def test_email_code_for_an_admin_account_opens_a_customer_session_and_never_an_admin_one():
+    async with api_client() as (c, maker, main):
+        root = await add_user(maker, email="root@example.com", admin=True, totp=True)
         code = (await c.post(f"{API}/email/request-code", json={"email": "root@example.com"})).json()["dev_code"]
         r = await c.post(f"{API}/email/verify-code", json={"email": "root@example.com", "code": code})
-        assert r.status_code == 403 and _err(r) == "ADMIN_USE_PANEL"
+        assert r.status_code == 200, r.text
+        pair = r.json()
+        # the admin shops in the main store like anybody: same account, a customer session of the site channel
+        assert pair["user_id"] == str(root.id) and pair["channel"] == "site" and pair["store_id"] == str(main.id)
+        assert pair["is_admin"] is False and pair["admin_account"] is True
+        h = {"Authorization": f"Bearer {pair['access_token']}"}
+        assert (await c.get(f"{ME}/stores", headers=h)).status_code == 200
+        # ... but this session is no admin session: the admin plane stays shut and the account cannot be re-keyed from it
+        assert (await c.get("/api/v1/admin/telegram/channel-join", headers=h)).status_code == 403
+        assert (await c.post(f"{ME}/password", json={"password": "Another-Passw0rd!"}, headers=h)).status_code == 403
 
 
 async def test_malformed_input_gets_the_validation_envelope():

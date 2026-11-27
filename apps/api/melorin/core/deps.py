@@ -139,6 +139,24 @@ async def require_admin_session(
     return user
 
 
+async def credential_user(request: Request, session: Session, auth: AuthSession = Depends(current_auth)) -> User:
+    """The user, for endpoints that change HOW the account signs in: password, 2FA, linked identities, link codes, unlinking.
+
+    An admin ACCOUNT may use the bot and the store website as a customer. That session is proven by a Telegram ID (or an e-mail code),
+    never by password + TOTP, so it must never be able to re-key the account: only the admin panel session may. Without this a
+    Telegram-only session could set a new password and a new TOTP secret and then log in to the panel (see CHANGELOG). Everybody who is
+    not an admin account passes untouched.
+    """
+    user = auth.user
+    if user.is_super_admin and not auth.is_admin_session:
+        audit.security_event(
+            session, "admin_credential_change_refused", user.id, {"path": request.url.path, "channel": auth.claims.channel}
+        )
+        await session.commit()
+        raise AppError("ADMIN_USE_PANEL", "تغییر رمز، ورود دومرحله‌ای و روش‌های ورود حساب مدیر فقط از پنل مدیریت انجام می‌شود.", 403)
+    return user
+
+
 async def require_bot_service(x_bot_secret: str = Header(default="")) -> BotService:
     bot = channel.identify_bot(x_bot_secret)
     if bot is None:
@@ -149,6 +167,7 @@ async def require_bot_service(x_bot_secret: str = Header(default="")) -> BotServ
 CurrentUser = Annotated[User, Depends(current_user)]
 CurrentAuth = Annotated[AuthSession, Depends(current_auth)]
 AdminUser = Annotated[User, Depends(require_admin_session)]
+CredentialUser = Annotated[User, Depends(credential_user)]
 BotAuth = Annotated[BotService, Depends(require_bot_service)]
 
 

@@ -79,7 +79,9 @@ async def test_an_admin_session_still_needs_the_panel_login():
     async with api_client() as (c, maker, main):
         await _admin_with_telegram(maker)
         r = await c.post(BOT_LOGIN, json=_login(main, 424242424), headers=MAIN_SECRET)
-        claims = ch.SessionClaims.from_payload(__import__("melorin.core.security", fromlist=["x"]).decode_access_token(r.json()["access_token"]))
+        claims = ch.SessionClaims.from_payload(
+            __import__("melorin.core.security", fromlist=["x"]).decode_access_token(r.json()["access_token"])
+        )
         assert claims.channel == "bot" and not claims.is_admin
 
 
@@ -105,7 +107,9 @@ async def test_the_admin_tops_up_buys_and_gets_an_account_through_the_bot(world)
             panel = Panel(name="P1", kind="mock", base_url="http://x", is_enabled=True, health_status="healthy")
             s.add_all([group, panel])
             await s.flush()
-            s.add_all([BundleMember(bundle_id=group.id, panel_id=panel.id, sort=0), BundleProduct(bundle_id=group.id, product_id=product.id)])
+            s.add_all(
+                [BundleMember(bundle_id=group.id, panel_id=panel.id, sort=0), BundleProduct(bundle_id=group.id, product_id=product.id)]
+            )
             s.add(Server(name="S1", panel_id=panel.id))
             s.add(StoreProduct(store_id=main.id, product_id=product.id, is_enabled=True))
             s.add(StorePaymentConfiguration(store_id=main.id, provider="golden_gw", is_enabled=True, public_config={}))
@@ -118,7 +122,13 @@ async def test_the_admin_tops_up_buys_and_gets_an_account_through_the_bot(world)
         sid = login.json()["store_id"]
         auth = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
-        pay = (await c.post(f"/api/v1/stores/{sid}/wallet/topups", json={"amount": price, "provider": "golden_gw"}, headers={**auth, "Idempotency-Key": "adm-topup-1"})).json()
+        pay = (
+            await c.post(
+                f"/api/v1/stores/{sid}/wallet/topups",
+                json={"amount": price, "provider": "golden_gw"},
+                headers={**auth, "Idempotency-Key": "adm-topup-1"},
+            )
+        ).json()
         async with maker() as s:
             ref = (await s.get(Payment, uuid.UUID(pay["id"]))).external_ref
         cb = await c.get(f"/api/v1/payments/callbacks/golden_gw?pid={pay['id']}&Status=OK&Authority={ref}")

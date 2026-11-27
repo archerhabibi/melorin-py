@@ -8828,6 +8828,11 @@ export interface components {
         };
         /** MeOut */
         MeOut: {
+            /**
+             * Admin Account
+             * @default false
+             */
+            admin_account: boolean;
             /** Display Name */
             display_name: string | null;
             /** Email */

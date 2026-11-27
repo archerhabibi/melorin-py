@@ -32,6 +32,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import hit
 from melorin.core.security import new_opaque_token, token_hash, safe_equal, normalize_digits
+from melorin.domain import admin_access
 from melorin.modules.identity import service
 from melorin.kernel.models.identity import RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
@@ -169,14 +170,23 @@ async def create_session(
     return Started(row=row, poll_token=poll_token, bot_username=bot, level=level)
 
 
+async def _admin_barred(session: AsyncSession, user: User, store_id: uuid.UUID | None) -> bool:
+    """An admin account signs in to a store website like a customer only in the main store (``domain.admin_access``); on any other
+    store it keeps the old rule: admins use the panel."""
+    if not user.is_super_admin:
+        return False
+    store = await session.get(Store, store_id) if store_id is not None else None
+    return store is None or not admin_access.may_shop_as_customer(store.kind)
+
+
 async def _silent_signin(session: AsyncSession, row: TelegramLoginSession, device, ip: str | None) -> bool:
     """Trusted browser, same network, seen recently: the session is approved on creation, with no bot step.
 
     The owner is told in Telegram (once per device and day) and can revoke with /devices. Returns False (and nothing is
-    approved) when the account is gone, disabled or an admin; a device of such an account is revoked on the spot.
+    approved) when the account is gone, disabled or an admin barred from this store; a device of such an account is revoked on the spot.
     """
     user = await session.get(User, device.user_id)
-    if user is None or not user.is_active or user.is_super_admin:
+    if user is None or not user.is_active or await _admin_barred(session, user, row.store_id):
         device.revoked_at = utcnow()
         return False
     trust.touch(device, ip)
@@ -315,8 +325,8 @@ async def _complete(session: AsyncSession, row: TelegramLoginSession, profile: T
     user, _created = await service.login_with_telegram(session, profile)
     if not user.is_active:
         return await _close(session, row, "account_disabled", security="tg_web_login_inactive_account")
-    if user.is_super_admin:
-        # Same rule as the storefront Google flow: admins authenticate on the admin panel (password + TOTP) only.
+    if await _admin_barred(session, user, row.store_id):
+        # An admin shops as a customer in the main store only; elsewhere admins authenticate on the admin panel (password + TOTP).
         row.user_id = user.id
         return await _close(session, row, "admin_use_panel", security="tg_web_login_admin_refused")
     row.user_id, row.status, row.decided_at = user.id, "approved", utcnow()
@@ -376,7 +386,7 @@ async def poll(session: AsyncSession, public_id: str, poll_token: str, request, 
             out.match_code = row.match_code if number_match_enabled(await integrations.get_telegram(session)) else None
         return out
     user = await session.get(User, row.user_id)
-    if user is None or not user.is_active or user.is_super_admin:
+    if user is None or not user.is_active or await _admin_barred(session, user, row.store_id):
         row.status, row.deny_reason = "denied", "account_disabled" if user is None or not user.is_active else "admin_use_panel"
         await session.commit()
         return PollResult("denied", row.deny_reason)
