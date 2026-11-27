@@ -8,6 +8,13 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 ## [Unreleased] - 2026-11-27
 
+### Telegram: the admin is an ordinary customer in the bot
+- The admin's numeric Telegram ID is now only an **alert address**: a system setting (`admin.telegram_id:<admin id>`), no longer a Telegram identity of the admin account. Opening the main bot with that Telegram account signs in a normal customer (own account, wallet, orders; buying, renewing, tickets all work); the bot no longer answers «این ربات مخصوص مشتریان است».
+- Admin notices (the DM kinds of `domain.messaging_policy`) are still delivered to that address through the main bot; the Event Center group is unchanged.
+- Recognition only: `POST /auth/telegram/bot` returns `admin_alerts: true` (main bot only) and `/start` adds one line saying admin alerts arrive in this chat. No extra rights, no admin session (`ADMIN_USE_PANEL` stays for the panel-only rule).
+- The ID may now also belong to a customer account (the point of the change); `telegram_identity` holds the customer-facing helpers that used to live in `admin_telegram`. Migration `0002_admin_telegram_address` moves existing admin Telegram identities to the setting.
+- Tests: `tests/http/test_admin_as_customer_http.py`, `tests/service/test_admin_telegram_id.py`, worker/alert tests updated.
+
 ### Admin web: payments screen redesigned as a four-tab hub
 - The «پرداخت‌ها» menu was one endless page (KPIs, review queue, list, bank-SMS settings and inbox, fast receipt review, duplicate-picture policy, gateway settings, OCR). It is now a hub with four tabs, split by what the admin is doing: **تراکنش‌ها** (KPIs, receipts waiting for a decision, filters, list, refunds), **رسیدها** (fast review and provisional approval, duplicate-picture policy, OCR), **پیامک بانک** (automatic card-to-card verification) and **درگاه‌ها** (card and Zarinpal of the main store, forms always open instead of an accordion at the bottom).
 - Deep links: `#/payments`, `#/payments?tab=receipts|sms|gateways` (an unknown tab falls back to transactions). The transactions tab shows how many receipts wait for a decision and the receipts tab how many provisional charges wait for a final one, so urgent work is visible from any tab.
