@@ -15,6 +15,7 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 - The install runs detached (`setsid`, log `/var/log/melorin-install.log`, lock, exit code file) and is followed live; a dropped connection no longer kills it, and the one-time admin password is saved to `/root/melorin-credentials.txt` before the build.
 - Docker: Compose v2 plugin, minimum version and a running daemon are verified; installed from the official apt repository. Image builds stream live, retry network errors and explain Docker Hub rate limits, blocked registries, full disks and out-of-memory.
 - Fixes: a repair re-run of an installed server no longer dies in `bootstrap`; `melorin update` exits 0 when already current and picks only `vX.Y.Z` tags; `ufw` is never enabled without a confirmed SSH port; `uninstall` refuses a non-checkout directory (a copied `melorin.sh` would have deleted its own folder).
+- Not root with a password-protected sudo and no terminal (cloud-init, ssh without `-t`) now gets an actionable message instead of sudo's bare "a terminal is required"; the `doctor` help no longer claims it "installs nothing" (it fetches the project and the download prerequisites, but installs no Melorin component).
 - Tests: `tests/contracts/test_one_line_installer.py` runs the scripts (truncated download, no-tty, validation, retry, port owner, failure hints).
 
 ### Bank SMS: end-to-end typed API (admin-web + API contract)

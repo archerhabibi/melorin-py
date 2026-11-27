@@ -9,7 +9,8 @@
 #
 #   bash <(curl -fsSL .../get.sh) install --domain shop.example.com --admin-domain admin.example.com \
 #        --email you@example.com --yes                       # bot token via MAIN_BOT_TOKEN or --bot-token-file
-#   bash <(curl -fsSL .../get.sh) doctor                     # read-only server check, installs nothing
+#   bash <(curl -fsSL .../get.sh) doctor                     # read-only server check: installs no Melorin component
+#                                                            # (it still fetches the project and git/curl/openssl if missing)
 #   curl -fsSL .../get.sh | sudo bash -s -- install --yes ...   # the pipe form works too
 #
 # Options of get.sh itself (everything after them is passed to melorin.sh: menu | install | update | status | doctor ...):
@@ -53,7 +54,7 @@ Melorin installer
 
 Commands (handled by melorin.sh): menu (default) | install | update | status | doctor | restart | logs
   install --domain D --admin-domain A --email E [--admin-tg ID] [--bot-token-file F] [--external-proxy] [--skip-dns-check] --yes
-  doctor                       read-only check of this server; installs nothing
+  doctor                       read-only check of this server; installs no Melorin component (only the download prerequisites)
 
 get.sh options:
   --ref REF      branch, tag or commit (default: newest release tag vX.Y.Z; main only while no release exists)
@@ -133,6 +134,9 @@ ensure_root() { # not root: run again through sudo (works for `bash <(curl ...)`
   [ "$(id -u)" -eq 0 ] && return 0
   [ -z "${_MELORIN_ELEVATED:-}" ] || die "Could not become root through sudo."
   command -v sudo >/dev/null 2>&1 || die "Run as root: open a root shell (sudo -i) or prefix the command with sudo, then run it again."
+  if ! sudo -n true 2>/dev/null && ! ( exec </dev/tty ) 2>/dev/null; then
+    die "Not root, and sudo needs a password but this session has no terminal to ask it on (ssh without -t, cron, cloud-init). Run as root, use 'ssh -t', or configure passwordless sudo for this user."
+  fi
   say "Not root: continuing through sudo (it may ask for your password)"
   # shellcheck disable=SC2016  # the single quotes are deliberate: $@ must be expanded by the NEW shell
   exec sudo -E env _MELORIN_ELEVATED=1 bash -c "set -Eeuo pipefail; umask 022; $(declare -f); main \"\$@\"" melorin-get "${ORIG_ARGS[@]}"

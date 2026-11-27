@@ -108,6 +108,18 @@ def _git(repo: Path, *args: str):
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_sudo_that_needs_a_password_without_a_terminal_fails_with_a_clear_message():
+    """Non-root + sudo asking for a password + no terminal (cloud-init, ssh without -t): sudo's own 'a terminal is required'
+    is cryptic, so get.sh checks `sudo -n` / /dev/tty first and says what to do."""
+    text = GET.read_text()
+    assert "sudo -n true" in text and "no terminal to ask it on" in text
+
+
+def test_doctor_is_not_described_as_installing_nothing():
+    """doctor changes no Melorin state, but get.sh does fetch the project and git/curl/openssl first: the help must not lie."""
+    assert "installs nothing" not in GET.read_text()
+
+
 def test_latest_release_tag_is_strict_semver_and_version_sorted(tmp_path):
     """v1.10.0 beats v1.9.0 (version sort), and a release candidate is neither the newest nor a release."""
     _git(tmp_path, "init", "-q")
