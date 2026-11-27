@@ -73,21 +73,23 @@ def test_parse_telegram_id_rejects_everything_else(raw):
     assert exc.value.code == "INVALID_TELEGRAM_ID" and exc.value.status == 422
 
 
-# ---------------------------------------------------------------- linking
-async def test_bootstrap_links_the_telegram_id_to_the_admin(maker, use_settings, capsys):
+# ---------------------------------------------------------------- the address
+async def test_bootstrap_stores_the_telegram_id_as_an_address_not_an_identity(maker, use_settings, capsys):
     await cli.bootstrap()
     async with maker() as s:
         admin = await s.scalar(select(User))
         idents = {(i.provider, i.subject) for i in (await s.scalars(select(Identity))).all()}
-        assert idents == {("email", "admin@example.com"), ("telegram", "123456789")}
+        assert idents == {("email", "admin@example.com")}  # the admin account has no Telegram login
         assert await admin_telegram.current(s, admin.id) == "123456789"
+        assert await admin_telegram.is_alert_chat(s, 123456789) and not await admin_telegram.is_alert_chat(s, 5)
     assert "telegram_id=123456789" in capsys.readouterr().out
 
 
-async def test_bootstrap_without_a_telegram_id_creates_no_telegram_identity(maker, use_settings):
+async def test_bootstrap_without_a_telegram_id_sets_no_address(maker, use_settings):
     use_settings(bootstrap_admin_telegram_id="")
     await cli.bootstrap()
     async with maker() as s:
+        assert await admin_telegram.alert_addresses(s) == {}
         assert [i.provider for i in (await s.scalars(select(Identity))).all()] == ["email"]
 
 
@@ -100,14 +102,14 @@ async def test_bootstrap_survives_a_bad_telegram_id_and_says_so(maker, use_setti
         assert (await s.scalar(select(User))).is_super_admin
 
 
-async def test_bootstrap_is_idempotent_for_the_telegram_identity(maker, use_settings):
+async def test_bootstrap_is_idempotent_for_the_address(maker, use_settings):
     await cli.bootstrap()
     await cli.bootstrap()
     async with maker() as s:
-        assert len((await s.scalars(select(Identity).where(Identity.provider == "telegram"))).all()) == 1
+        assert list((await admin_telegram.alert_addresses(s)).values()) == ["123456789"]
 
 
-async def test_link_replaces_the_previous_address_and_refuses_someone_elses_id(maker, use_settings):
+async def test_link_replaces_the_address_and_allows_an_id_that_is_also_a_customer(maker, use_settings):
     await cli.bootstrap()
     async with maker() as s:
         admin = await s.scalar(select(User).where(User.is_super_admin.is_(True)))
@@ -119,11 +121,11 @@ async def test_link_replaces_the_previous_address_and_refuses_someone_elses_id(m
         assert await admin_telegram.link(s, admin, "777777777") == "777777777"
         await s.commit()
         assert await admin_telegram.current(s, admin.id) == "777777777"
-        assert len((await s.scalars(select(Identity).where(Identity.user_id == admin.id, Identity.provider == "telegram"))).all()) == 1
-        with pytest.raises(AppError) as exc:
-            await admin_telegram.link(s, admin, "555555555")  # belongs to a customer: never merged
-        assert exc.value.code == "TELEGRAM_ID_IN_USE" and exc.value.status == 409
-        assert await admin_telegram.current(s, admin.id) == "777777777"
+        # the admin's own Telegram account is normally ALSO a customer account: that is the point of the split
+        assert await admin_telegram.link(s, admin, "555555555") == "555555555"
+        await s.commit()
+        assert list((await admin_telegram.alert_addresses(s)).values()) == ["555555555"]
+        assert len((await s.scalars(select(Identity).where(Identity.provider == "telegram"))).all()) == 1  # customer's, untouched
 
 
 async def test_set_admin_telegram_cli_links_and_reports(maker, use_settings, capsys):
@@ -205,7 +207,7 @@ def test_menu_asks_for_the_id_and_passes_it_to_the_installer():
     assert _bash(f"{fold}\nfold_digits ' ٥٤٣٢١ '") == "54321"
 
 
-# ---------------------------------------------------------------- the bot answers the admin instead of staying silent
+# ---------------------------------------------------------------- the bot treats the admin as a customer
 def _load_bot(tmp_path, monkeypatch):
     for k, v in {
         "MELORIN_TELEGRAM_TOKEN": "tok",
@@ -220,9 +222,9 @@ def _load_bot(tmp_path, monkeypatch):
     return mod
 
 
-def test_bot_tells_the_admin_that_alerts_arrive_here(tmp_path, monkeypatch):
+def _run_start(tmp_path, monkeypatch, login: httpx.Response) -> list[dict]:
     mod = _load_bot(tmp_path, monkeypatch)
-    sent = []
+    sent: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -233,11 +235,33 @@ def test_bot_tells_the_admin_that_alerts_arrive_here(tmp_path, monkeypatch):
         if request.url.path == "/api/v1/stores/main":
             return httpx.Response(200, json={"id": "s1", "name": "Main"})
         if request.url.path == "/api/v1/auth/telegram/bot":
-            return httpx.Response(403, json={"error": {"code": "ADMIN_USE_PANEL", "message": "ورود مدیران فقط از پنل مدیریت انجام می‌شود."}})
+            return login
         return httpx.Response(404, json={})
 
     bot = mod.TelegramRunner()
     bot.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     update = {"update_id": 1, "message": {"chat": {"id": 9}, "from": {"id": 7, "first_name": "A"}, "text": "/start"}}
     asyncio.run(bot.handle(update))
-    assert len(sent) == 1 and "اعلان‌های مدیریتی" in sent[0]["text"] and sent[0]["chat_id"] == 9
+    return sent
+
+
+def _pair(**over) -> dict:
+    return {"access_token": "a", "refresh_token": "r", "expires_in": 900, "user_id": "00000000-0000-0000-0000-000000000001", "is_admin": False, **over}
+
+
+def test_bot_starts_the_admin_as_a_customer_and_says_alerts_arrive_here(tmp_path, monkeypatch):
+    sent = _run_start(tmp_path, monkeypatch, httpx.Response(200, json=_pair(admin_alerts=True)))
+    welcome = [m for m in sent if "خوش آمدید" in m["text"]]
+    assert len(welcome) == 1 and "اعلان‌های مدیریتی" in welcome[0]["text"] and welcome[0]["chat_id"] == 9
+    assert not any("مخصوص مشتریان" in m["text"] for m in sent)  # no more "this bot is for customers only"
+
+
+def test_bot_adds_no_admin_line_for_an_ordinary_customer(tmp_path, monkeypatch):
+    sent = _run_start(tmp_path, monkeypatch, httpx.Response(200, json=_pair()))
+    assert [m for m in sent if "خوش آمدید" in m["text"]] and not any("اعلان‌های مدیریتی" in m["text"] for m in sent)
+
+
+def test_bot_still_answers_a_legacy_admin_account_identity(tmp_path, monkeypatch):
+    refusal = httpx.Response(403, json={"error": {"code": "ADMIN_USE_PANEL", "message": "ورود مدیران فقط از پنل مدیریت انجام می‌شود."}})
+    sent = _run_start(tmp_path, monkeypatch, refusal)
+    assert len(sent) == 1 and "حساب مدیریت" in sent[0]["text"] and sent[0]["chat_id"] == 9

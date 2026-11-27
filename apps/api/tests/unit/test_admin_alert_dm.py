@@ -12,10 +12,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
+from melorin.core import admin_telegram
 from melorin.core.db import Base
 from melorin.domain.notification_dedup import EVENT_ID_FIELD
 from melorin.kernel.models.identity import Identity, User
 from melorin.kernel.models.notifications import Notification
+from melorin.kernel.models.system import SystemSetting
 from melorin.worker import runner
 
 PANEL_TEXT = "🔴 پنل «Panel-A» ناسالم شد\nخطا: timeout"
@@ -55,7 +57,9 @@ def sent(monkeypatch):
 def _user(s, *, admin: bool, active: bool = True, chat_id: str | None = None):
     u = User(id=uuid.uuid4(), display_name="u", is_super_admin=admin, is_active=active)
     s.add(u)
-    if chat_id:
+    if chat_id and admin:  # an admin's alert address is a setting, not a Telegram identity of the account
+        s.add(SystemSetting(key=f"{admin_telegram.KEY_PREFIX}{u.id}", value=chat_id))
+    elif chat_id:
         s.add(Identity(user_id=u.id, provider="telegram", subject=chat_id))
     return u
 

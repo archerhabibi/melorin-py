@@ -10628,6 +10628,11 @@ export interface components {
         TokenPair: {
             /** Access Token */
             access_token: string;
+            /**
+             * Admin Alerts
+             * @default false
+             */
+            admin_alerts: boolean;
             /** Channel */
             channel?: string | null;
             /** Expires In */

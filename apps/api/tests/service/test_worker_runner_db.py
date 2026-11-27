@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import make_order, make_product, make_store, make_user, open_schema_engine
 from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
+from melorin.core import admin_telegram
 from melorin.kernel.models.identity import Identity
 from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.system import OutboxEvent
@@ -394,21 +395,21 @@ async def test_admin_alert_reaches_every_active_super_admin_once(maker, tg):
         a1, a2 = await make_user(s, super_admin=True), await make_user(s, super_admin=True)
         gone = await make_user(s, super_admin=True)
         gone.is_active = False
-        for u, chat in ((a1, "1"), (a2, "2"), (gone, "3")):
-            s.add(Identity(user_id=u.id, provider="telegram", subject=chat))
+        for u, chat in ((a1, "11111"), (a2, "22222"), (gone, "33333")):
+            await admin_telegram.link(s, u, chat)  # the alert address is an admin setting, not an identity
         await s.flush()
         p = _alert()
         await runner._notify_admins(s, p)
         await runner._notify_admins(s, p)  # outbox retry: nobody is messaged twice
         await s.commit()
-    assert sorted(c for _, _, c, _ in tg.sent) == ["1", "2"]
+    assert sorted(c for _, _, c, _ in tg.sent) == ["11111", "22222"]
     assert tg.sent[0][3] == "💳 پرداخت موفق\nمبلغ: 1,000"
 
 
 async def test_admin_alert_retries_after_a_failed_send_and_does_not_duplicate(maker, tg):
     async with maker() as s:
         admin = await make_user(s, super_admin=True)
-        s.add(Identity(user_id=admin.id, provider="telegram", subject="9"))
+        await admin_telegram.link(s, admin, "99999")
         await s.flush()
         p = _alert("node_failed", "🟠 نود(های) پنل «P» خطا دارند:\n• n1")
         tg.fail = True
@@ -433,7 +434,7 @@ async def test_provisioning_failed_no_longer_dms_the_admin(maker, tg, monkeypatc
     monkeypatch.setattr(runner, "_webhook", hook)
     async with maker() as s:
         admin = await make_user(s, super_admin=True)
-        s.add(Identity(user_id=admin.id, provider="telegram", subject="9"))
+        await admin_telegram.link(s, admin, "99999")
         await s.flush()
         oid = uuid.uuid4()
         await runner._on_provisioning_failed(s, {"order_id": str(oid), "error": "x"})

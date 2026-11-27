@@ -17,6 +17,8 @@ class TokenPair(BaseModel):
     # Where Core bound this session (informational: Core never trusts the client to say it, see core/channel.py).
     channel: str | None = None
     store_id: uuid.UUID | None = None
+    # Set only by the bot sign-in: this Telegram account is also an admin's alert address (recognition only, no extra rights).
+    admin_alerts: bool = False
 
 
 class EmailCodeRequest(BaseModel):
